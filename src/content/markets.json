@@ -1,0 +1,1018 @@
+{
+  "version": "0.2.0",
+  "kind": "startup-market-directory",
+  "defaultLocale": "en",
+  "locales": [
+    "en",
+    "zh-CN"
+  ],
+  "researchedOn": "2026-09-11",
+  "coverageEvidencePolicy": "official-x-only",
+  "groups": [
+    {
+      "id": "development",
+      "name": {
+        "en": "Build software",
+        "zh-CN": "开发与建站"
+      }
+    },
+    {
+      "id": "creative",
+      "name": {
+        "en": "Create content",
+        "zh-CN": "内容与创意"
+      }
+    },
+    {
+      "id": "productivity",
+      "name": {
+        "en": "Get work done",
+        "zh-CN": "办公与研究"
+      }
+    },
+    {
+      "id": "growth",
+      "name": {
+        "en": "Win customers",
+        "zh-CN": "销售与客服"
+      }
+    },
+    {
+      "id": "professional",
+      "name": {
+        "en": "Run a business",
+        "zh-CN": "专业服务"
+      }
+    },
+    {
+      "id": "consumer",
+      "name": {
+        "en": "Learn & connect",
+        "zh-CN": "学习与陪伴"
+      }
+    }
+  ],
+  "markets": [
+    {
+      "id": "ai-website-builders",
+      "groupId": "development",
+      "name": {
+        "en": "AI Website & App Builders",
+        "zh-CN": "AI 建站与应用搭建"
+      },
+      "summary": {
+        "en": "Turn an idea into a working website or app.",
+        "zh-CN": "把一句想法变成能上线的网站或应用。"
+      },
+      "question": {
+        "en": "Will AI platforms make standalone app builders redundant?",
+        "zh-CN": "大模型直接搭应用，独立建站工具还值不值得做？"
+      },
+      "examples": [
+        {
+          "name": "Lovable",
+          "sourceId": "a16z-spending"
+        },
+        {
+          "name": "Replit",
+          "sourceId": "a16z-spending"
+        },
+        {
+          "name": "Repaint",
+          "sourceId": "yc-repaint"
+        }
+      ],
+      "sourceIds": [
+        "a16z-spending",
+        "yc-repaint"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does the platform deliver a deployed app, or only code?",
+          "zh-CN": "交付的是已上线应用，还是一段代码？"
+        },
+        {
+          "en": "Does it handle hosting, databases and ongoing changes?",
+          "zh-CN": "托管、数据库和后续修改也一起解决了吗？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-coding-assistants",
+      "groupId": "development",
+      "name": {
+        "en": "AI Coding Assistants",
+        "zh-CN": "AI 编程助手"
+      },
+      "summary": {
+        "en": "An AI partner inside a developer’s coding workflow.",
+        "zh-CN": "嵌入开发流程，协助写代码、改代码和调试。"
+      },
+      "question": {
+        "en": "Is coding assistance becoming a standard platform feature?",
+        "zh-CN": "编程助手会不会变成大模型的标配？"
+      },
+      "examples": [
+        {
+          "name": "Cursor",
+          "sourceId": "a16z-enterprise"
+        },
+        {
+          "name": "Cognition",
+          "sourceId": "a16z-spending"
+        }
+      ],
+      "sourceIds": [
+        "a16z-enterprise",
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Can it work across a real codebase and verify its changes?",
+          "zh-CN": "能否理解真实代码库并验证修改？"
+        },
+        {
+          "en": "Is the workflow bundled into the developer’s existing subscription?",
+          "zh-CN": "完整工作流程是否包含在开发者已有订阅中？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-image-generators",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Image Generators",
+        "zh-CN": "AI 图片生成"
+      },
+      "summary": {
+        "en": "Create illustrations, campaign visuals and original images.",
+        "zh-CN": "制作插图、广告视觉和原创图片。"
+      },
+      "question": {
+        "en": "Why pay for a separate image generator?",
+        "zh-CN": "如果聊天就能出图，为什么还要单独买生图工具？"
+      },
+      "examples": [
+        {
+          "name": "Midjourney",
+          "sourceId": "a16z-consumer"
+        },
+        {
+          "name": "Ideogram",
+          "sourceId": "a16z-consumer"
+        }
+      ],
+      "sourceIds": [
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Can users reliably control details and revise the same image?",
+          "zh-CN": "用户能否稳定控制细节并连续修改同一张图？"
+        },
+        {
+          "en": "Does the platform support the specialist’s production workflow?",
+          "zh-CN": "平台是否覆盖专业用户的完整制作流程？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-video-generators",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Video Generators",
+        "zh-CN": "AI 视频生成"
+      },
+      "summary": {
+        "en": "Create video shots from text and reference images.",
+        "zh-CN": "用文字和参考图片生成视频镜头。"
+      },
+      "question": {
+        "en": "Will video generation become part of every AI subscription?",
+        "zh-CN": "视频生成会不会变成通用 AI 订阅的自带功能？"
+      },
+      "examples": [
+        {
+          "name": "Kling AI",
+          "sourceId": "a16z-consumer"
+        },
+        {
+          "name": "Hailuo",
+          "sourceId": "a16z-consumer"
+        },
+        {
+          "name": "PixVerse",
+          "sourceId": "a16z-consumer"
+        }
+      ],
+      "sourceIds": [
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it preserve characters and scenes across multiple shots?",
+          "zh-CN": "能否保持多镜头中的人物和场景一致？"
+        },
+        {
+          "en": "How much control remains with the creator?",
+          "zh-CN": "创作者能控制多少画面与镜头细节？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-video-editors",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Video Editors",
+        "zh-CN": "AI 视频剪辑"
+      },
+      "summary": {
+        "en": "Turn raw footage into finished videos and short clips.",
+        "zh-CN": "把原始素材剪成成片和短视频。"
+      },
+      "question": {
+        "en": "Can a general AI replace a dedicated video editor?",
+        "zh-CN": "通用 AI 能否替代独立的视频剪辑产品？"
+      },
+      "examples": [
+        {
+          "name": "Descript",
+          "sourceId": "a16z-spending"
+        },
+        {
+          "name": "Opus Clip",
+          "sourceId": "a16z-spending"
+        },
+        {
+          "name": "CapCut",
+          "sourceId": "a16z-spending"
+        }
+      ],
+      "sourceIds": [
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does the update edit existing footage or just generate new video?",
+          "zh-CN": "更新能剪已有素材，还是只能生成新视频？"
+        },
+        {
+          "en": "Can users control the timeline, captions and final export?",
+          "zh-CN": "时间线、字幕和最终导出能否被精确控制？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-voice-dubbing",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Voice & Dubbing",
+        "zh-CN": "AI 配音与翻译配音"
+      },
+      "summary": {
+        "en": "Produce voiceovers and localize spoken content.",
+        "zh-CN": "制作旁白，并把音视频配音成其他语言。"
+      },
+      "question": {
+        "en": "Will standalone voice tools lose their edge?",
+        "zh-CN": "独立配音工具的优势会被通用模型吃掉吗？"
+      },
+      "examples": [
+        {
+          "name": "ElevenLabs",
+          "sourceId": "a16z-consumer"
+        }
+      ],
+      "sourceIds": [
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Can it preserve pronunciation, performance and speaker identity?",
+          "zh-CN": "能否保留准确发音、表达和说话人特征？"
+        },
+        {
+          "en": "Does it deliver synchronized dubbing rather than translated text?",
+          "zh-CN": "交付的是同步配音，还是翻译后的文字？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-product-photography",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Product Photography",
+        "zh-CN": "AI 电商商品图"
+      },
+      "summary": {
+        "en": "Create sellable product visuals without a full photo shoot.",
+        "zh-CN": "不搭完整摄影棚，也能制作商品展示图。"
+      },
+      "question": {
+        "en": "Will general image tools absorb product photography apps?",
+        "zh-CN": "通用图像能力会覆盖电商商品图这门生意吗？"
+      },
+      "examples": [
+        {
+          "name": "Photoroom",
+          "sourceId": "photoroom"
+        }
+      ],
+      "sourceIds": [
+        "photoroom",
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does editing preserve the product’s actual details?",
+          "zh-CN": "编辑是否忠实保留商品真实细节？"
+        },
+        {
+          "en": "Can it process a catalog and deliver marketplace-ready images?",
+          "zh-CN": "能否批量处理商品，并交付符合平台要求的图片？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-music-generators",
+      "groupId": "creative",
+      "name": {
+        "en": "AI Music Generators",
+        "zh-CN": "AI 音乐生成"
+      },
+      "summary": {
+        "en": "Make songs and soundtracks from a creative brief.",
+        "zh-CN": "根据创意制作歌曲与配乐。"
+      },
+      "question": {
+        "en": "Will music tools remain a separate destination?",
+        "zh-CN": "音乐工具还会是用户单独购买的产品吗？"
+      },
+      "examples": [
+        {
+          "name": "Suno",
+          "sourceId": "suno"
+        }
+      ],
+      "sourceIds": [
+        "suno",
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Can users steer composition and revise specific sections?",
+          "zh-CN": "用户能否控制创作，并修改指定乐段？"
+        },
+        {
+          "en": "What use rights and export options are explicitly offered?",
+          "zh-CN": "产品明确提供哪些使用权利和导出方式？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-presentations",
+      "groupId": "productivity",
+      "name": {
+        "en": "AI Presentations",
+        "zh-CN": "AI PPT 与演示文稿"
+      },
+      "summary": {
+        "en": "Go from a brief or document to a presentation.",
+        "zh-CN": "把想法或资料变成可以演示的文稿。"
+      },
+      "question": {
+        "en": "Do users still need a separate AI presentation app?",
+        "zh-CN": "大模型能做 PPT 后，用户还需要独立演示工具吗？"
+      },
+      "examples": [
+        {
+          "name": "Gamma",
+          "sourceId": "gamma"
+        }
+      ],
+      "sourceIds": [
+        "gamma",
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it produce an editable deck or just an outline?",
+          "zh-CN": "能交付可编辑文稿，还是只有大纲？"
+        },
+        {
+          "en": "Can it preserve branding, layout and source data?",
+          "zh-CN": "品牌样式、版式和源数据能否保持准确？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-meeting-notes",
+      "groupId": "productivity",
+      "name": {
+        "en": "AI Meeting Notes",
+        "zh-CN": "AI 会议纪要"
+      },
+      "summary": {
+        "en": "Capture meetings and turn conversations into useful notes.",
+        "zh-CN": "记录会议，把讨论整理成可用的纪要和后续事项。"
+      },
+      "question": {
+        "en": "What happens when every meeting platform includes an AI notetaker?",
+        "zh-CN": "当会议平台自带 AI 纪要，独立工具还剩什么价值？"
+      },
+      "examples": [
+        {
+          "name": "Circleback",
+          "sourceId": "yc-circleback"
+        },
+        {
+          "name": "Otter.ai",
+          "sourceId": "a16z-spending"
+        }
+      ],
+      "sourceIds": [
+        "yc-circleback",
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it capture the meeting directly and identify speakers?",
+          "zh-CN": "能否直接记录会议并区分说话人？"
+        },
+        {
+          "en": "Does follow-up reach the tools the team actually uses?",
+          "zh-CN": "会后行动能否进入团队实际使用的系统？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "enterprise-ai-search",
+      "groupId": "productivity",
+      "name": {
+        "en": "Enterprise AI Search",
+        "zh-CN": "企业 AI 搜索"
+      },
+      "summary": {
+        "en": "Find answers across company documents and work apps.",
+        "zh-CN": "跨企业文档和办公应用查找答案。"
+      },
+      "question": {
+        "en": "Will platform connectors absorb enterprise search?",
+        "zh-CN": "大模型接入企业应用后，会吃掉企业搜索吗？"
+      },
+      "examples": [
+        {
+          "name": "Glean",
+          "sourceId": "glean"
+        }
+      ],
+      "sourceIds": [
+        "glean",
+        "a16z-enterprise"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it respect document permissions and provide traceable answers?",
+          "zh-CN": "是否遵守文档权限，并给出可追溯的答案？"
+        },
+        {
+          "en": "Can it keep knowledge current across the company’s tools?",
+          "zh-CN": "能否持续同步企业多个系统中的知识？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-data-analysts",
+      "groupId": "productivity",
+      "name": {
+        "en": "AI Data Analysts",
+        "zh-CN": "AI 数据分析"
+      },
+      "summary": {
+        "en": "Ask business questions and explore company data in plain language.",
+        "zh-CN": "用自然语言问业务问题，分析企业数据。"
+      },
+      "question": {
+        "en": "Will data analysis move into the general AI workspace?",
+        "zh-CN": "数据分析会被通用 AI 工作区直接包办吗？"
+      },
+      "examples": [
+        {
+          "name": "GetDot",
+          "sourceId": "yc-getdot"
+        }
+      ],
+      "sourceIds": [
+        "yc-getdot"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Can it use the company’s existing metric definitions?",
+          "zh-CN": "能否沿用企业已有的指标定义？"
+        },
+        {
+          "en": "Does it connect to live data and produce verifiable results?",
+          "zh-CN": "能否连接实际数据并产出可复核结果？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-customer-support",
+      "groupId": "growth",
+      "name": {
+        "en": "AI Customer Support",
+        "zh-CN": "AI 客服"
+      },
+      "summary": {
+        "en": "Answer customer questions and handle support conversations.",
+        "zh-CN": "回答客户问题，承接客服沟通。"
+      },
+      "question": {
+        "en": "Can a model company replace a customer-support product?",
+        "zh-CN": "大模型公司能直接替代 AI 客服产品吗？"
+      },
+      "examples": [
+        {
+          "name": "Decagon",
+          "sourceId": "a16z-enterprise"
+        },
+        {
+          "name": "Sierra",
+          "sourceId": "a16z-enterprise"
+        },
+        {
+          "name": "Letterbook",
+          "sourceId": "yc-letterbook"
+        }
+      ],
+      "sourceIds": [
+        "a16z-enterprise",
+        "yc-letterbook"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does the system resolve requests or only generate replies?",
+          "zh-CN": "系统能实际处理请求，还是只生成回复？"
+        },
+        {
+          "en": "Can it use business systems and hand off to human support?",
+          "zh-CN": "能否操作业务系统，并把问题交接给人工？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-sales-agents",
+      "groupId": "growth",
+      "name": {
+        "en": "AI Sales Agents",
+        "zh-CN": "AI 销售与获客"
+      },
+      "summary": {
+        "en": "Find potential customers and support outbound sales.",
+        "zh-CN": "寻找潜在客户，协助销售触达。"
+      },
+      "question": {
+        "en": "Will outbound sales become a built-in agent workflow?",
+        "zh-CN": "销售获客会变成通用 Agent 自带的流程吗？"
+      },
+      "examples": [
+        {
+          "name": "Clay",
+          "sourceId": "a16z-spending"
+        },
+        {
+          "name": "11x",
+          "sourceId": "a16z-spending"
+        }
+      ],
+      "sourceIds": [
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it have usable prospect data and CRM access?",
+          "zh-CN": "是否具有可用的客户数据和 CRM 接入？"
+        },
+        {
+          "en": "Can users control outreach and measure qualified opportunities?",
+          "zh-CN": "用户能否控制触达，并衡量有效商机？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-legal-assistants",
+      "groupId": "professional",
+      "name": {
+        "en": "AI Legal Assistants",
+        "zh-CN": "AI 法律助手"
+      },
+      "summary": {
+        "en": "Support legal research, drafting and case work.",
+        "zh-CN": "协助法律检索、文书起草和案件工作。"
+      },
+      "question": {
+        "en": "How much of a legal AI product will general platforms cover?",
+        "zh-CN": "通用平台会覆盖法律 AI 产品的多少核心价值？"
+      },
+      "examples": [
+        {
+          "name": "Harvey",
+          "sourceId": "a16z-enterprise"
+        },
+        {
+          "name": "Crimson",
+          "sourceId": "yc-crimson"
+        }
+      ],
+      "sourceIds": [
+        "a16z-enterprise",
+        "yc-crimson"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Are legal sources, jurisdiction and citations supported?",
+          "zh-CN": "是否支持适用法域、法律来源和准确引用？"
+        },
+        {
+          "en": "Does it fit a legal team’s case and document workflow?",
+          "zh-CN": "能否进入法律团队的案件与文档工作流程？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-medical-scribes",
+      "groupId": "professional",
+      "name": {
+        "en": "AI Medical Scribes",
+        "zh-CN": "AI 医疗文书"
+      },
+      "summary": {
+        "en": "Turn clinical conversations into documentation.",
+        "zh-CN": "将诊疗沟通整理成医疗记录。"
+      },
+      "question": {
+        "en": "Can general AI take over medical documentation?",
+        "zh-CN": "通用 AI 能否覆盖医疗文书产品？"
+      },
+      "examples": [
+        {
+          "name": "Knowtex",
+          "sourceId": "yc-knowtex"
+        },
+        {
+          "name": "Abridge",
+          "sourceId": "a16z-enterprise"
+        }
+      ],
+      "sourceIds": [
+        "yc-knowtex",
+        "a16z-enterprise"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it support clinical terminology and clinician review?",
+          "zh-CN": "是否支持临床术语和医生审核？"
+        },
+        {
+          "en": "Is the record usable in the clinic’s actual system?",
+          "zh-CN": "生成记录能否用于诊所实际系统？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-recruiting",
+      "groupId": "professional",
+      "name": {
+        "en": "AI Recruiting",
+        "zh-CN": "AI 招聘"
+      },
+      "summary": {
+        "en": "Help teams find, contact and screen candidates.",
+        "zh-CN": "帮助团队寻找、联系和筛选候选人。"
+      },
+      "question": {
+        "en": "Will hiring workflows be absorbed into general agents?",
+        "zh-CN": "招聘流程会被通用 Agent 覆盖吗？"
+      },
+      "examples": [
+        {
+          "name": "Perfectly",
+          "sourceId": "yc-perfectly"
+        },
+        {
+          "name": "Metaview",
+          "sourceId": "a16z-spending"
+        }
+      ],
+      "sourceIds": [
+        "yc-perfectly",
+        "a16z-spending"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it work with candidate data and the hiring system?",
+          "zh-CN": "是否能接入候选人数据与招聘系统？"
+        },
+        {
+          "en": "Can hiring teams review and control screening decisions?",
+          "zh-CN": "招聘团队能否审核并控制筛选结果？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-accounting",
+      "groupId": "professional",
+      "name": {
+        "en": "AI Accounting",
+        "zh-CN": "AI 财务与记账"
+      },
+      "summary": {
+        "en": "Help businesses keep books and prepare financial records.",
+        "zh-CN": "协助企业记账和整理财务记录。"
+      },
+      "question": {
+        "en": "Can general AI replace an accounting product?",
+        "zh-CN": "通用 AI 能直接替代财务记账产品吗？"
+      },
+      "examples": [
+        {
+          "name": "Truewind",
+          "sourceId": "yc-truewind"
+        }
+      ],
+      "sourceIds": [
+        "yc-truewind"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it reconcile real records rather than generate explanations?",
+          "zh-CN": "能核对实际账目，还是只生成解释？"
+        },
+        {
+          "en": "Are review, audit history and accounting-system integration included?",
+          "zh-CN": "是否包含审核、审计记录和财务系统接入？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-language-tutors",
+      "groupId": "consumer",
+      "name": {
+        "en": "AI Language Tutors",
+        "zh-CN": "AI 语言陪练"
+      },
+      "summary": {
+        "en": "Practice a language with an always-available conversation partner.",
+        "zh-CN": "随时进行语言对话练习。"
+      },
+      "question": {
+        "en": "Why keep a language app when general AI can talk?",
+        "zh-CN": "通用 AI 能对话后，为什么还需要语言陪练应用？"
+      },
+      "examples": [
+        {
+          "name": "Univerbal",
+          "sourceId": "yc-univerbal"
+        }
+      ],
+      "sourceIds": [
+        "yc-univerbal"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it provide a learning path and track progress?",
+          "zh-CN": "是否有学习路径并跟踪进展？"
+        },
+        {
+          "en": "Can it give useful feedback on speech and recurring mistakes?",
+          "zh-CN": "能否针对发音和反复出现的问题给出反馈？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    },
+    {
+      "id": "ai-companions",
+      "groupId": "consumer",
+      "name": {
+        "en": "AI Companions",
+        "zh-CN": "AI 陪伴"
+      },
+      "summary": {
+        "en": "Build ongoing conversations with AI characters and companions.",
+        "zh-CN": "与 AI 角色和伙伴保持持续对话。"
+      },
+      "question": {
+        "en": "Will general assistants compete for the same relationships?",
+        "zh-CN": "通用助手会争夺 AI 陪伴产品的用户吗？"
+      },
+      "examples": [
+        {
+          "name": "Character.AI",
+          "sourceId": "a16z-consumer"
+        }
+      ],
+      "sourceIds": [
+        "a16z-consumer"
+      ],
+      "watchQuestions": [
+        {
+          "en": "Does it support continuity, memory and character identity?",
+          "zh-CN": "能否保持对话、记忆和角色的一致性？"
+        },
+        {
+          "en": "What makes the experience distinct from a general assistant?",
+          "zh-CN": "体验中哪些部分让它区别于通用助手？"
+        }
+      ],
+      "classification": "editorial-market-category",
+      "officialUpdateIds": [],
+      "assessment": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "a16z-consumer",
+      "publisher": "a16z",
+      "title": "The Top 100 Gen AI Consumer Apps — 6th Edition",
+      "url": "https://a16z.com/100-gen-ai-apps-6/",
+      "kind": "market-report",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "a16z-spending",
+      "publisher": "a16z",
+      "title": "The AI Application Spending Report",
+      "url": "https://a16z.com/the-ai-application-spending-report-where-startup-dollars-really-go/",
+      "kind": "market-report",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "a16z-enterprise",
+      "publisher": "a16z",
+      "title": "Where Enterprises are Actually Adopting AI",
+      "url": "https://a16z.com/where-enterprises-are-actually-adopting-ai/",
+      "kind": "market-report",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-repaint",
+      "publisher": "Y Combinator",
+      "title": "Repaint — company profile",
+      "url": "https://www.ycombinator.com/companies/repaint",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-circleback",
+      "publisher": "Y Combinator",
+      "title": "Circleback — company profile",
+      "url": "https://www.ycombinator.com/companies/circleback",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-letterbook",
+      "publisher": "Y Combinator",
+      "title": "Letterbook — company profile",
+      "url": "https://www.ycombinator.com/companies/letterbook",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-crimson",
+      "publisher": "Y Combinator",
+      "title": "Crimson — company profile",
+      "url": "https://www.ycombinator.com/companies/crimson",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-perfectly",
+      "publisher": "Y Combinator",
+      "title": "Perfectly — company profile",
+      "url": "https://www.ycombinator.com/companies/perfectly",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-truewind",
+      "publisher": "Y Combinator",
+      "title": "Truewind — company profile",
+      "url": "https://www.ycombinator.com/companies/truewind",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-knowtex",
+      "publisher": "Y Combinator",
+      "title": "Knowtex — company profile",
+      "url": "https://www.ycombinator.com/companies/knowtex",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-univerbal",
+      "publisher": "Y Combinator",
+      "title": "Univerbal — company profile",
+      "url": "https://www.ycombinator.com/companies/univerbal",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "yc-getdot",
+      "publisher": "Y Combinator",
+      "title": "GetDot — company profile",
+      "url": "https://www.ycombinator.com/companies/getdot",
+      "kind": "startup-profile",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "gamma",
+      "publisher": "Gamma",
+      "title": "Gamma — product website",
+      "url": "https://gamma.app/",
+      "kind": "product-website",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "photoroom",
+      "publisher": "Photoroom",
+      "title": "Photoroom — product website",
+      "url": "https://www.photoroom.com/",
+      "kind": "product-website",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "glean",
+      "publisher": "Glean",
+      "title": "Glean — product website",
+      "url": "https://www.glean.com/",
+      "kind": "product-website",
+      "accessedOn": "2026-09-11"
+    },
+    {
+      "id": "suno",
+      "publisher": "Suno",
+      "title": "Suno — product website",
+      "url": "https://suno.com/",
+      "kind": "product-website",
+      "accessedOn": "2026-09-11"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+/* The two things the error boundary needs that globals.css does not already
+   carry: the retry control and the reference code. Everything else on the page
+   reuses .inner-page / .eyebrow / .lead / .actions. Colour comes from the
+   --ah-* tokens, never a literal. */
+
+.retry {
+  min-height: var(--ah-control-height);
+  padding: 0 24px;
+  border: 1px solid var(--ah-color-line);
+  border-radius: 6px;
+  background: var(--ah-color-surface);
+  color: var(--ah-color-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--ah-color-sage);
+  background: var(--ah-color-surface-active);
+}
+
+.retry:focus-visible {
+  outline: 3px solid var(--ah-color-focus);
+  outline-offset: 3px;
+}
+
+.digest {
+  margin: 0;
+  color: var(--ah-color-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.digestCode {
+  margin-left: 8px;
+  color: var(--ah-color-text);
+  font-family: var(--ah-font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

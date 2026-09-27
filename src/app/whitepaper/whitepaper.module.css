@@ -1,0 +1,236 @@
+/* A reading page held to the same drawing as the data pages.
+ *
+ * The type scale, the rules and the spacing are design-system tokens; the head
+ * at the top is blueprint's `Head`. Nothing here invents a colour or a size.
+ * The measure is deliberately narrower than a full column: this document is
+ * read, not scanned, and 64 characters is where a line stops being work.
+ */
+
+.page {
+  padding: var(--ah-space-8) 0 var(--ah-space-10);
+}
+
+/* ------------------------------------------------------------- masthead */
+
+.masthead {
+  padding: var(--ah-space-5) var(--ah-space-6) var(--ah-space-3);
+  border: 1px solid var(--ah-color-line);
+}
+
+/* --------------------------------------------------------------- layout */
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--ah-space-9) var(--ah-space-10);
+  margin-top: var(--ah-space-8);
+}
+
+.doc {
+  max-width: 68ch;
+}
+
+/* The document's first heading opens the page; its section rule would otherwise
+   push it 80px down from the index beside it. */
+.doc > *:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* ------------------------------------------------------------- contents */
+
+/* globals.css styles every <nav> as a flex row for the header; this one is a
+   column of links and has to say so. */
+.toc {
+  display: block;
+  position: sticky;
+  top: var(--ah-space-6);
+}
+
+.tocLabel {
+  margin: 0 0 var(--ah-space-4);
+  padding-bottom: var(--ah-space-3);
+  border-bottom: 1px solid var(--ah-color-line);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+.tocList {
+  display: grid;
+  gap: var(--ah-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.tocLink {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: baseline;
+  gap: var(--ah-space-3);
+  padding: var(--ah-space-2) var(--ah-space-2) var(--ah-space-2) 0;
+  color: var(--ah-color-subtle);
+  font-size: var(--ah-text-small);
+  line-height: 1.45;
+  transition: color var(--ah-motion-feedback) var(--ah-ease-out);
+}
+
+.tocLink:hover {
+  color: var(--ah-color-text);
+}
+
+.tocLink:focus-visible {
+  outline: 2px solid var(--ah-color-focus);
+  outline-offset: 2px;
+}
+
+/* The mark repeats what the colour says, so the current section is never
+   carried by colour alone. */
+.tocMark {
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  transform: translateY(-1px);
+  transition: background var(--ah-motion-feedback) var(--ah-ease-out);
+}
+
+.tocCurrent {
+  color: var(--ah-color-action);
+}
+
+.tocCurrent .tocMark {
+  background: var(--ah-color-action);
+  border-color: var(--ah-color-action);
+}
+
+/* ------------------------------------------------------------- document */
+
+.h1 {
+  font-size: var(--ah-text-h1);
+  line-height: var(--ah-leading-display);
+  letter-spacing: var(--ah-tracking-display);
+  color: var(--ah-color-text);
+  margin: 0 0 var(--ah-space-5);
+}
+
+.h2 {
+  font-size: var(--ah-text-h2);
+  line-height: var(--ah-leading-heading);
+  letter-spacing: -0.02em;
+  color: var(--ah-color-text);
+  margin: var(--ah-space-8) 0 var(--ah-space-5);
+}
+
+/* A section head, drawn the way blueprint draws one: a filled square, then the
+   title. Scroll-margin keeps the heading clear of the top when the index jumps. */
+.h3 {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: baseline;
+  gap: var(--ah-space-3);
+  margin: var(--ah-space-9) 0 var(--ah-space-4);
+  padding-top: var(--ah-space-5);
+  border-top: 1px solid var(--ah-color-line);
+  color: var(--ah-color-text);
+  font-size: var(--ah-text-h3);
+  line-height: var(--ah-leading-heading);
+  scroll-margin-top: var(--ah-space-7);
+}
+
+.h3::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--ah-color-signal);
+  transform: translateY(-1px);
+}
+
+.paragraph {
+  font-size: var(--ah-text-body);
+  line-height: var(--ah-leading-body);
+  color: var(--ah-color-muted);
+  margin: 0 0 var(--ah-space-5);
+}
+
+.paragraph strong {
+  color: var(--ah-color-text);
+  font-weight: 600;
+}
+
+.paragraph em {
+  color: var(--ah-color-text);
+}
+
+.paragraph a,
+.list a {
+  color: var(--ah-color-signal);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.list {
+  margin: 0 0 var(--ah-space-5);
+  padding-left: var(--ah-space-6);
+  display: grid;
+  gap: var(--ah-space-3);
+  color: var(--ah-color-muted);
+  line-height: var(--ah-leading-body);
+}
+
+.list::marker,
+.list li::marker {
+  font-family: var(--ah-font-mono);
+  color: var(--ah-color-subtle);
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--ah-color-line);
+  margin: var(--ah-space-9) 0;
+}
+
+.missing {
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ah-space-6);
+  }
+
+  /* On one column the index is a list at the top, not a rail beside the text. */
+  .toc {
+    position: static;
+    padding-bottom: var(--ah-space-5);
+    border-bottom: 1px solid var(--ah-color-line);
+  }
+
+  .tocList {
+    grid-auto-flow: row;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--ah-space-7) 0 var(--ah-space-8);
+  }
+
+  .h3 {
+    margin-top: var(--ah-space-8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tocLink,
+  .tocMark {
+    transition: none;
+  }
+}

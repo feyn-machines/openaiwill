@@ -1,0 +1,97 @@
+/* A real calendar axis: an empty stretch has to read as empty. */
+
+.wrap {
+  margin: 0;
+}
+
+.axis {
+  position: relative;
+  block-size: 64px;
+  margin-bottom: var(--ah-space-2);
+}
+
+.baseline {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 1px;
+  background: var(--ah-color-line);
+}
+
+.tick {
+  position: absolute;
+  inset-block-end: 0;
+  inline-size: 2px;
+  background: var(--ah-color-signal);
+  transform: translateX(-1px);
+}
+
+.scale {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ah-space-3);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  color: var(--ah-color-subtle);
+  padding-bottom: var(--ah-space-5);
+  border-bottom: 1px solid var(--ah-color-line);
+}
+
+.list {
+  list-style: none;
+  margin: var(--ah-space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ah-space-3);
+}
+
+.list li {
+  display: grid;
+  grid-template-columns: 5ch 1fr;
+  gap: var(--ah-space-4);
+  align-items: baseline;
+}
+
+.date {
+  font-family: var(--ah-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--ah-text-small);
+  color: var(--ah-color-subtle);
+}
+
+.title {
+  color: var(--ah-color-text);
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.title:hover,
+.title:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.caps {
+  grid-column: 2;
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  color: var(--ah-color-signal);
+}
+
+.more,
+.empty {
+  margin: var(--ah-space-4) 0 0;
+  font-size: var(--ah-text-small);
+  color: var(--ah-color-subtle);
+}
+
+@media (max-width: 620px) {
+  .list li {
+    grid-template-columns: 1fr;
+    gap: var(--ah-space-1);
+  }
+  .caps {
+    grid-column: 1;
+  }
+}

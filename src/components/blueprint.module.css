@@ -1,0 +1,198 @@
+/* The confirmed visual language, in one place.
+ *
+ * Source: design/reference/tensorlake-2026-09-12/user-reference/confirmed-direction.png
+ * and previews/06-stats-2160p.jpg. The direction is a technical drawing, not a
+ * dark dashboard: a ruled canvas, mono uppercase labels led by a filled square,
+ * a dashed leader running to a bracketed tag, and numbers at display size.
+ *
+ * Every page uses these. A page that invents its own head or its own number
+ * size is the thing that made the site read as generated.
+ */
+
+/* The ruled canvas. --ah-color-grid is in the token set for exactly this, and
+   --ah-grid-unit keeps the ruling on the same 24px module as the spacing. */
+.canvas {
+  background-image:
+    linear-gradient(to right, var(--ah-color-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ah-color-grid) 1px, transparent 1px);
+  background-size: var(--ah-grid-unit) var(--ah-grid-unit);
+}
+
+/* ------------------------------------------------------------- the head */
+
+.head {
+  display: flex;
+  align-items: center;
+  /* The tag drops to its own line rather than pushing the page sideways: an
+     English sector name is three times the width of its Chinese label, and a
+     head that cannot wrap is what makes a phone scroll horizontally. */
+  flex-wrap: wrap;
+  row-gap: var(--ah-space-2);
+  gap: var(--ah-space-3);
+  margin: 0 0 var(--ah-space-4);
+}
+
+.bullet { flex: none; width: 10px; height: 10px; }
+.bulletSignal { background: var(--ah-color-signal); }
+.bulletPlain { background: var(--ah-color-muted); }
+.bulletCorrection { background: var(--ah-color-correction); }
+.bulletWarning { background: var(--ah-color-warning); }
+
+.label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ah-color-text);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+/* The dashed leader takes the slack, which is what pins the tag to the right
+   edge and makes the block read as an instrument panel. */
+.leader {
+  flex: 1 1 auto;
+  min-width: var(--ah-space-6);
+  height: 1px;
+  background-image: linear-gradient(to right, var(--ah-color-control) 50%, transparent 50%);
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+}
+
+.tag {
+  flex: none;
+  padding: 6px var(--ah-space-3);
+  border: 1px solid var(--ah-color-control);
+  border-radius: var(--ah-radius-control);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- the number */
+
+.stat { padding: var(--ah-space-6) 0; }
+.statBody { display: flex; align-items: center; gap: var(--ah-space-6); }
+
+.value {
+  margin: 0;
+  font-family: var(--ah-font-display);
+  font-size: var(--ah-text-data);
+  font-weight: 400;
+  line-height: 0.86;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  /* The unit belongs to the number. Without this a narrow screen breaks
+     "8 of 17" after the 8 and the reading falls apart. */
+  white-space: nowrap;
+  color: var(--ah-color-text);
+}
+
+/* A zero that is the finding rather than a missing value. */
+.valueCorrection { color: var(--ah-color-correction); }
+
+.unit {
+  margin-left: var(--ah-space-2);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-h3);
+  letter-spacing: 0;
+  color: var(--ah-color-subtle);
+}
+
+.note {
+  max-width: 34ch;
+  padding-left: var(--ah-space-4);
+  border-left: 2px solid var(--ah-color-signal);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  line-height: 1.7;
+}
+
+.note p { margin: 0; }
+.noteCorrection { border-left-color: var(--ah-color-correction); }
+
+/* --------------------------------------------------------------- sections */
+
+.section { padding: var(--ah-space-8) 0; border-top: 1px solid var(--ah-color-line); }
+
+.eyebrow {
+  margin: 0 0 var(--ah-space-3);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+.h2 {
+  margin: 0 0 var(--ah-space-3);
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* One line. Not a paragraph, and never two paragraphs: the chart is the
+   explanation, and prose stacked in front of it is what reads as filler. */
+.lead {
+  max-width: 54ch;
+  margin: 0 0 var(--ah-space-6);
+  color: var(--ah-color-muted);
+  font-size: var(--ah-text-small);
+  line-height: 1.6;
+}
+
+.exit {
+  margin: var(--ah-space-6) 0 0;
+  font-size: var(--ah-text-small);
+  color: var(--ah-color-subtle);
+}
+
+/* ----------------------------------------------------------------- panels */
+
+/* A filled panel with dark text, the reference's way of marking the one thing
+   on a screen that matters most. Used sparingly - two on a page at most. */
+.panel {
+  padding: var(--ah-space-5) var(--ah-space-6);
+  background: var(--ah-color-signal);
+  color: var(--ah-color-ink);
+}
+
+.panel .label, .panel a { color: var(--ah-color-ink); }
+
+/* An outlined panel with perforated edges, for a readout. */
+.readout {
+  padding: var(--ah-space-5) var(--ah-space-6);
+  border: 1px dashed var(--ah-color-control);
+  background: var(--ah-color-surface);
+}
+
+/* ------------------------------------------------------------- the blank */
+
+/* A dash is not a zero. It reads quieter than any number on the same row, so a
+   column of them cannot be mistaken for a column of measured zeroes. */
+.blank {
+  color: var(--ah-color-subtle);
+  font-family: var(--ah-font-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+/* --------------------------------------------------------------- the bar */
+
+/* One measure against a shared baseline. --w is the share, 0-100%. */
+.bar {
+  display: block;
+  height: 14px;
+  width: var(--w);
+  min-width: 2px;
+  background: var(--ah-color-signal);
+}
+
+.barTrack {
+  position: relative;
+  background: color-mix(in srgb, var(--ah-color-line) 60%, transparent);
+}

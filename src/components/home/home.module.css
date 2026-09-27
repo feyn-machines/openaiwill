@@ -1,0 +1,646 @@
+/* The homepage's six screens.
+ *
+ * Every duration and easing below is a token. DESIGN.md's homepage exception is
+ * bounded by two rules and both are enforced here: a screen plays once (the
+ * `[data-seen]` attribute is set once and never cleared), and the only two
+ * scrubbed things are the time axis and the global grid.
+ *
+ * Every rule that animates is wrapped so that the finished state is what the
+ * element has by default; the animation runs from a start state INTO it. With
+ * JavaScript off, `data-seen` is never set, so no `@keyframes` ever runs and
+ * the reader gets the finished screen. Under prefers-reduced-motion the whole
+ * block at the bottom of this file switches the animations off again.
+ */
+
+.screen {
+  padding: var(--ah-space-8) 0;
+  border-top: 1px solid var(--ah-color-line);
+  scroll-margin-top: var(--ah-space-6);
+}
+
+.eyebrow {
+  margin: 0 0 var(--ah-space-3);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+.h2 {
+  margin: 0 0 var(--ah-space-3);
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.note {
+  max-width: 62ch;
+  margin: 0 0 var(--ah-space-6);
+  color: var(--ah-color-muted);
+  font-size: var(--ah-text-small);
+  line-height: 1.7;
+}
+
+.exit {
+  margin: var(--ah-space-6) 0 0;
+  font-size: var(--ah-text-small);
+  color: var(--ah-color-subtle);
+}
+
+
+/* ---------------------------------------------------- the instrument panel */
+
+/* The blueprint canvas. --ah-color-grid exists in the token set precisely for
+ * this and was unused: without it the page is a dark rectangle, and the
+ * confirmed direction is a technical drawing. 24px is --ah-grid-unit, so the
+ * ruling lines up with the spacing scale instead of floating over it.
+ */
+.canvas {
+  position: relative;
+  background-image:
+    linear-gradient(to right, var(--ah-color-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ah-color-grid) 1px, transparent 1px);
+  background-size: var(--ah-grid-unit) var(--ah-grid-unit);
+}
+
+.stat { padding: var(--ah-space-6) 0; }
+
+.statHead {
+  display: flex;
+  align-items: center;
+  gap: var(--ah-space-3);
+  margin: 0 0 var(--ah-space-4);
+}
+
+.bullet { flex: none; width: 10px; height: 10px; }
+.bullet-signal { background: var(--ah-color-signal); }
+.bullet-plain { background: var(--ah-color-muted); }
+.bullet-correction { background: var(--ah-color-correction); }
+
+.statLabel {
+  flex: none;
+  color: var(--ah-color-text);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+/* The dashed leader. It takes all the room left over, which is what makes the
+   bracketed tag sit hard against the right edge of the block. */
+.leader {
+  flex: 1 1 auto;
+  min-width: var(--ah-space-6);
+  height: 1px;
+  background-image: linear-gradient(to right, var(--ah-color-control) 50%, transparent 50%);
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+}
+
+.tag {
+  flex: none;
+  padding: 6px var(--ah-space-3);
+  border: 1px solid var(--ah-color-control);
+  border-radius: var(--ah-radius-control);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  white-space: nowrap;
+}
+
+.statBody { display: flex; align-items: center; gap: var(--ah-space-6); }
+
+.statValue {
+  margin: 0;
+  font-family: var(--ah-font-display);
+  font-size: var(--ah-text-data);
+  font-weight: 400;
+  line-height: 0.86;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.value-signal { color: var(--ah-color-text); }
+.value-plain { color: var(--ah-color-text); }
+/* A zero that is the finding, not a missing value. */
+.value-correction { color: var(--ah-color-correction); }
+
+.statUnit {
+  margin-left: var(--ah-space-2);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-h3);
+  letter-spacing: 0;
+  color: var(--ah-color-subtle);
+}
+
+/* The thin rule beside the number, exactly as the reference sets it. */
+.statNote {
+  max-width: 34ch;
+  padding-left: var(--ah-space-4);
+  border-left: 2px solid var(--ah-color-signal);
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  line-height: 1.7;
+}
+
+.statNote p { margin: 0; }
+.statNote strong { color: var(--ah-color-text); font-weight: 400; }
+
+/* ------------------------------------------------------------------- hero */
+
+.hero { padding: var(--ah-space-8) 0 var(--ah-space-9); }
+
+.heroTitle {
+  margin: var(--ah-space-5) 0 0;
+  font-size: var(--ah-text-display);
+  line-height: var(--ah-leading-display);
+  letter-spacing: var(--ah-tracking-display);
+  font-weight: 700;
+}
+
+.heroAsk {
+  max-width: 30ch;
+  margin: var(--ah-space-6) 0 0;
+  font-size: var(--ah-text-h3);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.heroLead {
+  max-width: 40ch;
+  margin: var(--ah-space-3) 0 0;
+  color: var(--ah-color-muted);
+  font-size: var(--ah-text-small);
+}
+
+/* Two stats side by side under the words: what has been looked at, and the
+   rung that is empty. They share a column line with the grid below them. */
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ah-space-7);
+  margin-top: var(--ah-space-8);
+  border-top: 1px solid var(--ah-color-line);
+}
+
+@media (max-width: 900px) {
+  .heroStats { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* ---------------------------------------------------------------- screen 1 */
+
+.axis { margin: var(--ah-space-6) 0 var(--ah-space-7); }
+
+/* Drop lines on a baseline, the way the reference plots a series: each update
+   is a vertical stroke at its own date with a square node on top. Absolute
+   placement against one baseline is what makes the axis a measurement rather
+   than a list that happens to be in order. */
+.plot {
+  position: relative;
+  height: 120px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--ah-color-control);
+}
+
+.tick {
+  position: absolute;
+  left: var(--x);
+  bottom: 0;
+  height: 100%;
+}
+
+.tickHit {
+  display: block;
+  height: 100%;
+  /* The stroke is 2px; the target is 12px. A 2px hit area is not a control. */
+  width: 12px;
+  margin-left: -5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tickLine {
+  position: absolute;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  height: var(--h);
+  background: color-mix(in srgb, var(--ah-color-signal) 38%, transparent);
+  transition: background var(--ah-motion-feedback) var(--ah-ease-out),
+              height var(--ah-motion-transition) var(--ah-ease-out);
+}
+
+.tickNode {
+  position: absolute;
+  left: 3px;
+  bottom: calc(var(--h) - 3px);
+  width: 6px;
+  height: 6px;
+  background: color-mix(in srgb, var(--ah-color-signal) 55%, transparent);
+  transition: background var(--ah-motion-feedback) var(--ah-ease-out),
+              bottom var(--ah-motion-transition) var(--ah-ease-out);
+}
+
+.tickHit:hover .tickLine,
+.tickHit:focus-visible .tickLine { background: var(--ah-color-signal); }
+.tickHit:hover .tickNode,
+.tickHit:focus-visible .tickNode { background: var(--ah-color-signal); }
+.tickHit:focus-visible { outline: 2px solid var(--ah-color-focus); outline-offset: 2px; }
+
+/* The selection reads at a glance: full-height stroke in the action colour,
+   with a larger node. */
+.tickOn .tickLine {
+  background: var(--ah-color-action);
+  height: 100%;
+}
+
+.tickOn .tickNode {
+  left: 1px;
+  bottom: calc(100% - 5px);
+  width: 10px;
+  height: 10px;
+  background: var(--ah-color-action);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ah-color-action) 22%, transparent);
+}
+
+.axisEnds {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ah-space-4);
+  margin-top: var(--ah-space-3);
+  color: var(--ah-color-subtle);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+}
+
+.axisHint { color: var(--ah-color-control); }
+
+.card {
+  max-width: 68ch;
+  padding: var(--ah-space-5) var(--ah-space-6);
+  border: 1px solid var(--ah-color-line);
+  border-left: 3px solid var(--ah-color-action);
+  background: var(--ah-color-surface);
+}
+
+.cardMeta,
+.cardStats {
+  margin: 0;
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+}
+
+.cardTitle {
+  margin: var(--ah-space-2) 0 var(--ah-space-3);
+  font-size: var(--ah-text-h3);
+  line-height: 1.3;
+}
+
+.cardStats { margin-top: var(--ah-space-3); }
+
+.cardLinks {
+  margin: var(--ah-space-4) 0 0;
+  font-size: var(--ah-text-small);
+}
+
+.cardLinks a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.cardMore {
+  margin-left: var(--ah-space-3);
+  color: var(--ah-color-subtle);
+}
+
+/* ---------------------------------------------------------------- screen 2 */
+
+.fan { margin: 0; padding: 0; list-style: none; }
+
+/* The name column is capped rather than fluid: letting it take the slack
+   pushed the bars to the far right of a 1280px page and opened a gap the eye
+   has to jump. The row now reads left to right with nothing between. */
+.fanRow {
+  display: grid;
+  grid-template-columns: minmax(0, 30ch) 120px minmax(0, 24ch) 92px;
+  gap: var(--ah-space-5);
+  align-items: center;
+  padding: var(--ah-space-3) 0;
+  border-bottom: 1px solid var(--ah-color-line);
+}
+
+.fanName { min-width: 0; line-height: 1.5; }
+.fanName a { text-decoration: underline; text-underline-offset: 4px; }
+
+.fanBar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+
+.step {
+  height: 12px;
+  border: 1px solid var(--ah-color-line);
+  background: transparent;
+}
+
+.stepOn {
+  background: var(--ah-color-signal);
+  border-color: var(--ah-color-signal);
+}
+
+/* The judge read this far; the evidence tier did not let it be published there.
+   Outlined rather than filled, so the gap is visible as an absence. */
+.stepJudged {
+  background: transparent;
+  border-color: var(--ah-color-warning);
+  border-style: dashed;
+}
+
+.fanLevel,
+.fanTier {
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+}
+
+.fanTier {
+  display: flex;
+  align-items: center;
+  gap: var(--ah-space-2);
+  white-space: nowrap;
+}
+
+.capNote {
+  max-width: 62ch;
+  margin: var(--ah-space-5) 0 0;
+  padding-left: var(--ah-space-4);
+  border-left: 3px solid var(--ah-color-warning);
+  color: var(--ah-color-text);
+  font-size: var(--ah-text-small);
+  line-height: 1.7;
+}
+
+/* ---------------------------------------------------------------- screen 5 */
+
+.globalWrap { margin: var(--ah-space-5) 0 0; }
+
+.finding {
+  max-width: 34ch;
+  margin: 0 0 var(--ah-space-5);
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  line-height: 1.4;
+}
+
+.finding strong { font-weight: 600; color: var(--ah-color-warning); }
+
+.globalGrid {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 4px;
+  max-width: 760px;
+}
+
+.gcell {
+  aspect-ratio: 1;
+  border: 1px solid var(--ah-color-line);
+  transition: opacity var(--ah-motion-feedback) var(--ah-ease-out);
+}
+
+/* Not yet reached by the scrub.
+ *
+ * The square still has to be THERE. At 12% opacity it was not: before the
+ * reader had scrolled to the bottom of the screen the chart read as a broken
+ * half-row rather than as a hundred squares filling up, which is the one thing
+ * this screen is for. Unfilled means outlined, not absent. */
+.gcell[data-off] {
+  background: transparent !important;
+  border-color: var(--ah-color-line) !important;
+  border-style: solid !important;
+  box-shadow: none !important;
+}
+
+.stage0 { background: color-mix(in srgb, var(--ah-color-signal) 8%, transparent); }
+.stage1 {
+  background: color-mix(in srgb, var(--ah-color-signal) 20%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 34%, transparent);
+}
+.stage2 {
+  background: color-mix(in srgb, var(--ah-color-signal) 38%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 52%, transparent);
+}
+.stage3 {
+  background: color-mix(in srgb, var(--ah-color-signal) 60%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 72%, transparent);
+}
+.stage4 { background: var(--ah-color-signal); border-color: var(--ah-color-signal); }
+.stage5 {
+  background: var(--ah-color-focus);
+  border-color: var(--ah-color-focus);
+  box-shadow: inset 0 0 0 2px var(--ah-color-bg);
+}
+.stageunknown {
+  background: color-mix(in srgb, var(--ah-color-subtle) 10%, transparent);
+  border-style: dashed;
+  border-color: var(--ah-color-subtle);
+}
+
+/* Never asked. It must read as an empty square that is definitely THERE - the
+   66 of them are the finding. */
+.stageuntouched {
+  background: color-mix(in srgb, var(--ah-color-line) 45%, transparent);
+  border-color: var(--ah-color-line);
+}
+
+.blanks {
+  max-width: 52ch;
+  margin: var(--ah-space-5) 0 0;
+  color: var(--ah-color-subtle);
+  font-size: var(--ah-text-small);
+  line-height: 1.55;
+}
+
+/* ---------------------------------------------------------------- screen 6 */
+
+.gates { margin: var(--ah-space-5) 0 0; padding: 0; list-style: none; }
+
+.gateItem { border-bottom: 1px solid var(--ah-color-line); }
+
+.gateRow {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 130px;
+  gap: var(--ah-space-4);
+  align-items: center;
+  width: 100%;
+  padding: var(--ah-space-3) 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gateRow:hover .gateBar { background: var(--ah-color-action); }
+.gateRow:focus-visible { outline: 2px solid var(--ah-color-focus); outline-offset: 2px; }
+
+.gateName {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ah-space-3);
+  font-size: var(--ah-text-small);
+  line-height: 1.4;
+}
+
+.gateCaret {
+  flex: none;
+  width: 1ch;
+  color: var(--ah-color-subtle);
+  font-family: var(--ah-font-mono);
+}
+
+.gateTrack { background: color-mix(in srgb, var(--ah-color-line) 55%, transparent); }
+
+.gateBar {
+  display: block;
+  height: 14px;
+  width: var(--w);
+  min-width: 2px;
+  background: var(--ah-color-warning);
+  transition: background var(--ah-motion-feedback) var(--ah-ease-out);
+}
+
+.gateValue {
+  color: var(--ah-color-muted);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ah-tracking-label);
+  text-align: right;
+}
+
+.gateUnit { color: var(--ah-color-subtle); }
+
+.gateOpen {
+  padding: var(--ah-space-4) 0 var(--ah-space-5) calc(200px + var(--ah-space-4));
+  animation: slide-in var(--ah-motion-transition) var(--ah-ease-out);
+}
+
+.gateDef {
+  max-width: 62ch;
+  margin: 0 0 var(--ah-space-3);
+  font-size: var(--ah-text-small);
+  line-height: 1.6;
+}
+
+.gateReason,
+.gateExamples {
+  max-width: 68ch;
+  margin: 0 0 var(--ah-space-2);
+  color: var(--ah-color-muted);
+  font-size: var(--ah-text-label);
+  line-height: 1.7;
+}
+
+.gateReasonLabel {
+  color: var(--ah-color-warning);
+  font-family: var(--ah-font-mono);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+}
+
+.gateHint {
+  margin: var(--ah-space-4) 0 0;
+  color: var(--ah-color-control);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+}
+
+@media (max-width: 760px) {
+  .gateRow { grid-template-columns: 120px minmax(0, 1fr) 84px; }
+  .gateOpen { padding-left: 0; }
+}
+
+/* ------------------------------------------------------------- the reveals */
+
+/* Screens 2, 3, 4 and 6 play once, on entry. The rule is attribute-gated, so
+   the start state exists only while the screen is being revealed; before and
+   after, the element simply has its finished styles. */
+[data-seen="true"] .fanRow {
+  animation: slide-in var(--ah-motion-transition) var(--ah-ease-out) backwards;
+  animation-delay: calc(var(--i) * 80ms);
+}
+
+[data-seen="true"] .gateBar {
+  animation: grow-in var(--ah-motion-reveal) var(--ah-ease-out) backwards;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+[data-seen="true"] .tickLine {
+  animation: pop-in var(--ah-motion-feedback) var(--ah-ease-out) backwards;
+  /* Capped at the sequence token: 256 points at 24ms each would run for six
+     seconds, and a reveal that outlasts the reader is a wait, not a reveal. */
+  animation-delay: min(calc(var(--i) * 24ms), var(--ah-motion-sequence));
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+}
+
+@keyframes grow-in {
+  from { transform: scaleX(0); transform-origin: left center; }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; }
+}
+
+@media (max-width: 760px) {
+  .fanRow { grid-template-columns: minmax(0, 1fr) 90px; grid-row-gap: var(--ah-space-2); gap: var(--ah-space-3); }
+  .fanLevel { grid-column: 1 / -1; text-align: left; }
+  .fanTier { grid-column: 2; text-align: right; }
+  .globalGrid { grid-template-columns: repeat(20, 1fr); }
+}
+
+/* The exception in DESIGN.md is bounded by this block: with reduced motion the
+   homepage behaves exactly like every other page. */
+@media (prefers-reduced-motion: reduce) {
+  [data-seen="true"] .fanRow,
+  [data-seen="true"] .gateBar,
+  [data-seen="true"] .tickLine { animation: none; }
+  .gcell { transition: none; }
+}
+
+/* Screen 2: the two things a reading needs that the bar cannot carry - how much
+   real work the activity covers, and whether a gate holds it regardless. */
+.fanTasks {
+  display: block;
+  margin-top: 2px;
+  color: var(--ah-color-subtle);
+  font-size: 11px;
+}
+
+.fanGate {
+  flex: none;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--ah-color-warning) 20%, transparent);
+  color: var(--ah-color-warning);
+  font-size: 11px;
+}
+
+.gatedNote {
+  max-width: 62ch;
+  margin: var(--ah-space-5) 0 0;
+  padding-left: var(--ah-space-4);
+  border-left: 3px solid var(--ah-color-warning);
+  color: var(--ah-color-muted);
+  font-size: var(--ah-text-small);
+  line-height: 1.7;
+}

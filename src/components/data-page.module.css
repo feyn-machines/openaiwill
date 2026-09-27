@@ -1,0 +1,393 @@
+/* Page-specific layout for the data pages (capabilities, occupations, updates,
+   method). The shared data blocks — oaw-table-wrap / oaw-table / oaw-num /
+   oaw-unit / oaw-status / oaw-definition / oaw-gap / oaw-back / oaw-sr-only —
+   come from globals.css and are not restated here. Colour uses the light page
+   palette (--bg / --ink / --muted / --line); the --ah-* tokens are used only
+   for type and geometry, never for colour. */
+
+.page {
+  padding: 48px 0 80px;
+}
+
+.header {
+  max-width: 900px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted, var(--ah-color-muted));
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  letter-spacing: var(--ah-tracking-label, 0.04em);
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 16px 0 0;
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 700;
+  letter-spacing: -1.4px;
+  line-height: 1.08;
+}
+
+.lead {
+  margin: 20px 0 0;
+  max-width: 64ch;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.note {
+  margin: 14px 0 0;
+  max-width: 76ch;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.section {
+  margin-top: 60px;
+}
+
+.sectionHead {
+  max-width: 76ch;
+}
+
+.sectionTitle {
+  margin: 10px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+}
+
+.subTitle {
+  margin: 28px 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.tableWrap {
+  margin-top: 20px;
+}
+
+.gap {
+  max-width: 80ch;
+  margin-top: 20px;
+}
+
+.mono {
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 13px;
+}
+
+.wrapAnywhere {
+  overflow-wrap: anywhere;
+}
+
+.cellNote {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cellTitle {
+  display: block;
+  max-width: 52ch;
+  font-weight: 700;
+}
+
+.verbatim {
+  display: block;
+  max-width: 62ch;
+  line-height: 1.7;
+}
+
+/* A value that does not exist: a dash and the reason it is absent. */
+.missing {
+  display: inline-block;
+  color: var(--muted, var(--ah-color-muted));
+}
+
+.missingReason {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted, var(--ah-color-muted));
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: right;
+  white-space: normal;
+}
+
+.missingInline .missingReason {
+  display: inline;
+  margin-left: 8px;
+  text-align: left;
+}
+
+/* The snapshot's own caveats sit in front of the numbers they qualify. */
+.caveats {
+  max-width: 80ch;
+  margin-top: 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--line, var(--ah-color-line));
+  border-left: 3px solid var(--ah-color-subtle);
+  border-radius: 8px;
+  background: var(--ah-color-surface);
+}
+
+.caveats ul {
+  margin: 12px 0 0;
+  padding-left: 20px;
+}
+
+.caveats li {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* Filter chips are links: they change the URL, so they are not buttons. */
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line, var(--ah-color-line));
+  border-radius: 22px;
+  background: var(--ah-color-surface);
+  color: var(--ink, var(--ah-color-text));
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chip:hover {
+  border-color: var(--ah-color-sage);
+  background: var(--ah-color-surface-active);
+}
+
+.chipCurrent {
+  border-color: var(--ink, var(--ah-color-text));
+  background: var(--ah-color-line);
+  font-weight: 700;
+}
+
+.chipCount {
+  color: var(--muted, var(--ah-color-muted));
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chipCurrent .chipCount {
+  color: inherit;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px dashed var(--ah-color-subtle);
+  border-radius: 3px;
+  color: var(--muted, var(--ah-color-muted));
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* The chain from an event to a stage. */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  padding: 20px;
+  border: 1px solid var(--line, var(--ah-color-line));
+  border-radius: 8px;
+  background: var(--ah-color-surface);
+}
+
+.stepIndex {
+  color: var(--muted, var(--ah-color-muted));
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  letter-spacing: var(--ah-tracking-label, 0.04em);
+  text-transform: uppercase;
+}
+
+.stepTitle {
+  margin: 10px 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.step p {
+  margin: 0;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card {
+  padding: 20px;
+  border: 1px solid var(--line, var(--ah-color-line));
+  border-radius: 8px;
+  background: var(--ah-color-surface);
+}
+
+.cardValue {
+  display: block;
+  font-family: var(--ah-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.cardLabel {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.cardNote {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line, var(--ah-color-line));
+  font-size: 14px;
+}
+
+.links a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.original {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.detailIntro {
+  max-width: 76ch;
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.moreCount {
+  margin-top: 12px;
+  color: var(--muted, var(--ah-color-muted));
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 32px 0 60px;
+  }
+
+  .section {
+    margin-top: 44px;
+  }
+
+  .lead {
+    font-size: 17px;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .caveats {
+    padding: 20px;
+  }
+}
+
+/* A short list inside a table cell: capability names an update demonstrated.
+   Wraps rather than scrolls, because the count is usually one or two. */
+.inlineList{list-style:none;margin:0;padding:0;display:grid;gap:var(--ah-space-1)}
+.inlineList a{text-decoration:underline;text-underline-offset:3px}
+
+/* A definition under a row's name rather than in its own column. As a column it
+   was handed the leftover width of a nine-column table, which in Chinese meant
+   one character per line. */
+.cellDefinition{display:block;margin-top:var(--ah-space-2);max-width:46ch;color:var(--ah-color-muted);font-size:13px;line-height:1.6;font-weight:400}
+
+/* The limits, collapsed. Open they read as before; closed they are one line. */
+.caveatsSummary{cursor:pointer;list-style:none;display:grid;gap:var(--ah-space-2)}
+.caveatsSummary::-webkit-details-marker{display:none}
+.caveatsLead{color:var(--ah-color-text);line-height:var(--ah-leading-body)}
+.caveatsMore{font-family:var(--ah-font-mono);font-size:var(--ah-text-label);letter-spacing:var(--ah-tracking-label);text-transform:uppercase;color:var(--ah-color-signal)}
+.caveatsSummary:focus-visible{outline:2px solid var(--ah-color-focus);outline-offset:4px}
+details[open] .caveatsMore{color:var(--ah-color-subtle)}
+
+/* The finding above a grid: reading size, stated before the chart. */
+.finding{font-size:clamp(1.05rem,1.8vw,1.35rem);line-height:1.5;color:var(--ah-color-text);margin:0 0 var(--ah-space-6);max-width:46ch}
+.gridNote{margin:var(--ah-space-3) 0 0;color:var(--ah-color-subtle);font-size:var(--ah-text-small);max-width:56ch}
+
+/* A row that can be linked to directly. The offset keeps it clear of the
+   header when the browser jumps; the tint fades so the reader can see WHICH
+   row they were sent to without it staying highlighted forever. */
+.anchorRow { scroll-margin-top: var(--ah-space-8); }
+
+.anchorRow:target {
+  animation: anchor-found var(--ah-motion-sequence) var(--ah-ease-out) forwards;
+}
+
+@keyframes anchor-found {
+  from { background: color-mix(in srgb, var(--ah-color-action) 22%, transparent); }
+  to { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anchorRow:target {
+    animation: none;
+    background: color-mix(in srgb, var(--ah-color-action) 14%, transparent);
+  }
+}

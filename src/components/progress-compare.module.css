@@ -1,0 +1,167 @@
+/* Small multiples. Three columns on one shared grid so every row starts at the
+   same x: the comparison only works while the blocks are aligned. */
+
+.wrap {
+  --compare-label: 19ch;
+  --compare-share: 6ch;
+  --cell: 5px;
+  --cell-gap: 1px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: var(--compare-label) 1fr var(--compare-share);
+  gap: var(--ah-space-5);
+  align-items: center;
+  padding: var(--ah-space-3) 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.head {
+  padding-bottom: var(--ah-space-2);
+  border-bottom: 1px solid var(--ah-color-line);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+  color: var(--ah-color-subtle);
+}
+
+.frontierHead {
+  justify-self: start;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item + .item {
+  border-top: 1px solid color-mix(in srgb, var(--ah-color-line) 55%, transparent);
+}
+
+/* The whole row is the target, and it lifts rather than recolours: a colour
+   change here would compete with the stage scale inside the block. */
+.item a.row:hover,
+.item a.row:focus-visible {
+  background: var(--ah-color-surface);
+  outline: none;
+}
+
+.item a.row:focus-visible {
+  box-shadow: inset 2px 0 0 var(--ah-color-focus);
+}
+
+.label {
+  font-size: var(--ah-text-body);
+  line-height: 1.3;
+  color: var(--ah-color-text);
+}
+
+.sub {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  color: var(--ah-color-subtle);
+}
+
+.frontier {
+  display: grid;
+  gap: var(--cell-gap);
+  inline-size: calc(25 * var(--cell) + 24 * var(--cell-gap));
+  justify-self: start;
+}
+
+.cell {
+  aspect-ratio: 1;
+  block-size: var(--cell);
+}
+
+/* Ordinal scale: one hue, increasing weight. The words live in the legend on
+   the grid component, so nothing here depends on colour alone. */
+.stagenone {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ah-color-line);
+}
+
+.stage1 {
+  background: color-mix(in srgb, var(--ah-color-signal) 22%, transparent);
+}
+
+.stage2 {
+  background: color-mix(in srgb, var(--ah-color-signal) 48%, transparent);
+}
+
+.stage3 {
+  background: var(--ah-color-signal);
+}
+
+.stage4 {
+  background: var(--ah-color-focus);
+}
+
+.share {
+  justify-self: end;
+  font-family: var(--ah-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.0625rem;
+  color: var(--ah-color-text);
+}
+
+.pct {
+  font-size: var(--ah-text-label);
+  color: var(--ah-color-subtle);
+  margin-left: 1px;
+}
+
+.footnote {
+  margin: var(--ah-space-5) 0 0;
+  padding-top: var(--ah-space-3);
+  border-top: 1px solid var(--ah-color-line);
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  color: var(--ah-color-subtle);
+}
+
+@media (max-width: 860px) {
+  .wrap {
+    --compare-label: 15ch;
+    --cell: 4px;
+  }
+  .row {
+    gap: var(--ah-space-4);
+  }
+}
+
+/* Below this the three columns stop fitting; the block moves under its label
+   rather than shrinking into an unreadable smudge. */
+@media (max-width: 620px) {
+  .row {
+    grid-template-columns: 1fr var(--compare-share);
+    row-gap: var(--ah-space-2);
+  }
+  .frontier {
+    grid-column: 1 / -1;
+  }
+  .head .frontierHead {
+    display: none;
+  }
+}
+
+/* A row the current selection did not reach. Dimmed, never hidden: the rows
+   that were NOT touched are half of what this chart says. */
+.dim { opacity: .38; }
+
+/* The marker that repeats the highlight without relying on colour. */
+.markDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--ah-space-2);
+  background: var(--ah-color-signal);
+  vertical-align: baseline;
+}

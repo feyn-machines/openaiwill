@@ -1,0 +1,148 @@
+/* The work grid. Squares, right angles, 1px lines — the design system's own
+   graphic grammar. Stage is an ordinal scale, so it is one hue at increasing
+   weight rather than five different colours; the legend carries the words, so
+   colour never states anything on its own. */
+
+.figure {
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  gap: 3px;
+  max-width: 560px;
+}
+
+.cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--ah-color-line);
+}
+
+/* L0 is a finding, not a blank: the evidence says AI takes no part. It gets a
+   faint fill so it never reads as "nobody looked", which is the square below. */
+.stage0 {
+  background: color-mix(in srgb, var(--ah-color-signal) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-line) 100%, transparent);
+}
+
+.stage1 {
+  background: color-mix(in srgb, var(--ah-color-signal) 20%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 34%, transparent);
+}
+
+.stage2 {
+  background: color-mix(in srgb, var(--ah-color-signal) 38%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 52%, transparent);
+}
+
+.stage3 {
+  background: color-mix(in srgb, var(--ah-color-signal) 60%, transparent);
+  border-color: color-mix(in srgb, var(--ah-color-signal) 72%, transparent);
+}
+
+.stage4 {
+  background: var(--ah-color-signal);
+  border-color: var(--ah-color-signal);
+}
+
+/* Terminal state: solid and ringed, so it reads as different in kind rather
+   than merely darker. Currently empty everywhere, which is the point. */
+.stage5 {
+  background: var(--ah-color-focus);
+  border-color: var(--ah-color-focus);
+  box-shadow: inset 0 0 0 2px var(--ah-color-bg);
+}
+
+/* Asked and unresolved: part of this work has no evidence either way, so the
+   lowest level cannot be known. Dashed, because something is missing from it. */
+.stageunknown {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--ah-color-subtle);
+}
+
+/* Never asked. The faintest mark on the chart: no update in the collected
+   window mentions this work, which is a statement about the collection. */
+.stageuntouched {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--ah-color-line) 55%, transparent);
+}
+
+.scaleNote {
+  margin: var(--ah-space-4) 0 0;
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+  color: var(--ah-color-subtle);
+}
+
+.legend {
+  margin-top: var(--ah-space-5);
+  border-top: 1px solid var(--ah-color-line);
+  padding-top: var(--ah-space-4);
+}
+
+.legendTitle {
+  display: block;
+  font-family: var(--ah-font-mono);
+  font-size: var(--ah-text-label);
+  letter-spacing: var(--ah-tracking-label);
+  text-transform: uppercase;
+  color: var(--ah-color-subtle);
+  margin-bottom: var(--ah-space-3);
+}
+
+.legendList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ah-space-2);
+}
+
+.legendList li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: var(--ah-space-3);
+  align-items: baseline;
+  padding-bottom: var(--ah-space-2);
+  border-bottom: 1px solid var(--ah-color-line);
+}
+
+/* An empty bucket stays in the list at full weight: it is the finding. */
+.legendEmpty .legendValue {
+  color: var(--ah-color-warning);
+}
+
+.swatch {
+  inline-size: 12px;
+  block-size: 12px;
+  border: 1px solid var(--ah-color-line);
+  align-self: center;
+}
+
+.legendLabel {
+  color: var(--ah-color-text);
+}
+
+.legendValue {
+  font-family: var(--ah-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ah-color-text);
+}
+
+.legendNote {
+  grid-column: 2 / -1;
+  font-size: var(--ah-text-small);
+  color: var(--ah-color-subtle);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    gap: 2px;
+  }
+  .legendList li {
+    grid-template-columns: 12px 1fr auto;
+  }
+}
