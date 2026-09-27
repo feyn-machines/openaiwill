@@ -1,0 +1,9 @@
+# Downloaded third-party reference files stay local; manifests and design decisions remain reviewable.
+/motion/
+/images/
+/fonts/
+/svg/
+/snapshots/
+/previews/
+/user-reference/
+/styles/*original.css

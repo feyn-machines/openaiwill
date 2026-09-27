@@ -1,0 +1,30 @@
+[
+  {
+    "path": "fonts/InterTight-Variable.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/intertight/InterTight%5Bwght%5D.ttf",
+    "bytes": 581588,
+    "sha256": "b81b73dcb64df3c230cabade7df6c5773bf863233f24c9ee51087519f1f88b6f",
+    "license": "OFL-1.1"
+  },
+  {
+    "path": "fonts/InterTight-OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/intertight/OFL.txt",
+    "bytes": 4383,
+    "sha256": "50240ab035cf1b6b3307940235481d515c4b6de3ab1fa843dbe59e7892cb9d58",
+    "license": "OFL-1.1"
+  },
+  {
+    "path": "fonts/JetBrainsMono-Variable.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
+    "bytes": 187208,
+    "sha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda",
+    "license": "OFL-1.1"
+  },
+  {
+    "path": "fonts/JetBrainsMono-OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/jetbrainsmono/OFL.txt",
+    "bytes": 4399,
+    "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
+    "license": "OFL-1.1"
+  }
+]

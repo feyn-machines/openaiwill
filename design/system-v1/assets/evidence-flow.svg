@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" role="img" aria-labelledby="ah-flow-title ah-flow-desc">
+<title id="ah-flow-title">From sources to an estimated capability state</title><desc id="ah-flow-desc">Illustrative pipeline. A source and adoption report feed an event record. A reviewed event may revise a modeled capability state. Values are fictional design examples, not verified facts.</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <defs><pattern id="ah-flow-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff0a" stroke-width="1"/></pattern></defs><rect x="0" y="0" width="980" height="460" fill="#161715" /><rect x="0" y="0" width="980" height="460" fill="url(#ah-flow-grid)" />
+    <text x="28" y="34" fill="#82c38c" font-size="12" >OPENAIWILL / EVIDENCE SYSTEM</text>
+    <text x="744" y="34" fill="#929b8c" font-size="11" >SCHEMATIC · V1.0</text>
+    <g fill="none" stroke="#82c38c" stroke-width="1.5" class="signal-link">
+      <path d="M246 145H294V224H348"/><path d="M246 309H294V224"/>
+      <path d="M580 224H688" stroke-dasharray="5 5"/>
+    </g>
+    <rect x="290" y="220" width="8" height="8" fill="#82c38c" /><rect x="630" y="220" width="8" height="8" fill="#82c38c" />
+    <rect x="28" y="94" width="218" height="102" fill="#1e1f1c" stroke="#697463"/><rect x="31" y="101" width="3" height="3" fill="#82c38c" /><rect x="31" y="109" width="3" height="3" fill="#82c38c" /><rect x="31" y="117" width="3" height="3" fill="#82c38c" /><rect x="31" y="125" width="3" height="3" fill="#82c38c" /><rect x="31" y="133" width="3" height="3" fill="#82c38c" /><rect x="31" y="141" width="3" height="3" fill="#82c38c" /><rect x="31" y="149" width="3" height="3" fill="#82c38c" /><rect x="31" y="157" width="3" height="3" fill="#82c38c" /><rect x="31" y="165" width="3" height="3" fill="#82c38c" /><rect x="31" y="173" width="3" height="3" fill="#82c38c" /><rect x="31" y="181" width="3" height="3" fill="#82c38c" /><text x="48" y="119" fill="#82c38c" font-size="11" >SOURCE / 01</text><text x="48" y="145" fill="#f9f9f9" font-size="14" >Official announcement</text><text x="48" y="171" fill="#929b8c" font-size="11" >Identity + source claim</text>
+    <rect x="28" y="258" width="218" height="102" fill="#1e1f1c" stroke="#697463"/><rect x="31" y="265" width="3" height="3" fill="#82c38c" /><rect x="31" y="273" width="3" height="3" fill="#82c38c" /><rect x="31" y="281" width="3" height="3" fill="#82c38c" /><rect x="31" y="289" width="3" height="3" fill="#82c38c" /><rect x="31" y="297" width="3" height="3" fill="#82c38c" /><rect x="31" y="305" width="3" height="3" fill="#82c38c" /><rect x="31" y="313" width="3" height="3" fill="#82c38c" /><rect x="31" y="321" width="3" height="3" fill="#82c38c" /><rect x="31" y="329" width="3" height="3" fill="#82c38c" /><rect x="31" y="337" width="3" height="3" fill="#82c38c" /><rect x="31" y="345" width="3" height="3" fill="#82c38c" /><text x="48" y="283" fill="#82c38c" font-size="11" >SOURCE / 02</text><text x="48" y="309" fill="#f9f9f9" font-size="14" >Company adoption</text><text x="48" y="335" fill="#929b8c" font-size="11" >Pilot / production / plan</text>
+    <rect x="348" y="162" width="232" height="124" fill="#232b23" stroke="#82c38c"/>
+    <path d="M348 192H580" stroke="#697463"/>
+    <text x="362" y="182" fill="#82c38c" font-size="12" >EVENT RECORD</text>
+    <text x="364" y="219" fill="#f9f9f9" font-size="14" >A single occurrence</text>
+    <text x="364" y="245" fill="#b2b9ad" font-size="11" >Multiple sources attached</text>
+    <text x="364" y="269" fill="#929b8c" font-size="11" >Claims remain attributed</text>
+    <text x="600" y="202" fill="#82c38c" font-size="10" >REVIEW</text>
+    <rect x="688" y="94" width="264" height="266" fill="none" stroke="#82c38c" stroke-dasharray="3 4"/>
+    <rect x="700" y="107" width="240" height="240" fill="#232b23" stroke="#82c38c"/>
+    <rect x="700" y="107" width="240" height="32" fill="#82c38c" />
+    <text x="714" y="128" fill="#090808" font-size="12" >CAPABILITY STATE</text>
+    <text x="720" y="170" fill="#a6c686" font-size="10" >CENTRAL ESTIMATE</text>
+    <text x="716" y="229" fill="#f9f9f9" font-size="54" >46.0</text><text x="862" y="229" fill="#b2b9ad" font-size="13" >/ 100</text>
+    <path d="M720 262H920" stroke="#697463"/>
+    <path d="M784 262H844" stroke="#a6c686" stroke-width="4"/>
+    <rect x="807" y="257" width="10" height="10" fill="#a6c686" />
+    <text x="720" y="291" fill="#b2b9ad" font-size="11" >32 — 62  SCENARIO RANGE</text>
+    <text x="720" y="321" fill="#929b8c" font-size="10" >ILLUSTRATIVE / NOT LIVE</text>
+    <path d="M28 393H952" stroke="#393d36"/>
+    <text x="28" y="422" fill="#929b8c" font-size="11" >01 / OBSERVE</text><text x="348" y="422" fill="#929b8c" font-size="11" >02 / ATTRIBUTE</text><text x="700" y="422" fill="#929b8c" font-size="11" >03 / ESTIMATE</text>
+  </g>
+</svg>

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>openaiwill — Design system 01</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/fonts.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body class="ah-root">
+  <div class="ah-shell">
+    <header class="spec-header">
+      <a class="spec-brand" href="#top" aria-label="openaiwill 设计规范首页">openai<span>will</span>.</a>
+      <nav aria-label="规范章节">
+        <a href="#foundations">基础</a><a href="#graphics">图形</a><a href="#components">组件</a><a href="../../DESIGN.md">规范文件 ↗</a>
+      </nav>
+    </header>
+    <main id="top">
+      <section class="spec-cover" aria-labelledby="cover-title">
+        <div class="spec-meta ah-label"><span>Design system / 01</span><span>openaiwill · 2026.09</span></div>
+        <div class="spec-cover-top">
+          <h1 class="ah-display" id="cover-title" lang="en">Signals into<br><span>understanding.</span></h1>
+          <img class="spec-strip" src="assets/signal-strips.svg" alt="" aria-hidden="true" width="816" height="312">
+        </div>
+        <div class="spec-cover-bottom">
+          <div><p class="spec-cover-kicker">openaiwill 视觉与交互规范</p><p class="spec-cover-copy">色彩、字体、图形与组件，共用一套规则。</p></div>
+          <a class="spec-link" href="README.md">打开资源索引 ↗</a>
+        </div>
+      </section>
+
+      <section class="spec-section" id="foundations" aria-labelledby="color-title">
+        <div class="spec-section-title"><span class="ah-label">01—A</span><h2 class="ah-heading" id="color-title">色彩有角色。</h2><p>近黑承载内容，灰白负责阅读。柔和绿标记信号，青绿强调行动。状态同时配合文字与形状。</p></div>
+        <div class="spec-swatch-grid">
+          <div class="spec-swatch" data-color="ink"><span class="ah-label">01 / Ink</span><span>#161715</span></div>
+          <div class="spec-swatch" data-color="paper"><span class="ah-label">02 / Paper</span><span>#F4F4F4</span></div>
+          <div class="spec-swatch" data-color="signal"><span class="ah-label">03 / Signal</span><span>#82C38C</span></div>
+          <div class="spec-swatch" data-color="sage"><span class="ah-label">04 / Sage</span><span>#A6C686</span></div>
+          <div class="spec-swatch" data-color="action"><span class="ah-label">05 / Action</span><span>#0AA67D</span></div>
+        </div>
+        <div class="spec-statuses" aria-label="状态标记样本">
+          <span class="ah-badge">来源已记录</span><span class="ah-badge ah-badge--estimate">模型估计</span><span class="ah-badge ah-badge--attention">社区关注</span><span class="ah-badge ah-badge--pending">待核验</span><span class="ah-badge ah-badge--correction">已修订</span><span class="ah-badge ah-badge--missing">未采集</span>
+        </div>
+      </section>
+
+      <section class="spec-section" id="typography" aria-labelledby="type-title">
+        <div class="spec-section-title"><span class="ah-label">01—B</span><h2 class="ah-heading" id="type-title">两种字体，一套秩序。</h2><p>标题用比例建立主次。等宽字只标记数值、坐标与编号。中文保持自然字距和足够的行距。</p></div>
+        <div class="spec-type">
+          <div><span class="ah-label ah-muted">Inter Tight / 400–600</span><div class="spec-type-sans" lang="en">Evidence<br>takes shape.</div><p class="spec-type-zh">每一次变化，都有来处。</p><p>标题紧凑，正文舒展。用同一套排版，让复杂信息在中英文之间保持清晰。</p></div>
+          <div><span class="ah-label ah-muted">JetBrains Mono / 400–500</span><div class="spec-type-mono ah-numeric">Aa 0123456789<br>+1.8 / 100.0<br>EVT—2026—001</div><p>时间、标识、单位与数值对齐。未知值写作「—」，观测到的零写作「0」。</p><a class="spec-link" href="fonts/manifest.json">查看本地字体与许可 ↗</a></div>
+        </div>
+      </section>
+
+      <section class="spec-section" id="graphics" aria-labelledby="graphics-title">
+        <div class="spec-section-title"><span class="ah-label">02—A</span><h2 class="ah-heading" id="graphics-title">让关系成为图形。</h2><p>24px 网格、细线、方形端点、直角转折。图中的每条关系都有明确含义，演示只在点击后播放。</p></div>
+        <div class="spec-flow" id="demo-flow">
+          <div class="spec-desktop-graphic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 460" role="img" aria-labelledby="ah-flow-title ah-flow-desc">
+<title id="ah-flow-title">From sources to an estimated capability state</title><desc id="ah-flow-desc">Illustrative pipeline. A source and adoption report feed an event record. A reviewed event may revise a modeled capability state. Values are fictional design examples, not verified facts.</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <defs><pattern id="ah-flow-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff0a" stroke-width="1"/></pattern></defs><rect x="0" y="0" width="980" height="460" fill="#161715" /><rect x="0" y="0" width="980" height="460" fill="url(#ah-flow-grid)" />
+    <text x="28" y="34" fill="#82c38c" font-size="12" >OPENAIWILL / EVIDENCE SYSTEM</text>
+    <text x="744" y="34" fill="#929b8c" font-size="11" >SCHEMATIC · V1.0</text>
+    <g fill="none" stroke="#82c38c" stroke-width="1.5" class="signal-link">
+      <path d="M246 145H294V224H348"/><path d="M246 309H294V224"/>
+      <path d="M580 224H688" stroke-dasharray="5 5"/>
+    </g>
+    <rect x="290" y="220" width="8" height="8" fill="#82c38c" /><rect x="630" y="220" width="8" height="8" fill="#82c38c" />
+    <rect x="28" y="94" width="218" height="102" fill="#1e1f1c" stroke="#697463"/><rect x="31" y="101" width="3" height="3" fill="#82c38c" /><rect x="31" y="109" width="3" height="3" fill="#82c38c" /><rect x="31" y="117" width="3" height="3" fill="#82c38c" /><rect x="31" y="125" width="3" height="3" fill="#82c38c" /><rect x="31" y="133" width="3" height="3" fill="#82c38c" /><rect x="31" y="141" width="3" height="3" fill="#82c38c" /><rect x="31" y="149" width="3" height="3" fill="#82c38c" /><rect x="31" y="157" width="3" height="3" fill="#82c38c" /><rect x="31" y="165" width="3" height="3" fill="#82c38c" /><rect x="31" y="173" width="3" height="3" fill="#82c38c" /><rect x="31" y="181" width="3" height="3" fill="#82c38c" /><text x="48" y="119" fill="#82c38c" font-size="11" >SOURCE / 01</text><text x="48" y="145" fill="#f9f9f9" font-size="14" >Official announcement</text><text x="48" y="171" fill="#929b8c" font-size="11" >Identity + source claim</text>
+    <rect x="28" y="258" width="218" height="102" fill="#1e1f1c" stroke="#697463"/><rect x="31" y="265" width="3" height="3" fill="#82c38c" /><rect x="31" y="273" width="3" height="3" fill="#82c38c" /><rect x="31" y="281" width="3" height="3" fill="#82c38c" /><rect x="31" y="289" width="3" height="3" fill="#82c38c" /><rect x="31" y="297" width="3" height="3" fill="#82c38c" /><rect x="31" y="305" width="3" height="3" fill="#82c38c" /><rect x="31" y="313" width="3" height="3" fill="#82c38c" /><rect x="31" y="321" width="3" height="3" fill="#82c38c" /><rect x="31" y="329" width="3" height="3" fill="#82c38c" /><rect x="31" y="337" width="3" height="3" fill="#82c38c" /><rect x="31" y="345" width="3" height="3" fill="#82c38c" /><text x="48" y="283" fill="#82c38c" font-size="11" >SOURCE / 02</text><text x="48" y="309" fill="#f9f9f9" font-size="14" >Company adoption</text><text x="48" y="335" fill="#929b8c" font-size="11" >Pilot / production / plan</text>
+    <rect x="348" y="162" width="232" height="124" fill="#232b23" stroke="#82c38c"/>
+    <path d="M348 192H580" stroke="#697463"/>
+    <text x="362" y="182" fill="#82c38c" font-size="12" >EVENT RECORD</text>
+    <text x="364" y="219" fill="#f9f9f9" font-size="14" >A single occurrence</text>
+    <text x="364" y="245" fill="#b2b9ad" font-size="11" >Multiple sources attached</text>
+    <text x="364" y="269" fill="#929b8c" font-size="11" >Claims remain attributed</text>
+    <text x="600" y="202" fill="#82c38c" font-size="10" >REVIEW</text>
+    <rect x="688" y="94" width="264" height="266" fill="none" stroke="#82c38c" stroke-dasharray="3 4"/>
+    <rect x="700" y="107" width="240" height="240" fill="#232b23" stroke="#82c38c"/>
+    <rect x="700" y="107" width="240" height="32" fill="#82c38c" />
+    <text x="714" y="128" fill="#090808" font-size="12" >CAPABILITY STATE</text>
+    <text x="720" y="170" fill="#a6c686" font-size="10" >CENTRAL ESTIMATE</text>
+    <text x="716" y="229" fill="#f9f9f9" font-size="54" >46.0</text><text x="862" y="229" fill="#b2b9ad" font-size="13" >/ 100</text>
+    <path d="M720 262H920" stroke="#697463"/>
+    <path d="M784 262H844" stroke="#a6c686" stroke-width="4"/>
+    <rect x="807" y="257" width="10" height="10" fill="#a6c686" />
+    <text x="720" y="291" fill="#b2b9ad" font-size="11" >32 — 62  SCENARIO RANGE</text>
+    <text x="720" y="321" fill="#929b8c" font-size="10" >ILLUSTRATIVE / NOT LIVE</text>
+    <path d="M28 393H952" stroke="#393d36"/>
+    <text x="28" y="422" fill="#929b8c" font-size="11" >01 / OBSERVE</text><text x="348" y="422" fill="#929b8c" font-size="11" >02 / ATTRIBUTE</text><text x="700" y="422" fill="#929b8c" font-size="11" >03 / ESTIMATE</text>
+  </g>
+</svg>
+</div>
+          <div class="spec-mobile-graphic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 704" role="img" aria-labelledby="ah-flow-mobile-title ah-flow-mobile-desc">
+<title id="ah-flow-mobile-title">来源到能力估计：纵向流程样本</title><desc id="ah-flow-mobile-desc">两项来源材料汇入同一个事件，关系经评审后才可能更新估计。虚构中心值46，保守32，乐观62；不是实时业务数据。</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <defs><pattern id="ah-flow-mobile-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff0a" stroke-width="1"/></pattern></defs><rect x="0" y="0" width="360" height="704" fill="#161715" /><rect x="0" y="0" width="360" height="704" fill="url(#ah-flow-mobile-grid)" />
+    <text x="20" y="30" fill="#82c38c" font-size="16" >EVIDENCE / EXAMPLE</text>
+    <rect x="20" y="54" width="320" height="190" fill="#1e1f1c" stroke="#697463"/>
+    <text x="36" y="84" fill="#82c38c" font-size="16" >01 / SOURCES</text>
+    <text x="36" y="119" fill="#f9f9f9" font-size="18" >Official announcement</text>
+    <text x="36" y="145" fill="#b2b9ad" font-size="16" >Identity + source claim</text>
+    <path d="M36 162H324" stroke="#393d36"/>
+    <text x="36" y="190" fill="#f9f9f9" font-size="18" >Company adoption</text>
+    <text x="36" y="216" fill="#b2b9ad" font-size="16" >Pilot / production / plan</text>
+    <path d="M180 244V288" fill="none" stroke="#82c38c" stroke-width="1.5" class="signal-link"/>
+    <rect x="176" y="262" width="8" height="8" fill="#82c38c" />
+    <rect x="20" y="288" width="320" height="128" fill="#232b23" stroke="#82c38c"/>
+    <text x="36" y="318" fill="#82c38c" font-size="16" >02 / EVENT RECORD</text>
+    <text x="36" y="354" fill="#f9f9f9" font-size="18" >A single occurrence</text>
+    <text x="36" y="389" fill="#b2b9ad" font-size="16" >Claims remain attributed</text>
+    <path d="M180 416V466" fill="none" stroke="#82c38c" stroke-width="1.5" stroke-dasharray="5 5" class="signal-link"/>
+    <text x="196" y="447" fill="#82c38c" font-size="14" >REVIEW</text>
+    <rect x="176" y="437" width="8" height="8" fill="#82c38c" />
+    <rect x="20" y="466" width="320" height="214" fill="#232b23" stroke="#82c38c" stroke-dasharray="3 4"/>
+    <rect x="20" y="466" width="320" height="38" fill="#82c38c" />
+    <text x="36" y="491" fill="#090808" font-size="16" >03 / ESTIMATED STATE</text>
+    <text x="36" y="562" fill="#f9f9f9" font-size="52" >46.0</text><text x="188" y="562" fill="#b2b9ad" font-size="18" >/ 100</text>
+    <text x="36" y="600" fill="#a6c686" font-size="16" >32 — 62 / SCENARIOS</text>
+    <text x="36" y="632" fill="#b2b9ad" font-size="16" >FICTIONAL VALUES</text>
+    <text x="36" y="658" fill="#b2b9ad" font-size="16" >NOT A LIVE SCORE</text>
+  </g>
+</svg>
+</div>
+          <div class="spec-flow-controls"><button class="ah-button ah-button--secondary" id="play-flow" type="button">播放信号流程 <span aria-hidden="true">↗</span></button><p id="motion-status" role="status">静态结果始终可读 · 跟随系统减弱动画</p></div>
+        </div>
+        <div class="spec-data-demo">
+          <div class="spec-estimate">
+            <h3>区间标记</h3>
+            <div class="ah-badge ah-badge--estimate" id="estimate-label">中心情景 · 虚构样本</div>
+            <div class="spec-estimate-value"><span class="ah-label ah-muted">当前标记</span><output id="estimate-value" for="scenario-low scenario-mid scenario-high" aria-live="polite">46.0</output><small class="ah-label">/ 100</small></div>
+            <p>切换情景，观察方形标记的位置。区间不表示统计置信度。</p>
+            <fieldset class="ah-segments"><legend class="ah-label ah-muted">选择情景</legend><label><input id="scenario-low" type="radio" name="scenario" value="conservative"><span>保守</span></label><label><input id="scenario-mid" type="radio" name="scenario" value="central" checked><span>中心</span></label><label><input id="scenario-high" type="radio" name="scenario" value="optimistic"><span>乐观</span></label></fieldset>
+          </div>
+          <div class="spec-range-side"><div class="spec-desktop-graphic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" role="img" aria-labelledby="ah-range-title ah-range-desc">
+<title id="ah-range-title">Illustrative scenario range</title><desc id="ah-range-desc">Fictional conservative 32, central 46, optimistic 62 on a 0–100 scale. A scenario range is not a confidence interval.</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <rect x="0" y="0" width="720" height="240" fill="#161715" />
+    <text x="24" y="30" fill="#929b8c" font-size="12" >SCENARIO EXAMPLE / 0–100</text>
+    <path d="M40 126H680" stroke="#697463"/>
+    <path d="M40 119v14" stroke="#697463"/><text x="40" y="161" fill="#929b8c" font-size="12" text-anchor="middle">0</text><path d="M200 119v14" stroke="#697463"/><text x="200" y="161" fill="#929b8c" font-size="12" text-anchor="middle">25</text><path d="M360 119v14" stroke="#697463"/><text x="360" y="161" fill="#929b8c" font-size="12" text-anchor="middle">50</text><path d="M520 119v14" stroke="#697463"/><text x="520" y="161" fill="#929b8c" font-size="12" text-anchor="middle">75</text><path d="M680 119v14" stroke="#697463"/><text x="680" y="161" fill="#929b8c" font-size="12" text-anchor="middle">100</text>
+    <path d="M244.8 126H436.8" stroke="#a6c686" stroke-width="6"/>
+    <rect x="329.4" y="121" width="10" height="10" fill="#82c38c" id="range-cursor"/>
+    <text x="244.8" y="99" fill="#a6c686" font-size="14" text-anchor="middle">32</text><text x="334.4" y="71" fill="#f9f9f9" font-size="24" id="range-current" text-anchor="middle">46</text><text x="436.8" y="99" fill="#a6c686" font-size="14" text-anchor="middle">62</text>
+    <text x="24" y="212" fill="#929b8c" font-size="11" >FICTIONAL VALUES · SCENARIO RANGE, NOT CONFIDENCE INTERVAL</text>
+  </g>
+</svg>
+</div><div class="spec-mobile-graphic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 190" role="img" aria-labelledby="ah-range-mobile-title ah-range-mobile-desc">
+<title id="ah-range-mobile-title">情景区间样本</title><desc id="ah-range-mobile-desc">虚构保守32，中心46，乐观62；统一0至100尺度。</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <rect x="0" y="0" width="360" height="190" fill="#161715" />
+    <text x="20" y="27" fill="#929b8c" font-size="16" >SCENARIOS / EXAMPLE</text>
+    <path d="M20 116H340" stroke="#697463"/>
+    <path d="M122.4 116H218.4" stroke="#a6c686" stroke-width="5"/>
+    <rect x="162.2" y="111" width="10" height="10" fill="#82c38c" id="range-cursor-mobile"/>
+    <text x="167.2" y="71" fill="#f9f9f9" font-size="24" id="range-current-mobile" text-anchor="middle">46</text>
+    <path d="M20 109v14" stroke="#697463"/><text x="20" y="151" fill="#929b8c" font-size="16" text-anchor="middle">0</text><path d="M180 109v14" stroke="#697463"/><text x="180" y="151" fill="#929b8c" font-size="16" text-anchor="middle">50</text><path d="M340 109v14" stroke="#697463"/><text x="340" y="151" fill="#929b8c" font-size="16" text-anchor="middle">100</text>
+  </g>
+</svg>
+</div><p>保守 32 / 中心 46 / 乐观 62。统一 0–100 尺度；所有值均为虚构样本。</p></div>
+        </div>
+      </section>
+
+      <section class="spec-section" id="components" aria-labelledby="components-title">
+        <div class="spec-section-title"><span class="ah-label">02—B</span><h2 class="ah-heading" id="components-title">细节组成界面。</h2><p>44px 操作高度，2px 控件圆角。用边框、文字与反馈说明状态，支持键盘操作。</p></div>
+        <div class="spec-components">
+          <div><p class="ah-label spec-component-caption">Actions / default · hover · focus · disabled</p><div class="spec-buttons"><a class="ah-button" href="#source-example">查看来源 <span aria-hidden="true">↗</span></a><a class="ah-button ah-button--secondary" href="../../DESIGN.md">阅读规范</a><button class="ah-button" disabled>等待数据</button></div></div>
+          <div><p class="ah-label spec-component-caption">Input / local validation only</p><form class="spec-input-form" id="source-form" novalidate><label class="ah-field" for="source-url"><span>来源链接</span><input class="ah-input" id="source-url" name="source" type="url" placeholder="https://example.com/announcement" aria-describedby="source-error source-status" required></label><span class="ah-field-error" id="source-error" hidden>请输入完整的 https:// 链接。</span><button class="ah-button ah-button--secondary" type="submit">检查格式</button><p class="spec-form-status" id="source-status" role="status"></p></form></div>
+        </div>
+        <p class="spec-table-hint" id="table-hint">横向滚动查看完整表格 →</p>
+        <div class="ah-table-wrap" tabindex="0" role="region" aria-label="记录状态样本表，可横向滚动" aria-describedby="table-hint">
+          <table class="ah-table"><caption>记录样本 / 状态各自表达，不合并成一个“可信度”数字。</caption><thead><tr><th scope="col">记录</th><th scope="col">类型</th><th scope="col">状态</th><th class="ah-number-cell" scope="col">数值</th></tr></thead><tbody>
+            <tr><td><a href="#source-example">产品能力公告（示例）</a></td><td>来源材料</td><td><span class="ah-badge ah-badge--pending">宣称待核验</span></td><td class="ah-number-cell">—</td></tr>
+            <tr><td>工作完成程度（示例）</td><td>中心估计</td><td><span class="ah-badge ah-badge--estimate">虚构样本</span></td><td class="ah-number-cell">46 / 100</td></tr>
+            <tr><td>社区参与（未连接）</td><td>观测指标</td><td><span class="ah-badge ah-badge--missing">未采集</span></td><td class="ah-number-cell">—</td></tr>
+          </tbody></table>
+        </div>
+        <details class="spec-source-detail" id="source-example"><summary>来源详情的展开样式</summary><p>真实记录应显示作者、发布与采集时间、原始链接、宣称内容和核验状态。本条只演示展开交互，没有关联真实事件。</p></details>
+        <div class="ah-empty"><span class="ah-label ah-muted">Empty state / no published snapshot</span><h3>还没有已发布的进度快照</h3><p>完成范围、权重与状态评审后，再呈现正式数字。当前保留来源入口和待完成事项。</p><a class="spec-link" href="../../docs/data/takeover-simulation-v0.3.md">阅读估计方法 ↗</a></div>
+      </section>
+
+      <section class="spec-section" id="workflow" aria-labelledby="workflow-title">
+        <div class="spec-section-title"><span class="ah-label">03</span><h2 class="ah-heading" id="workflow-title">把判断，写进流程。</h2><p>采用帖子中的探索、确立、交付方法。风格已经选定，后续围绕真实内容完成设计与审阅。</p></div>
+        <div class="spec-steps"><article><span class="ah-label ah-muted">01 / Discover</span><h3>从具体参考开始。</h3><p>确认截图、拆解比例和图形规则。局部探索服务内容，保持品牌一致。</p><a class="spec-link" href="prompts/explore.md">局部探索模板 ↗</a></article><article><span class="ah-label ah-muted">02 / Define</span><h3>让截图接受审视。</h3><p>独立审阅者看真实画面，指出位置、问题和影响；先检查构图，再处理细节。</p><a class="spec-link" href="prompts/critic.md">独立审阅模板 ↗</a></article><article><span class="ah-label ah-muted">03 / Deliver</span><h3>留下必要的东西。</h3><p>删去多余外框与解释。验证窄屏、键盘、数据含义和减弱动画。</p><a class="spec-link" href="qa.md">交付检查 ↗</a></article></div>
+      </section>
+    </main>
+    <footer class="spec-footer ah-label"><span>openaiwill / Design system v1.0</span><span><a href="README.md">资源索引</a> · <a href="../../docs/research/ai-design-workflow-2026-09-12.md">方法研究</a></span></footer>
+  </div>
+</body>
+</html>

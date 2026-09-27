@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 704" role="img" aria-labelledby="ah-flow-mobile-title ah-flow-mobile-desc">
+<title id="ah-flow-mobile-title">来源到能力估计：纵向流程样本</title><desc id="ah-flow-mobile-desc">两项来源材料汇入同一个事件，关系经评审后才可能更新估计。虚构中心值46，保守32，乐观62；不是实时业务数据。</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <defs><pattern id="ah-flow-mobile-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#ffffff0a" stroke-width="1"/></pattern></defs><rect x="0" y="0" width="360" height="704" fill="#161715" /><rect x="0" y="0" width="360" height="704" fill="url(#ah-flow-mobile-grid)" />
+    <text x="20" y="30" fill="#82c38c" font-size="16" >EVIDENCE / EXAMPLE</text>
+    <rect x="20" y="54" width="320" height="190" fill="#1e1f1c" stroke="#697463"/>
+    <text x="36" y="84" fill="#82c38c" font-size="16" >01 / SOURCES</text>
+    <text x="36" y="119" fill="#f9f9f9" font-size="18" >Official announcement</text>
+    <text x="36" y="145" fill="#b2b9ad" font-size="16" >Identity + source claim</text>
+    <path d="M36 162H324" stroke="#393d36"/>
+    <text x="36" y="190" fill="#f9f9f9" font-size="18" >Company adoption</text>
+    <text x="36" y="216" fill="#b2b9ad" font-size="16" >Pilot / production / plan</text>
+    <path d="M180 244V288" fill="none" stroke="#82c38c" stroke-width="1.5" class="signal-link"/>
+    <rect x="176" y="262" width="8" height="8" fill="#82c38c" />
+    <rect x="20" y="288" width="320" height="128" fill="#232b23" stroke="#82c38c"/>
+    <text x="36" y="318" fill="#82c38c" font-size="16" >02 / EVENT RECORD</text>
+    <text x="36" y="354" fill="#f9f9f9" font-size="18" >A single occurrence</text>
+    <text x="36" y="389" fill="#b2b9ad" font-size="16" >Claims remain attributed</text>
+    <path d="M180 416V466" fill="none" stroke="#82c38c" stroke-width="1.5" stroke-dasharray="5 5" class="signal-link"/>
+    <text x="196" y="447" fill="#82c38c" font-size="14" >REVIEW</text>
+    <rect x="176" y="437" width="8" height="8" fill="#82c38c" />
+    <rect x="20" y="466" width="320" height="214" fill="#232b23" stroke="#82c38c" stroke-dasharray="3 4"/>
+    <rect x="20" y="466" width="320" height="38" fill="#82c38c" />
+    <text x="36" y="491" fill="#090808" font-size="16" >03 / ESTIMATED STATE</text>
+    <text x="36" y="562" fill="#f9f9f9" font-size="52" >46.0</text><text x="188" y="562" fill="#b2b9ad" font-size="18" >/ 100</text>
+    <text x="36" y="600" fill="#a6c686" font-size="16" >32 — 62 / SCENARIOS</text>
+    <text x="36" y="632" fill="#b2b9ad" font-size="16" >FICTIONAL VALUES</text>
+    <text x="36" y="658" fill="#b2b9ad" font-size="16" >NOT A LIVE SCORE</text>
+  </g>
+</svg>

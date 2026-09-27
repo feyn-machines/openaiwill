@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" role="img" aria-labelledby="ah-range-title ah-range-desc">
+<title id="ah-range-title">Illustrative scenario range</title><desc id="ah-range-desc">Fictional conservative 32, central 46, optimistic 62 on a 0–100 scale. A scenario range is not a confidence interval.</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <rect x="0" y="0" width="720" height="240" fill="#161715" />
+    <text x="24" y="30" fill="#929b8c" font-size="12" >SCENARIO EXAMPLE / 0–100</text>
+    <path d="M40 126H680" stroke="#697463"/>
+    <path d="M40 119v14" stroke="#697463"/><text x="40" y="161" fill="#929b8c" font-size="12" text-anchor="middle">0</text><path d="M200 119v14" stroke="#697463"/><text x="200" y="161" fill="#929b8c" font-size="12" text-anchor="middle">25</text><path d="M360 119v14" stroke="#697463"/><text x="360" y="161" fill="#929b8c" font-size="12" text-anchor="middle">50</text><path d="M520 119v14" stroke="#697463"/><text x="520" y="161" fill="#929b8c" font-size="12" text-anchor="middle">75</text><path d="M680 119v14" stroke="#697463"/><text x="680" y="161" fill="#929b8c" font-size="12" text-anchor="middle">100</text>
+    <path d="M244.8 126H436.8" stroke="#a6c686" stroke-width="6"/>
+    <rect x="329.4" y="121" width="10" height="10" fill="#82c38c" id="range-cursor"/>
+    <text x="244.8" y="99" fill="#a6c686" font-size="14" text-anchor="middle">32</text><text x="334.4" y="71" fill="#f9f9f9" font-size="24" id="range-current" text-anchor="middle">46</text><text x="436.8" y="99" fill="#a6c686" font-size="14" text-anchor="middle">62</text>
+    <text x="24" y="212" fill="#929b8c" font-size="11" >FICTIONAL VALUES · SCENARIO RANGE, NOT CONFIDENCE INTERVAL</text>
+  </g>
+</svg>

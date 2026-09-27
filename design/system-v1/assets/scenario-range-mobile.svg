@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 190" role="img" aria-labelledby="ah-range-mobile-title ah-range-mobile-desc">
+<title id="ah-range-mobile-title">情景区间样本</title><desc id="ah-range-mobile-desc">虚构保守32，中心46，乐观62；统一0至100尺度。</desc>
+<g font-family="'AH JetBrains Mono','JetBrains Mono',monospace">
+    <rect x="0" y="0" width="360" height="190" fill="#161715" />
+    <text x="20" y="27" fill="#929b8c" font-size="16" >SCENARIOS / EXAMPLE</text>
+    <path d="M20 116H340" stroke="#697463"/>
+    <path d="M122.4 116H218.4" stroke="#a6c686" stroke-width="5"/>
+    <rect x="162.2" y="111" width="10" height="10" fill="#82c38c" id="range-cursor-mobile"/>
+    <text x="167.2" y="71" fill="#f9f9f9" font-size="24" id="range-current-mobile" text-anchor="middle">46</text>
+    <path d="M20 109v14" stroke="#697463"/><text x="20" y="151" fill="#929b8c" font-size="16" text-anchor="middle">0</text><path d="M180 109v14" stroke="#697463"/><text x="180" y="151" fill="#929b8c" font-size="16" text-anchor="middle">50</text><path d="M340 109v14" stroke="#697463"/><text x="340" y="151" fill="#929b8c" font-size="16" text-anchor="middle">100</text>
+  </g>
+</svg>

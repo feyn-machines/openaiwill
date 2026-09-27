@@ -1,0 +1,62 @@
+/* Framework-independent primitives. Load tokens.css and fonts.css first. */
+.ah-root { color: var(--ah-color-text); background: var(--ah-color-bg); font: 400 var(--ah-text-body)/var(--ah-leading-body) var(--ah-font-body); -webkit-font-smoothing: antialiased; }
+.ah-root *, .ah-root *::before, .ah-root *::after { box-sizing: border-box; }
+.ah-root :is(button,input,select,textarea) { font: inherit; }
+.ah-root :is(a,button,input,summary,select,textarea,[tabindex]):focus-visible { outline: 2px solid var(--ah-color-focus); outline-offset: 4px; }
+.ah-root ::selection { background: var(--ah-color-signal); color: var(--ah-color-ink); }
+.ah-shell { max-width: var(--ah-layout-max); margin-inline: auto; padding-inline: var(--ah-layout-gutter); }
+.ah-label { font: 400 var(--ah-text-label)/1.5 var(--ah-font-mono); letter-spacing: var(--ah-tracking-label); text-transform: uppercase; }
+.ah-display { margin: 0; font: 500 var(--ah-text-display)/var(--ah-leading-display) var(--ah-font-display); letter-spacing: var(--ah-tracking-display); }
+.ah-heading { font: 500 var(--ah-text-h2)/var(--ah-leading-heading) var(--ah-font-display); letter-spacing: -0.025em; }
+.ah-root :lang(zh) { line-height: 1.65; }
+.ah-root :is(.ah-display,.ah-heading):lang(zh) { line-height: 1.2; letter-spacing: -0.015em; }
+.ah-numeric { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.ah-muted { color: var(--ah-color-muted); }
+.ah-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--ah-space-3); min-height: var(--ah-control-height); padding: 10px 20px; color: var(--ah-color-ink); background: var(--ah-color-action); border: 1px solid transparent; border-radius: var(--ah-radius-control); font: 500 var(--ah-text-small)/1.3 var(--ah-font-mono); text-decoration: none; cursor: pointer; transition: background var(--ah-motion-feedback), border-color var(--ah-motion-feedback); }
+.ah-button:hover { background: var(--ah-color-action-hover); }
+.ah-button--secondary { background: transparent; border-color: var(--ah-color-control); color: var(--ah-color-text); }
+.ah-button--secondary:hover { background: var(--ah-color-surface-active); border-color: var(--ah-color-signal); }
+.ah-button:disabled { opacity: .45; cursor: not-allowed; }
+.ah-button:disabled:hover { background: var(--ah-color-action); }
+.ah-button--secondary:disabled:hover { background: transparent; }
+.ah-field { display: grid; gap: var(--ah-space-2); }
+.ah-input { width: 100%; min-height: var(--ah-control-height); padding: 10px 12px; color: var(--ah-color-text); background: var(--ah-color-bg); border: 1px solid var(--ah-color-control); border-radius: var(--ah-radius-control); }
+.ah-input::placeholder { color: var(--ah-color-subtle); }
+.ah-input[aria-invalid="true"] { border-color: var(--ah-color-correction); }
+.ah-field-error { color: var(--ah-color-correction); font-size: var(--ah-text-small); }
+.ah-badge { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; color: var(--ah-color-signal); font: 400 var(--ah-text-label)/1.5 var(--ah-font-mono); }
+.ah-badge::before { content: ""; width: 6px; height: 6px; background: currentColor; flex: none; }
+.ah-badge--estimate { color: var(--ah-color-estimate); }
+.ah-badge--estimate::before { background: transparent; border: 1px solid currentColor; }
+.ah-badge--attention { color: var(--ah-color-attention); }
+.ah-badge--attention::before { height: 2px; width: 10px; }
+.ah-badge--pending { color: var(--ah-color-warning); }
+.ah-badge--pending::before { background: transparent; border: 1px dashed currentColor; }
+.ah-badge--correction { color: var(--ah-color-correction); }
+.ah-badge--missing { color: var(--ah-color-muted); }
+.ah-badge--missing::before { background: transparent; border-top: 1px solid currentColor; height: 1px; }
+.ah-panel { border: 1px solid var(--ah-color-line); background: var(--ah-color-surface); }
+.ah-panel-header { padding: var(--ah-space-3) var(--ah-space-4); border-bottom: 1px solid var(--ah-color-line); display: flex; gap: var(--ah-space-3); align-items: center; justify-content: space-between; }
+.ah-grid { background-image: linear-gradient(var(--ah-color-grid) 1px,transparent 1px),linear-gradient(90deg,var(--ah-color-grid) 1px,transparent 1px); background-size: var(--ah-grid-unit) var(--ah-grid-unit); }
+.ah-segments { display: inline-flex; flex-wrap: wrap; gap: 4px; border: 0; margin: 0; padding: 0; }
+.ah-segments legend { margin-bottom: 8px; }
+.ah-segments label { position: relative; cursor: pointer; }
+.ah-segments input { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+.ah-segments span { display: flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--ah-color-control); color: var(--ah-color-muted); font: 400 var(--ah-text-label)/1.5 var(--ah-font-mono); }
+.ah-segments input:checked + span { background: var(--ah-color-signal); color: var(--ah-color-ink); border-color: var(--ah-color-signal); }
+.ah-segments input:focus-visible + span { outline: 2px solid var(--ah-color-focus); outline-offset: 3px; }
+.ah-table-wrap { overflow-x: auto; }
+.ah-table { border-collapse: collapse; width: 100%; min-width: 560px; text-align: left; font-size: var(--ah-text-small); }
+.ah-table caption { text-align: left; padding-bottom: var(--ah-space-4); color: var(--ah-color-muted); }
+.ah-table th { color: var(--ah-color-muted); font: 400 var(--ah-text-label)/1.5 var(--ah-font-mono); }
+.ah-table :is(th,td) { padding: 16px 12px; border-bottom: 1px solid var(--ah-color-line); }
+.ah-table :is(th,td):first-child { padding-left: 0; }
+.ah-table a { color: inherit; text-underline-offset: 4px; }
+.ah-table tbody tr:hover { background: var(--ah-color-surface-active); }
+.ah-table .ah-number-cell { text-align: right; font-family: var(--ah-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ah-empty { padding: var(--ah-space-6); border: 1px dashed var(--ah-color-control); }
+.ah-empty p { max-width: 48ch; color: var(--ah-color-muted); }
+.ah-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ah-root *, .ah-root *::before, .ah-root *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

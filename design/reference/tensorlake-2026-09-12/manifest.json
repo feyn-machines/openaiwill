@@ -1,0 +1,505 @@
+{
+  "collected_at": "2026-09-12T11:50:52+0800",
+  "assets": [
+    {
+      "id": "hex-logo-motion",
+      "kind": "video",
+      "filename": "motion/01-logo-static-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/logo_static_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "2020035",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/logo_static_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 2020035,
+      "sha256": "6226bbed7bae924e9d1d73212f68fcb2baa616e266f34ef6e7330e8d8d00215b",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 3840,
+            "height": 2160,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "5.366667"
+        }
+      }
+    },
+    {
+      "id": "hex-sections-motion",
+      "kind": "video",
+      "filename": "motion/02-sections-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/sections_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "2346386",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/sections_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 2346386,
+      "sha256": "46156e36f47b1d38225af2b96ce11f2ac0b73902fc4d561d027917d863856b2f",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 3840,
+            "height": 2040,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "7.000000"
+        }
+      }
+    },
+    {
+      "id": "hex-cards-motion",
+      "kind": "video",
+      "filename": "motion/03-cards-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/cards_1-1_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "584040",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/cards_1-1_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 584040,
+      "sha256": "a6d4e79c487eb292dd46f8e4eba99b74b4558e51c48023c5024d66ed8eac1718",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 2160,
+            "height": 2160,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "2.816667"
+        }
+      }
+    },
+    {
+      "id": "hex-hero-motion",
+      "kind": "video",
+      "filename": "motion/04-hero-animation-1440p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/hero_animation_v1%20(1440p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "5485387",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/hero_animation_v1%20(1440p).mp4",
+      "status": "downloaded",
+      "bytes": 5485387,
+      "sha256": "43f81d454f1ab83a6f39ead75e20850f84430438a2ef83f59867e1fa37f081e3",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 2560,
+            "height": 1440,
+            "r_frame_rate": "60/1"
+          },
+          {
+            "codec_name": "aac",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "10.068333"
+        }
+      }
+    },
+    {
+      "id": "hex-banner-motion",
+      "kind": "video",
+      "filename": "motion/05-banner-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/banner_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "493719",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/banner_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 493719,
+      "sha256": "ec7ad6da0ecc806778e7485316d0c62339ee53f2f73e4bafaa0b89936058d356",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 3840,
+            "height": 2160,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "5.000000"
+        }
+      }
+    },
+    {
+      "id": "hex-stats-motion",
+      "kind": "video",
+      "filename": "motion/06-stats-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/stats_1-1_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "491789",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/stats_1-1_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 491789,
+      "sha256": "51e3cf0975f6a8dc475395113d14d87a9cb2521cba8dc4d32519b825797dd664",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 2160,
+            "height": 2160,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "5.500000"
+        }
+      }
+    },
+    {
+      "id": "hex-white-motion",
+      "kind": "video",
+      "filename": "motion/07-white-2160p.mp4",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/white_v1%20(2160p).mp4",
+      "content_type": "video/mp4",
+      "content_length": "327732",
+      "final_url": "https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/white_v1%20(2160p).mp4",
+      "status": "downloaded",
+      "bytes": 327732,
+      "sha256": "c85aa080cff91311bc7ef3395cc054db7fa15b87a981975e0b3f0347de9cc3f7",
+      "media": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 3840,
+            "height": 2160,
+            "r_frame_rate": "60/1"
+          }
+        ],
+        "format": {
+          "duration": "4.000000"
+        }
+      }
+    },
+    {
+      "id": "hex-image-01",
+      "kind": "image",
+      "filename": "images/01-brand-frame-2147226492.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f473f7707f9fec8bcf_Frame%202147226492.png",
+      "content_type": "image/png",
+      "content_length": "644522",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f473f7707f9fec8bcf_Frame%202147226492.png",
+      "status": "downloaded",
+      "bytes": 644522,
+      "sha256": "e3a56f9ec277ef1eb56d64b21f91d756bda155e7093f3ce16383e00f5da9c086",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-02",
+      "kind": "image",
+      "filename": "images/02-brand-frame-2147226495.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3becf30920c5a2191_Frame%202147226495.png",
+      "content_type": "image/png",
+      "content_length": "530687",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3becf30920c5a2191_Frame%202147226495.png",
+      "status": "downloaded",
+      "bytes": 530687,
+      "sha256": "d3c0388e7c54a5a370f6a7c1dca2bb58564bc3b21981ccf5d1691fcc3e8b0296",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-03",
+      "kind": "image",
+      "filename": "images/03-brand-frame-2147226496.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f32eb1080027ae7172_Frame%202147226496.png",
+      "content_type": "image/png",
+      "content_length": "538121",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f32eb1080027ae7172_Frame%202147226496.png",
+      "status": "downloaded",
+      "bytes": 538121,
+      "sha256": "083630aa79ad4cc1886558f86a7ee5e9980d08def851076b692bcbea9604ae9c",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-04",
+      "kind": "image",
+      "filename": "images/04-brand-frame-2147226493.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3ff547a2ef6a3d905_Frame%202147226493.png",
+      "content_type": "image/png",
+      "content_length": "307256",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3ff547a2ef6a3d905_Frame%202147226493.png",
+      "status": "downloaded",
+      "bytes": 307256,
+      "sha256": "d13f84e03b211bb84f40d3b4682d3c12139f05e72bde2ad9a783939501797407",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-05",
+      "kind": "image",
+      "filename": "images/05-brand-frame-2147226497.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f400eb7b3e05bd2ac8_Frame%202147226497.png",
+      "content_type": "image/png",
+      "content_length": "889526",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f400eb7b3e05bd2ac8_Frame%202147226497.png",
+      "status": "downloaded",
+      "bytes": 889526,
+      "sha256": "2dcc24f0b19b77b14f20b2f9f8af634cefcb414ebd92bd01d150ecc5fcce8636",
+      "dimensions": {
+        "width": 17520,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-06",
+      "kind": "image",
+      "filename": "images/06-brand-frame-2147226499.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f44f4416861140fd36_Frame%202147226499.png",
+      "content_type": "image/png",
+      "content_length": "670606",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f44f4416861140fd36_Frame%202147226499.png",
+      "status": "downloaded",
+      "bytes": 670606,
+      "sha256": "9f82d3db98d8ef0c4a9138ed8ace4f15eb82115d5e6500f8ab8d2dbc245b4e84",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "hex-image-07",
+      "kind": "image",
+      "filename": "images/07-brand-frame-2147226500.png",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3a9887c75dc4193c9_Frame%202147226500.png",
+      "content_type": "image/png",
+      "content_length": "593972",
+      "final_url": "https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3a9887c75dc4193c9_Frame%202147226500.png",
+      "status": "downloaded",
+      "bytes": 593972,
+      "sha256": "9aa2970d8ffd562d49b35c51998bab632527899e47b82e81b848719500d4cd0f",
+      "dimensions": {
+        "width": 8640,
+        "height": 8640
+      },
+      "validation": "PNG signature and every chunk CRC verified"
+    },
+    {
+      "id": "site-footer-lines",
+      "kind": "svg",
+      "filename": "svg/footer-lines.svg",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/assets/footer-lines.svg",
+      "content_type": "image/svg+xml",
+      "content_length": "7256",
+      "final_url": "https://www.tensorlake.ai/assets/footer-lines.svg",
+      "status": "downloaded",
+      "bytes": 7256,
+      "sha256": "5e907ba2fc7da60d5b9b12637147963fe772b98c3309eb5409b520522d38f6e4"
+    },
+    {
+      "id": "site-css-01",
+      "kind": "css",
+      "filename": "styles/01-original.css",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/_next/static/chunks/0ocodldg_3k4b.css",
+      "content_type": "text/css; charset=utf-8",
+      "content_length": "58741",
+      "final_url": "https://www.tensorlake.ai/_next/static/chunks/0ocodldg_3k4b.css",
+      "status": "downloaded",
+      "bytes": 58741,
+      "sha256": "9e1abd8e77e49551223f33dc6df9ca2e07e6420e271c9993fb4e5c0e3016a30e"
+    },
+    {
+      "id": "site-css-02",
+      "kind": "css",
+      "filename": "styles/02-original.css",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/_next/static/chunks/0lnq.ezgxyi83.css",
+      "content_type": "text/css; charset=utf-8",
+      "content_length": "94505",
+      "final_url": "https://www.tensorlake.ai/_next/static/chunks/0lnq.ezgxyi83.css",
+      "status": "downloaded",
+      "bytes": 94505,
+      "sha256": "f4dfbfa17bdab41e495b047e23b4baf4d0f002fb04bd9f652adab2e537bb55bf"
+    },
+    {
+      "id": "site-html",
+      "kind": "html_snapshot",
+      "filename": "snapshots/tensorlake-home.html.txt",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/",
+      "status": "downloaded",
+      "bytes": 152998,
+      "sha256": "e9a33bad07f13b873c8462b4e1f9a5778f2c8a9e2051a27408a8331d61549839",
+      "content_type": "text/html; charset=utf-8",
+      "final_url": "https://www.tensorlake.ai/"
+    },
+    {
+      "id": "hex-html",
+      "kind": "html_snapshot",
+      "filename": "snapshots/hex-tensorlake.html.txt",
+      "source_page": "https://www.hex.inc/work/tensorlake",
+      "url": "https://www.hex.inc/work/tensorlake",
+      "status": "downloaded",
+      "bytes": 35892,
+      "sha256": "e8609905658debee9d95435c3ad89f14bfad6678f87f62497807738004d367d4",
+      "content_type": "text/html; charset=utf-8",
+      "final_url": "https://www.hex.inc/work/tensorlake"
+    },
+    {
+      "id": "font-JetBrainsMono-VariableFont_wght__1_",
+      "kind": "font",
+      "filename": "fonts/JetBrainsMono-VariableFont_wght__1_.ttf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/JetBrainsMono-VariableFont_wght__1_.ttf",
+      "rights_status": "SIL OFL 1.1; official vendor page verified",
+      "status": "downloaded",
+      "bytes": 187860,
+      "sha256": "b6490e1a902e56fc84050bee9aad91509e6f45aa00f96f882dab53c9abaf83eb",
+      "content_type": "font/ttf",
+      "final_url": "https://www.tensorlake.ai/fonts/JetBrainsMono-VariableFont_wght__1_.ttf"
+    },
+    {
+      "id": "font-PPNeueMontreal-Bold",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-Bold.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Bold.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 118304,
+      "sha256": "b1845dcd4d8410bb4cb2b2227857e737fc57e9878c15b2ba052e7dc2c8888cc4",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Bold.otf"
+    },
+    {
+      "id": "font-PPNeueMontreal-Book",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-Book.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Book.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 115788,
+      "sha256": "522baf3ae0cb20844e7b6247d13d03d4c8870be02126a722e426636a0759bfc0",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Book.otf"
+    },
+    {
+      "id": "font-PPNeueMontreal-Italic",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-Italic.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Italic.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 110808,
+      "sha256": "025786eaf77c9e62b6bc8d2a0c2d9a290e855aa5a3824ff7f939ff92484c56d7",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Italic.otf"
+    },
+    {
+      "id": "font-PPNeueMontreal-Medium",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-Medium.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Medium.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 121020,
+      "sha256": "961d500e3e9e9055b73e4e2c8a165c490bcecc82a044466e107b097c55df08c2",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Medium.otf"
+    },
+    {
+      "id": "font-PPNeueMontreal-SemiBolditalic",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-SemiBolditalic.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-SemiBolditalic.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 123992,
+      "sha256": "f97c0236dff64c0fa23d0df5da4d4803c3b9ea89cbd1fa4a7ad68810ba150fb8",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-SemiBolditalic.otf"
+    },
+    {
+      "id": "font-PPNeueMontreal-Thin",
+      "kind": "font",
+      "filename": "fonts/PPNeueMontreal-Thin.otf",
+      "source_page": "https://www.tensorlake.ai/",
+      "url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Thin.otf",
+      "rights_status": "Commercial font; archived from public website only. No license for AgentHowTo established.",
+      "status": "downloaded",
+      "bytes": 109940,
+      "sha256": "a4f591f1ed4b3bfc22d2f4567d54e8c662704149e0b952bf3a43c5426e4cdd07",
+      "content_type": "font/otf",
+      "final_url": "https://www.tensorlake.ai/fonts/PPNeueMontreal-Thin.otf"
+    },
+    {
+      "id": "inline-tensorlake-brand-mark.svg",
+      "kind": "svg",
+      "filename": "svg/tensorlake-brand-mark.svg",
+      "source_page": "https://www.tensorlake.ai/",
+      "status": "extracted",
+      "bytes": 1227,
+      "sha256": "999339914d55e56a79098e63227b4070f87e23f3ee3b441cddbf0b8b5431c745",
+      "note": "Exported from public inline SVG with SVG namespace added. Version graph includes its original CSS rules and root tokens for standalone display."
+    },
+    {
+      "id": "inline-versioned-filesystem-graph.svg",
+      "kind": "svg",
+      "filename": "svg/versioned-filesystem-graph.svg",
+      "source_page": "https://www.tensorlake.ai/",
+      "status": "extracted",
+      "bytes": 4881,
+      "sha256": "8046a0ed95f86d5daad774eb17123e7db47d7776bb2defc316cdca2d8f2f8dc3",
+      "note": "Exported from public inline SVG with SVG namespace added. Version graph includes its original CSS rules and root tokens for standalone display."
+    }
+  ]
+}

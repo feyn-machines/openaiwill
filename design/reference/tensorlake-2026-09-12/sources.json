@@ -1,0 +1,34 @@
+{
+  "collected_at": "2026-09-12",
+  "scope": "Public Tensorlake brand assets embedded in the HEX Tensorlake case and current Tensorlake homepage. Excludes other HEX projects and third-party customer logos.",
+  "pages": [
+    "https://www.hex.inc/work/tensorlake",
+    "https://www.tensorlake.ai/"
+  ],
+  "assets": [
+    {"id":"hex-logo-motion","kind":"video","filename":"motion/01-logo-static-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/logo_static_v1%20(2160p).mp4"},
+    {"id":"hex-sections-motion","kind":"video","filename":"motion/02-sections-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/sections_v1%20(2160p).mp4"},
+    {"id":"hex-cards-motion","kind":"video","filename":"motion/03-cards-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/cards_1-1_v1%20(2160p).mp4"},
+    {"id":"hex-hero-motion","kind":"video","filename":"motion/04-hero-animation-1440p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/hero_animation_v1%20(1440p).mp4"},
+    {"id":"hex-banner-motion","kind":"video","filename":"motion/05-banner-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/banner_v1%20(2160p).mp4"},
+    {"id":"hex-stats-motion","kind":"video","filename":"motion/06-stats-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/stats_1-1_v1%20(2160p).mp4"},
+    {"id":"hex-white-motion","kind":"video","filename":"motion/07-white-2160p.mp4","source_page":"https://www.hex.inc/work/tensorlake","url":"https://pub-edef86be2fe54734b8e27feb2fa03acf.r2.dev/white_v1%20(2160p).mp4"},
+    {"id":"hex-image-01","kind":"image","filename":"images/01-brand-frame-2147226492.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f473f7707f9fec8bcf_Frame%202147226492.png"},
+    {"id":"hex-image-02","kind":"image","filename":"images/02-brand-frame-2147226495.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3becf30920c5a2191_Frame%202147226495.png"},
+    {"id":"hex-image-03","kind":"image","filename":"images/03-brand-frame-2147226496.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f32eb1080027ae7172_Frame%202147226496.png"},
+    {"id":"hex-image-04","kind":"image","filename":"images/04-brand-frame-2147226493.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3ff547a2ef6a3d905_Frame%202147226493.png"},
+    {"id":"hex-image-05","kind":"image","filename":"images/05-brand-frame-2147226497.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f400eb7b3e05bd2ac8_Frame%202147226497.png"},
+    {"id":"hex-image-06","kind":"image","filename":"images/06-brand-frame-2147226499.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f44f4416861140fd36_Frame%202147226499.png"},
+    {"id":"hex-image-07","kind":"image","filename":"images/07-brand-frame-2147226500.png","source_page":"https://www.hex.inc/work/tensorlake","url":"https://cdn.prod.website-files.com/63e9c5790a97483ad02740af/69ce38f3a9887c75dc4193c9_Frame%202147226500.png"},
+    {"id":"site-footer-lines","kind":"svg","filename":"svg/footer-lines.svg","source_page":"https://www.tensorlake.ai/","url":"https://www.tensorlake.ai/assets/footer-lines.svg"},
+    {"id":"site-css-01","kind":"css","filename":"styles/01-original.css","source_page":"https://www.tensorlake.ai/","url":"https://www.tensorlake.ai/_next/static/chunks/0ocodldg_3k4b.css"},
+    {"id":"site-css-02","kind":"css","filename":"styles/02-original.css","source_page":"https://www.tensorlake.ai/","url":"https://www.tensorlake.ai/_next/static/chunks/0lnq.ezgxyi83.css"}
+  ],
+  "source_files": {
+    "figma": "No public download or community file linked from inspected pages.",
+    "after_effects": "No public AEP download linked from inspected pages.",
+    "showreel": "https://vimeo.com/1181903687",
+    "showreel_status": "Public embed located; not a direct download URL."
+  },
+  "rights_status": "Publicly accessible delivery assets, not an open-license brand kit. Commercial reuse permission for original graphics and brand marks has not been established."
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>openaiwill — Design system 01</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/fonts.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body class="ah-root">
+  <div class="ah-shell">
+    <header class="spec-header">
+      <a class="spec-brand" href="#top" aria-label="openaiwill 设计规范首页">openai<span>will</span>.</a>
+      <nav aria-label="规范章节">
+        <a href="#foundations">基础</a><a href="#graphics">图形</a><a href="#components">组件</a><a href="../../DESIGN.md">规范文件 ↗</a>
+      </nav>
+    </header>
+    <main id="top">
+      <section class="spec-cover" aria-labelledby="cover-title">
+        <div class="spec-meta ah-label"><span>Design system / 01</span><span>openaiwill · 2026.09</span></div>
+        <div class="spec-cover-top">
+          <h1 class="ah-display" id="cover-title" lang="en">Signals into<br><span>understanding.</span></h1>
+          <img class="spec-strip" src="assets/signal-strips.svg" alt="" aria-hidden="true" width="816" height="312">
+        </div>
+        <div class="spec-cover-bottom">
+          <div><p class="spec-cover-kicker">openaiwill 视觉与交互规范</p><p class="spec-cover-copy">色彩、字体、图形与组件，共用一套规则。</p></div>
+          <a class="spec-link" href="README.md">打开资源索引 ↗</a>
+        </div>
+      </section>
+
+      <section class="spec-section" id="foundations" aria-labelledby="color-title">
+        <div class="spec-section-title"><span class="ah-label">01—A</span><h2 class="ah-heading" id="color-title">色彩有角色。</h2><p>近黑承载内容，灰白负责阅读。柔和绿标记信号，青绿强调行动。状态同时配合文字与形状。</p></div>
+        <div class="spec-swatch-grid">
+          <div class="spec-swatch" data-color="ink"><span class="ah-label">01 / Ink</span><span>#161715</span></div>
+          <div class="spec-swatch" data-color="paper"><span class="ah-label">02 / Paper</span><span>#F4F4F4</span></div>
+          <div class="spec-swatch" data-color="signal"><span class="ah-label">03 / Signal</span><span>#82C38C</span></div>
+          <div class="spec-swatch" data-color="sage"><span class="ah-label">04 / Sage</span><span>#A6C686</span></div>
+          <div class="spec-swatch" data-color="action"><span class="ah-label">05 / Action</span><span>#0AA67D</span></div>
+        </div>
+        <div class="spec-statuses" aria-label="状态标记样本">
+          <span class="ah-badge">来源已记录</span><span class="ah-badge ah-badge--estimate">模型估计</span><span class="ah-badge ah-badge--attention">社区关注</span><span class="ah-badge ah-badge--pending">待核验</span><span class="ah-badge ah-badge--correction">已修订</span><span class="ah-badge ah-badge--missing">未采集</span>
+        </div>
+      </section>
+
+      <section class="spec-section" id="typography" aria-labelledby="type-title">
+        <div class="spec-section-title"><span class="ah-label">01—B</span><h2 class="ah-heading" id="type-title">两种字体，一套秩序。</h2><p>标题用比例建立主次。等宽字只标记数值、坐标与编号。中文保持自然字距和足够的行距。</p></div>
+        <div class="spec-type">
+          <div><span class="ah-label ah-muted">Inter Tight / 400–600</span><div class="spec-type-sans" lang="en">Evidence<br>takes shape.</div><p class="spec-type-zh">每一次变化，都有来处。</p><p>标题紧凑，正文舒展。用同一套排版，让复杂信息在中英文之间保持清晰。</p></div>
+          <div><span class="ah-label ah-muted">JetBrains Mono / 400–500</span><div class="spec-type-mono ah-numeric">Aa 0123456789<br>+1.8 / 100.0<br>EVT—2026—001</div><p>时间、标识、单位与数值对齐。未知值写作「—」，观测到的零写作「0」。</p><a class="spec-link" href="fonts/manifest.json">查看本地字体与许可 ↗</a></div>
+        </div>
+      </section>
+
+      <section class="spec-section" id="graphics" aria-labelledby="graphics-title">
+        <div class="spec-section-title"><span class="ah-label">02—A</span><h2 class="ah-heading" id="graphics-title">让关系成为图形。</h2><p>24px 网格、细线、方形端点、直角转折。图中的每条关系都有明确含义，演示只在点击后播放。</p></div>
+        <div class="spec-flow" id="demo-flow">
+          <div class="spec-desktop-graphic">{{EVIDENCE_FLOW}}</div>
+          <div class="spec-mobile-graphic">{{EVIDENCE_FLOW_MOBILE}}</div>
+          <div class="spec-flow-controls"><button class="ah-button ah-button--secondary" id="play-flow" type="button">播放信号流程 <span aria-hidden="true">↗</span></button><p id="motion-status" role="status">静态结果始终可读 · 跟随系统减弱动画</p></div>
+        </div>
+        <div class="spec-data-demo">
+          <div class="spec-estimate">
+            <h3>区间标记</h3>
+            <div class="ah-badge ah-badge--estimate" id="estimate-label">中心情景 · 虚构样本</div>
+            <div class="spec-estimate-value"><span class="ah-label ah-muted">当前标记</span><output id="estimate-value" for="scenario-low scenario-mid scenario-high" aria-live="polite">46.0</output><small class="ah-label">/ 100</small></div>
+            <p>切换情景，观察方形标记的位置。区间不表示统计置信度。</p>
+            <fieldset class="ah-segments"><legend class="ah-label ah-muted">选择情景</legend><label><input id="scenario-low" type="radio" name="scenario" value="conservative"><span>保守</span></label><label><input id="scenario-mid" type="radio" name="scenario" value="central" checked><span>中心</span></label><label><input id="scenario-high" type="radio" name="scenario" value="optimistic"><span>乐观</span></label></fieldset>
+          </div>
+          <div class="spec-range-side"><div class="spec-desktop-graphic">{{SCENARIO_RANGE}}</div><div class="spec-mobile-graphic">{{SCENARIO_RANGE_MOBILE}}</div><p>保守 32 / 中心 46 / 乐观 62。统一 0–100 尺度；所有值均为虚构样本。</p></div>
+        </div>
+      </section>
+
+      <section class="spec-section" id="components" aria-labelledby="components-title">
+        <div class="spec-section-title"><span class="ah-label">02—B</span><h2 class="ah-heading" id="components-title">细节组成界面。</h2><p>44px 操作高度，2px 控件圆角。用边框、文字与反馈说明状态，支持键盘操作。</p></div>
+        <div class="spec-components">
+          <div><p class="ah-label spec-component-caption">Actions / default · hover · focus · disabled</p><div class="spec-buttons"><a class="ah-button" href="#source-example">查看来源 <span aria-hidden="true">↗</span></a><a class="ah-button ah-button--secondary" href="../../DESIGN.md">阅读规范</a><button class="ah-button" disabled>等待数据</button></div></div>
+          <div><p class="ah-label spec-component-caption">Input / local validation only</p><form class="spec-input-form" id="source-form" novalidate><label class="ah-field" for="source-url"><span>来源链接</span><input class="ah-input" id="source-url" name="source" type="url" placeholder="https://example.com/announcement" aria-describedby="source-error source-status" required></label><span class="ah-field-error" id="source-error" hidden>请输入完整的 https:// 链接。</span><button class="ah-button ah-button--secondary" type="submit">检查格式</button><p class="spec-form-status" id="source-status" role="status"></p></form></div>
+        </div>
+        <p class="spec-table-hint" id="table-hint">横向滚动查看完整表格 →</p>
+        <div class="ah-table-wrap" tabindex="0" role="region" aria-label="记录状态样本表，可横向滚动" aria-describedby="table-hint">
+          <table class="ah-table"><caption>记录样本 / 状态各自表达，不合并成一个“可信度”数字。</caption><thead><tr><th scope="col">记录</th><th scope="col">类型</th><th scope="col">状态</th><th class="ah-number-cell" scope="col">数值</th></tr></thead><tbody>
+            <tr><td><a href="#source-example">产品能力公告（示例）</a></td><td>来源材料</td><td><span class="ah-badge ah-badge--pending">宣称待核验</span></td><td class="ah-number-cell">—</td></tr>
+            <tr><td>工作完成程度（示例）</td><td>中心估计</td><td><span class="ah-badge ah-badge--estimate">虚构样本</span></td><td class="ah-number-cell">46 / 100</td></tr>
+            <tr><td>社区参与（未连接）</td><td>观测指标</td><td><span class="ah-badge ah-badge--missing">未采集</span></td><td class="ah-number-cell">—</td></tr>
+          </tbody></table>
+        </div>
+        <details class="spec-source-detail" id="source-example"><summary>来源详情的展开样式</summary><p>真实记录应显示作者、发布与采集时间、原始链接、宣称内容和核验状态。本条只演示展开交互，没有关联真实事件。</p></details>
+        <div class="ah-empty"><span class="ah-label ah-muted">Empty state / no published snapshot</span><h3>还没有已发布的进度快照</h3><p>完成范围、权重与状态评审后，再呈现正式数字。当前保留来源入口和待完成事项。</p><a class="spec-link" href="../../docs/data/takeover-simulation-v0.3.md">阅读估计方法 ↗</a></div>
+      </section>
+
+      <section class="spec-section" id="workflow" aria-labelledby="workflow-title">
+        <div class="spec-section-title"><span class="ah-label">03</span><h2 class="ah-heading" id="workflow-title">把判断，写进流程。</h2><p>采用帖子中的探索、确立、交付方法。风格已经选定，后续围绕真实内容完成设计与审阅。</p></div>
+        <div class="spec-steps"><article><span class="ah-label ah-muted">01 / Discover</span><h3>从具体参考开始。</h3><p>确认截图、拆解比例和图形规则。局部探索服务内容，保持品牌一致。</p><a class="spec-link" href="prompts/explore.md">局部探索模板 ↗</a></article><article><span class="ah-label ah-muted">02 / Define</span><h3>让截图接受审视。</h3><p>独立审阅者看真实画面，指出位置、问题和影响；先检查构图，再处理细节。</p><a class="spec-link" href="prompts/critic.md">独立审阅模板 ↗</a></article><article><span class="ah-label ah-muted">03 / Deliver</span><h3>留下必要的东西。</h3><p>删去多余外框与解释。验证窄屏、键盘、数据含义和减弱动画。</p><a class="spec-link" href="qa.md">交付检查 ↗</a></article></div>
+      </section>
+    </main>
+    <footer class="spec-footer ah-label"><span>openaiwill / Design system v1.0</span><span><a href="README.md">资源索引</a> · <a href="../../docs/research/ai-design-workflow-2026-09-12.md">方法研究</a></span></footer>
+  </div>
+</body>
+</html>

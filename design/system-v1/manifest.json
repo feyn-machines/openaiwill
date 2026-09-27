@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "created": "2026-09-12",
+  "direction": "Tensorlake visual language, confirmed by user; openaiwill content and implementation",
+  "resources": [
+    { "path": "tokens.json", "role": "authoritative-token-source", "origin": "Project adaptation of archived public Tensorlake CSS values; provenance embedded in file" },
+    { "path": "styles/tokens.css", "role": "generated-css", "origin": "Generated from tokens.json", "license": "MIT" },
+    { "path": "styles/fonts.css", "role": "font-loading", "origin": "Original project code", "license": "MIT" },
+    { "path": "styles/components.css", "role": "component-primitives", "origin": "Original project code", "license": "MIT" },
+    { "path": "assets/signal-strips.svg", "role": "decorative-brand-graphic", "origin": "Original deterministic geometry inspired by approved strip vocabulary", "license": "MIT", "is_final_logo": false, "contains_real_data": false },
+    { "path": "assets/evidence-flow.svg", "role": "editable-explanatory-graph", "origin": "Original project geometry and text", "license": "MIT", "contains_real_data": false },
+    { "path": "assets/evidence-flow-mobile.svg", "role": "vertical-mobile-explanatory-graph", "origin": "Original project geometry and text", "license": "MIT", "contains_real_data": false },
+    { "path": "assets/scenario-range.svg", "role": "editable-data-specimen", "origin": "Original project geometry; fictional 32/46/62 examples", "license": "MIT", "contains_real_data": false },
+    { "path": "assets/scenario-range-mobile.svg", "role": "readable-mobile-range-specimen", "origin": "Original project geometry; fictional 32/46/62 examples", "license": "MIT", "contains_real_data": false },
+    { "path": "fonts/manifest.json", "role": "font-source-hashes-and-licenses", "origin": "Google Fonts official repository; per-file URLs and SHA-256" },
+    { "path": "preview.html", "role": "generated-offline-specimen", "origin": "preview.template.html plus generated SVG assets", "license": "MIT", "contains_real_data": false }
+  ],
+  "reference_boundary": "Tensorlake logos, original MP4/PNG/SVG, PP Neue Montreal and website CSS remain in ../reference/. This package does not import them into its preview or production CSS.",
+  "implementation_status": "Resources initialized. Existing business routes have not been migrated."
+}
