@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# All environment files are local, including examples with real values.
 .env*
 
 # vercel
@@ -42,10 +42,10 @@ next-env.d.ts
 
 # Local skill runtime and credentials
 **/.venv/
+**/venv/
 **/__pycache__/
 *.pyc
-!.env.example
-!**/.env.example
+**/.cache/
 
 # Private agent tooling: never publish
 .agents/
@@ -54,14 +54,50 @@ next-env.d.ts
 .lawrence/
 .opencode/
 skills/
-AGENTS.md
-CLAUDE.md
+AGENTS*.md
+CLAUDE*.md
+.mcp*.json
+mcp.json
+.claude.json*
 # Credentials and local collection output
-.env*
 *.key
 *.p12
 *.pfx
 cookies/
 *cookies*.json
 credentials*.json
-data/
+auth.json
+storage-state.json
+storage_state.json
+browser-state/
+/data/
+/private/
+/tmp/
+/logs/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Local bundles may contain credentials, raw captures or third-party materials.
+*.zip
+*.tar
+*.gz
+*.tgz
+*.7z
+*.rar
+
+# Keep public data documentation; runtime data remains private.
+!docs/data/
+docs/data/*
+!docs/data/*.md
+
+# Local Docker persistence (Postgres + MLflow) — never commit
+/infra/data/
+
+# Locally generated website snapshot: machine-proposed, unreviewed data.
+# The site renders without it (src/lib/snapshot.ts falls back when missing).
+/datasets/published/
