@@ -1,0 +1,55 @@
+# All local infrastructure for openaiwill, in one place. Everything binds to
+# 127.0.0.1 only and keeps its data under the gitignored data/ tree. Managed via
+# scripts/data-local.py (pnpm data:up / data:down / data:status). Paths are
+# relative to this file (infra/), so ../data is the repo-root data/ tree.
+#
+# SAFETY: the project name and the `postgres` volume name are fixed; the
+# PostgreSQL data volume is openaiwill-data-local_postgres. Never `down -v`.
+name: openaiwill-data-local
+
+services:
+  postgres:
+    image: postgres:18@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
+    environment:
+      POSTGRES_DB: openaiwill_local
+      POSTGRES_USER: openaiwill
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports:
+      - "127.0.0.1:7543:5432"
+    secrets:
+      - postgres_password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openaiwill -d openaiwill_local"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  mlflow:
+    build: ./mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlruns/mlflow.db
+      --serve-artifacts --artifacts-destination /mlartifacts
+    ports:
+      - "127.0.0.1:7545:5000"
+    environment:
+      DO_NOT_TRACK: "1"
+      MLFLOW_DISABLE_TELEMETRY: "true"
+    volumes:
+      - ./data/mlflow/mlruns:/mlruns
+      - ./data/mlflow/mlartifacts:/mlartifacts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health').status==200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+secrets:
+  postgres_password:
+    file: ../data/postgres/password

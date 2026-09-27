@@ -1,0 +1,2 @@
+psycopg[binary]==3.3.5
+mlflow-skinny==2.18.0
