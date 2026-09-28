@@ -1,7 +1,7 @@
 """Dynamic X account pool — lease, cooldown, failover, persistence.
 
-Account data is project-local and lives at data/collection/x-accounts/pool.json
-(ignored by Git). This module is account-independent code operating over that
+Account data is project-local and lives at data/secrets/x-accounts/pool.json
+(ignored by Git, 0600). This module is account-independent code operating over that
 data; it never logs or returns secrets — only the non-secret `label`.
 
 Health states:
@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 LEASABLE = {"usable", "unverified", "active"}
+COOLDOWN_MARGIN = 5  # seconds past the provider's reset before leasing again
 
 
 def _now():
@@ -53,6 +54,10 @@ class AccountPool:
         self.meta = meta or {}
         self._clock = clock
         self._by_label = {a["label"]: a for a in accounts}
+        self._leased = set()  # labels held by a worker right now (in memory only)
+
+    def now(self):
+        return self._clock()
 
     @classmethod
     def load(cls, path, clock=_now):
@@ -68,6 +73,8 @@ class AccountPool:
         return cls(path, accounts, meta, clock)
 
     def _leasable(self, account):
+        if account["label"] in self._leased:
+            return False
         if account["status"] not in LEASABLE:
             return False
         if not account.get("auth_token"):
@@ -116,8 +123,13 @@ class AccountPool:
         candidates.sort(key=lambda a: a.get("last_used_at") or "")
         account = candidates[0]
         account["last_used_at"] = self._clock().isoformat()
+        self._leased.add(account["label"])
         self._persist()
         return Lease(account["label"], account["auth_token"], account.get("ct0"))
+
+    def release(self, label):
+        """Return a leased account so another worker may take it."""
+        self._leased.discard(label)
 
     def _set(self, label, **fields):
         account = self._by_label[label]
@@ -127,9 +139,14 @@ class AccountPool:
     def mark_usable(self, label):
         self._set(label, status="usable", cooldown_until=None)
 
-    def mark_cooldown(self, label, seconds):
-        until = datetime.fromtimestamp(self._clock().timestamp() + seconds, timezone.utc)
-        self._set(label, status="usable", cooldown_until=until.isoformat())
+    def mark_cooldown(self, label, seconds=None, until=None):
+        """Cool an account for `seconds`, or until an epoch `until` (the
+        provider's own reset time) plus a small margin."""
+        if until is not None:
+            moment = datetime.fromtimestamp(float(until) + COOLDOWN_MARGIN, timezone.utc)
+        else:
+            moment = datetime.fromtimestamp(self._clock().timestamp() + seconds, timezone.utc)
+        self._set(label, status="usable", cooldown_until=moment.isoformat())
 
     def mark_dead(self, label, reason=None):
         self._set(label, status="dead", dead_reason=reason)

@@ -8,7 +8,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from crawler import parser, accounts, engine  # noqa: E402
+from crawler.core import accounts, errors  # noqa: E402
+from crawler.x import parse as parser, timeline as engine  # noqa: E402
 
 
 def tweet_entry(post_id, when="Thu Sep 10 18:35:32 +0000 2026", handle="OpenAI",
@@ -200,13 +201,13 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_rate_limit_raises_with_partial(self):
         fetch, _ = self._fetch([{"http_status": 429, "data": {}}])
-        with self.assertRaises(engine.RateLimited) as ctx:
+        with self.assertRaises(errors.RateLimited) as ctx:
             await engine.crawl_target(self.TARGET, fetch, pace=0)
         self.assertIn("posts", ctx.exception.partial)
 
     async def test_auth_error_code_raises(self):
         fetch, _ = self._fetch([{"http_status": 200, "data": {"errors": [{"code": 32, "message": "bad token"}]}}])
-        with self.assertRaises(engine.AuthFailed):
+        with self.assertRaises(errors.AuthFailed):
             await engine.crawl_target(self.TARGET, fetch, pace=0)
 
 

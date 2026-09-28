@@ -199,13 +199,21 @@ def main():
             result.update({'changed': len(changed), 'by_state': states})
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
         elif args.command == 'relations-backfill':
-            from crawler import parser as crawler_parser
+            from crawler.core.errors import SchemaChanged
+            from crawler.x import parse as crawler_parse
             from data_pipeline.collection_store import backfill_relations
+
+            def parse_page(data):
+                # A page the crawler no longer recognises is skipped like any unparsable page.
+                try:
+                    return crawler_parse.parse_user_timeline_page(data)
+                except SchemaChanged as exc:
+                    raise ValueError(str(exc)) from exc
             migrate(conn)
             result = {}
             for run in args.runs:
                 with conn.transaction():
-                    result[run.name] = backfill_relations(conn, run, crawler_parser.parse_user_timeline_page)
+                    result[run.name] = backfill_relations(conn, run, parse_page)
             print(json.dumps(result, ensure_ascii=False, indent=2))
         elif args.command == 'post-events':
             from data_pipeline.post_events import rebuild

@@ -1,8 +1,11 @@
 """Pure X response parsing and job planning — no twikit, no network.
 
-Extracted from the former official_x_collection module. Parsing raw UserTweets
-JSON directly (instead of Twikit's User constructor) keeps optional fields robust
-and keeps this logic unit-testable offline.
+Parsing raw UserTweets JSON directly (instead of Twikit's User constructor)
+keeps optional fields robust and keeps this logic unit-testable offline.
+
+Two kinds of refusal: a response whose structure we no longer recognise raises
+SchemaChanged (the scheduler stops the batch); one odd record in a recognised
+page raises ValueError (that job fails, others continue).
 """
 from __future__ import annotations
 
@@ -10,6 +13,8 @@ import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+
+from ..core.errors import SchemaChanged
 
 VERSION = "crawler-1"
 
@@ -87,7 +92,7 @@ def parse_user_timeline_page(data, observed_at=None):
         timeline = (user.get("timeline_v2") or user.get("timeline"))["timeline"]
         instructions = timeline["instructions"]
     except (KeyError, TypeError, AttributeError) as exc:
-        raise ValueError("Unexpected X user timeline schema") from exc
+        raise SchemaChanged("Unexpected X user timeline schema") from exc
     observed_at = observed_at or datetime.now(timezone.utc).isoformat()
     item_contents, cursor = [], None
     for instruction in instructions:

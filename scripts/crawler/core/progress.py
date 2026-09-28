@@ -29,7 +29,7 @@ def _fmt_dur(seconds):
 def eta_seconds(state, now=None):
     jobs = state["jobs"].values()
     total = len(jobs)
-    done = sum(1 for j in jobs if j["status"] in ("search_ended", "incomplete"))
+    done = sum(1 for j in jobs if j["status"] != "pending")
     if done == 0 or done >= total:
         return None
     elapsed = _elapsed(state, now)
@@ -42,7 +42,7 @@ def eta_seconds(state, now=None):
 def summary_line(state, now=None):
     jobs = state["jobs"].values()
     total = len(jobs)
-    done = sum(1 for j in jobs if j["status"] in ("search_ended", "incomplete"))
+    done = sum(1 for j in jobs if j["status"] != "pending")
     eta = eta_seconds(state, now)
     eta_str = f"ETA ~{_fmt_dur(eta)}" if eta is not None else "ETA —"
     return (f"jobs {done}/{total} · {state['posts']} posts · "
@@ -72,11 +72,13 @@ def block(state, now=None):
 
 def final_summary(state, now=None):
     jobs = state["jobs"].values()
-    ended = sum(1 for j in jobs if j["status"] == "search_ended")
-    incomplete = sum(1 for j in jobs if j["status"] == "incomplete")
+    incomplete = sum(1 for j in jobs if j["status"] in ("incomplete", "unresolved"))
+    ended = sum(1 for j in jobs if j["status"] not in ("pending", "incomplete", "unresolved"))
     pool = state.get("pool", {})
     return (f"done: {ended} complete, {incomplete} incomplete of {len(jobs)} jobs · "
             f"{state['posts']} posts · {state['requests']} reqs · "
             f"{_fmt_dur(_elapsed(state, now))} · "
             f"accounts cooldown {pool.get('cooldown', 0)} dead {pool.get('dead', 0)} · "
-            f"{len(state['failovers'])} failovers · status={state['status']}")
+            f"{len(state['failovers'])} failovers · status={state['status']}"
+            + (f" · SCHEMA CHANGED: {state['schema_change']['detail']}"
+               if state.get("schema_change") else ""))

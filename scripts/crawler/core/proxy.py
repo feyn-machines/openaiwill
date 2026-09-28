@@ -17,8 +17,8 @@ PROXY_KEYS = ("QINGGUO_PROXY_URL", "SOCIAL_PROXY_URL", "X_PROXY")
 
 
 def load_env(root: Path) -> None:
-    """Populate os.environ from local .env files without overriding real env."""
-    for name in (".env", ".agents/skills/social-qingguo-collector/.env"):
+    """Populate os.environ from the project's own .env without overriding real env."""
+    for name in (".env",):
         path = root / name
         if not path.exists():
             continue

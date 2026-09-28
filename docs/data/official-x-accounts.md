@@ -168,15 +168,7 @@ HTTP 200 但没有用户对象，表示本次未解析成功，不能断言账�
 
 **不得按公司名去重账号。** 每个启用 handle 都生成独立查询，按账号报告成功、失败、未查询及时间范围。同一发布可以被多个官方账号同时介绍：后续合并的是更新事件，仍保留各账号原帖与全部来源链接。
 
-账号 JSON 是数组格式。下面只测试名单中首个启用账号、最多 5 条，未在本次执行：
-
-```sh
-.agents/skills/social-qingguo-collector/scripts/run.sh \
-  --source x --x-mode account-monitor \
-  --x-accounts-file datasets/official-x-accounts.json \
-  --account-limit 1 --hours 168 --max-pages 1 --limit 5 --timeout 60 \
-  --output data/collection/official-x-first-batch.json
-```
+账号 JSON 是数组格式。采集由爬虫组件按名单为每个启用账号生成一条时间线任务，命令见 [X 采集爬虫运行手册](../development/x-crawler.md)（2026-09-27 起，原技能脚本入口已移除）。
 
 全名单查询使用 `--account-limit 0`。`--limit` 是整次运行的总条数预算，不是每个账号的预算；达到上限或失败后，未查询的账号必须算作覆盖缺口。本轮为核实账号关系进行了有限 X 搜索，没有启动定时监控或近 30 天全量采集。
 

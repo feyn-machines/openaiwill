@@ -1,14 +1,37 @@
 # X 采集爬虫运行手册
 
-项目自有的并发 X 官方账号采集器，位于 `scripts/crawler/`。取代原技能 `social-qingguo-collector`（已退役，目录保留为历史，项目不再 `import` 它）。设计见 [爬虫子系统设计](../superpowers/specs/2026-09-14-crawler-subsystem-design.md)。
+项目唯一的采集组件，位于 `scripts/crawler/`，统一入口 `pnpm crawl <timeline|lookup|doctor>`（`crawl:x`、`crawl:lookup` 是前两者的别名）。Agent 通过 `crawler` 技能调度它；技能不含采集代码，新能力一律加进本组件。原技能 `social-qingguo-collector` 与单账号入口 `collect-official-x.py` 已于 2026-09-27 删除（技能归档在忽略的 `data/archive/skills/`）。设计见 [爬虫子系统设计](../superpowers/specs/2026-09-14-crawler-subsystem-design.md)。
 
 数据流分三段独立：**采集**(本手册,`scripts/crawler`)→ **入库到采集库**(`data:ingest:x`,见下)→ **市场范围计算批次**(现有 `run_batch`,单独一步,本手册不含)。采集只产运行归档、不知道市场/指标;入库把归档幂等落进独立的采集库(不带市场/权重/指标/进度);计算阶段再从采集库按范围选证据。**不做**官网发布记录对账、事件抽取或估计。
+
+## 组件结构
+
+```
+scripts/crawler/
+  cli.py          pnpm crawl 的子命令
+  core/           与数据源无关的机制
+    scheduler     唯一的调度器：并发 worker、按失败类型换号/冷却/重试/停批
+    accounts      账号池：租借（同一账号不会同时借给两个 worker）、冷却、失效，即时落盘
+    errors        失败分类：RateLimited / AuthFailed / TransportError / SchemaChanged
+    archive       不可覆盖的运行文件与原始响应、实现哈希
+    proxy         青果代理配置（只读项目根 .env）与 TLS
+    progress      进度显示
+  x/              X 数据源
+    client        twikit 会话（唯一联网模块），记录 x-rate-limit-* 响应头
+    compat        twikit 2.3.3 补丁
+    parse         纯解析与任务规划
+    timeline      时间线任务
+    lookup        handle → user id / 公开资料任务
+```
+
+每类任务只提供"怎么做一个任务"，账号策略全部在 `core/scheduler`。新增数据源（如 Reddit）作为与 `x/` 平级的包加入，复用调度、存档与入库衔接。
 
 ## 前置
 
 - 代理：`X_PROXY`（或 `QINGGUO_PROXY_URL` / `SOCIAL_PROXY_URL`）在 `.env`，青果 https 隧道。代理是基础设施凭据，留在 env。
 - 账号池：`data/secrets/x-accounts/pool.json`（gitignore、0600）。字段 `username,password,totp_secret,email,email_password,auth_token,ct0,status,cooldown_until,last_used_at,label`。仅 token（有 `auth_token`、`ct0` 为 null）的账号可用——引擎会合成 32 位 ct0（cookie 与 `x-csrf-token` 同值，X 读接口接受），已于 2026-09-14 实机验证。
 - venv：`data/runtime/crawler-venv`。首次或依赖变更后 `pnpm crawl:setup`（装 `requirements-crawler.txt`：twikit 2.3.3、httpx 0.28.1）。
+- 自检：`pnpm crawl doctor` 离线检查代理配置、账号池（数量、健康态、0600 权限）与 twikit，不访问 X、不打印凭据。
 
 ## 运行
 
@@ -25,6 +48,17 @@ pnpm crawl:x -- --start 2026-08-24T00:00:00Z --end 2026-09-14T00:00:00Z \
 pnpm crawl:x -- --start ... --end ... --handles OpenAI \
   --expect-post <postid> --output data/collection/official-x/openai.json
 ```
+
+账号查询（名单解析 handle → user id 与公开资料；worker 在成功后保留账号与连接给下一个 handle，因为每次只是一个请求）：
+
+```sh
+pnpm data:panel:lookup-plan                     # 从库里写出待查 handle
+pnpm crawl lookup --handles-file data/panel/lookup-handles.txt \
+  --output data/collection/lookups/<new-run>.json
+pnpm data:panel:lookup-import -- data/collection/lookups/<new-run>.json
+```
+
+退出码：0 完成，2 完成但需处理，1 启动被拒绝。
 
 窗口用 `[start, end)`，需带时区。输出必须是 `data/` 下尚不存在的 `.json`（运行不可覆盖）；原始页写入同名 `.pages/<jobid>/` 目录，逐页 SHA-256。参数：`--concurrency`、`--count`（每页请求数，默认 40）、`--max-pages`、`--max-requests`、`--timeout`、`--pace`（≥3s）。账号自动按健康态从池中挑选，无需指定。
 
@@ -50,9 +84,14 @@ pnpm data:ingest:x -- data/collection/official-x/<run>.json
 
 ## 失效转移
 
-- 限流（429 / X 错误码 88、130）：账号进冷却，该 job 换别的账号重试（计入 `--max-attempts`，默认 4）。
+限流后换号是已确认的项目规则（2026-09-27）。
+
+- 限流（429 / X 错误码 88、130）：账号冷却到 X 给出的重置时间（`x-rate-limit-reset` + 5 秒；没有或超过 1 小时则用固定 900 秒），该 job 换别的账号重试（计入 `--max-attempts`，默认 4）。
+- 预判限流：每页记录 `x-rate-limit-remaining`。额度用尽而窗口未翻完时，任务主动按限流处理并换号，不等 X 回 429；任务结束时额度已用尽的账号也先冷却。
 - 认证失败（401/403 / 码 32、89、215、353 / 账号锁定/封禁）：账号标 `dead`，job 换账号重试。
 - 传输错误（`ConnectError`、超时等）：不判账号问题，同账号换新连接（新 IP）重试，另计 `max_transient`（默认 8）。
+- 结构变化（接口 404，或响应结构解析器不认识）：`SchemaChanged`，**整批停止**，不重试、不换号（换哪个账号都是同样结果），不判账号失效。运行文件 `schema_change` 记下出错任务与原因，原始页留在 `.pages/`，据此修 `x/parse.py` 或 `x/compat.py`。
+- 单条记录无法解析（如不可用的帖子）：该 job 记 `parse_error:*`，不重试，其余 job 继续。
 - 账号换遍仍不成 → 该 job `incomplete` 并记原因，不阻塞其余 job。单账号错误被转移消化后不影响整次 `ok`。
 
 ## 成败判据
@@ -65,12 +104,12 @@ pnpm data:ingest:x -- data/collection/official-x/<run>.json
 
 ## 验证
 
-- 离线单测：`pnpm crawl:test:unit`（解析、账号池冷却/失效/LRU、引擎窗口/身份/cursor/限流、并发调度、失效转移、传输重试、进度渲染、输出组装、凭据不外泄），已并入 `pnpm check`。
+- 离线单测：`pnpm crawl:test:unit`（解析、账号池冷却/失效/LRU/租借互斥、引擎窗口/身份/cursor/限流、按重置时间冷却与预判限流、结构变化停批、单条解析失败、并发调度、失效转移、传输重试、账号查询、CLI、进度渲染、输出组装、凭据不外泄），已并入 `pnpm check`。
 - 实机烟囱（2026-09-14）：`@OpenAI`+`@AnthropicAI` 三天窗、并发 2，两账号并行、各自合成 ct0，均 `search_ended`，reconciliation 命中三条 OpenAI 金融服务公告 ID（旧采集遗漏的那批）。
 
 ## 尚未完成
 
-官网发布记录自动对账；回复/评论**正文**抓取（现仅采 `replies` 计数）；定时/增量重跑调度；事件抽取与定向 Reddit/X 深挖；**段 3**（采集库→市场范围计算批次的投影与估计，走现有 `run_batch`）。采集(段1)与入库到采集库(段2)已实现。旧手册 [official-x-monitoring](official-x-monitoring.md) 描述的是被取代的单账号入口。
+官网发布记录自动对账；回复/评论**正文**抓取（现仅采 `replies` 计数）；链接与媒体字段解析；目标账号直接从 `source_accounts` 读取（现仍经 registry/handle 文件）；定时/增量重跑调度；事件抽取与定向 Reddit/X 深挖；**段 3**（采集库→市场范围计算批次的投影与估计，走现有 `run_batch`）。采集(段1)与入库到采集库(段2)已实现。旧手册 [official-x-monitoring](official-x-monitoring.md) 描述的是已删除的单账号入口。
 
 **基准已建立(2026-09-14)**:全 51 账号、窗口 `[2026-08-24, 2026-09-14)`、并发 5、每账号 20 页，一次跑完 51/51 complete、0 incomplete、1625 帖(原创~880/转推435/回复310)、164 请求、3分06秒、0 冷却/失效、6 次传输重试自愈。已 `data:ingest:x` 入库为 `run_id=baseline-3wk`(1625 sources/captures、51 gap 全 complete)。早先 calib-3day(115)与 smoke-2handle(22)的帖被完整覆盖并再次观测,证明同一帖跨运行的多 capture 观测序列成立。运行文件 `data/collection/official-x/baseline-3wk.json`(gitignore 的 `data/` 下)。
 

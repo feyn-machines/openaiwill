@@ -8,7 +8,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from crawler import scheduler, accounts, progress, engine  # noqa: E402
+from crawler.core import accounts, progress, errors as engine  # noqa: E402
+from crawler.x import timeline as timeline_job  # noqa: E402
 
 
 def tweet_entry(post_id, when="Wed Sep 10 00:00:00 +0000 2026", handle="OpenAI", author_id="1"):
@@ -83,7 +84,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async def factory(lease, target):
             return FakeSession("ok", target["handle"], target["author_id"])
 
-        state, results = await scheduler.run_jobs(
+        state, results = await timeline_job.run(
             jobs, pool, factory, concurrency=2, pace=0, max_requests=100,
             timeout=1000, sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertTrue(state["ok"])
@@ -101,7 +102,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             seen.append(lease.label)
             return FakeSession("rate" if lease.label == "bad" else "ok", target["handle"], target["author_id"])
 
-        state, results = await scheduler.run_jobs(
+        state, results = await timeline_job.run(
             jobs, pool, factory, concurrency=1, pace=0, max_requests=100,
             timeout=1000, sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertTrue(state["ok"])
@@ -119,7 +120,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async def factory(lease, target):
             return FakeSession("auth" if lease.label == "bad" else "ok", target["handle"], target["author_id"])
 
-        state, _ = await scheduler.run_jobs(
+        state, _ = await timeline_job.run(
             jobs, pool, factory, concurrency=1, pace=0, max_requests=100,
             timeout=1000, sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertTrue(state["ok"])
@@ -133,7 +134,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async def factory(lease, target):
             return FakeSession("rate", target["handle"], target["author_id"])
 
-        state, results = await scheduler.run_jobs(
+        state, results = await timeline_job.run(
             jobs, pool, factory, concurrency=1, pace=0, max_requests=100,
             timeout=1000, sleep=clock.sleep, loop_time=clock.loop_time, max_attempts=3)
         self.assertFalse(state["ok"])
@@ -167,7 +168,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             labels.append(lease.label)
             return Flaky(target["handle"], target["author_id"])
 
-        state, _ = await scheduler.run_jobs(
+        state, _ = await timeline_job.run(
             jobs, pool, factory, concurrency=1, pace=0, max_requests=100, timeout=1000,
             max_transient=8, transient_backoff=1, sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertTrue(state["ok"])
@@ -195,7 +196,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         async def factory(lease, target):
             return Always()
 
-        state, results = await scheduler.run_jobs(
+        state, results = await timeline_job.run(
             jobs, pool, factory, concurrency=1, pace=0, max_requests=100, timeout=1000,
             max_transient=3, transient_backoff=1, sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertFalse(state["ok"])
@@ -213,7 +214,7 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
             made.append(s)
             return s
 
-        await scheduler.run_jobs(jobs, pool, factory, concurrency=1, pace=0,
+        await timeline_job.run(jobs, pool, factory, concurrency=1, pace=0,
                                  max_requests=100, timeout=1000,
                                  sleep=clock.sleep, loop_time=clock.loop_time)
         self.assertTrue(all(s.closed for s in made))
@@ -279,7 +280,7 @@ class AssembleOutputTests(unittest.TestCase):
                        "next_cursor": None}}
 
     def test_reconciliation_pass_and_no_secrets(self):
-        from crawler import run
+        run = timeline_job
         doc = run.assemble_output(self._state(), self._results(), {}, ["111"])
         self.assertTrue(doc["ok"])
         self.assertEqual(doc["reconciliation"]["status"], "passed")
@@ -287,14 +288,14 @@ class AssembleOutputTests(unittest.TestCase):
         self.assertNotIn("auth_token", json.dumps(doc))
 
     def test_missing_expected_fails_run(self):
-        from crawler import run
+        run = timeline_job
         doc = run.assemble_output(self._state(), self._results(), {}, ["999"])
         self.assertFalse(doc["ok"])
         self.assertEqual(doc["reconciliation"]["status"], "missing")
         self.assertEqual(doc["reconciliation"]["missing_post_ids"], ["999"])
 
     def test_account_usage_labels_only(self):
-        from crawler import run
+        run = timeline_job
         doc = run.assemble_output(self._state(), self._results(), {}, [])
         self.assertEqual(doc["account_usage"]["jobs"][0]["account_label"], "acc1")
         self.assertIn("pool_final", doc["account_usage"])

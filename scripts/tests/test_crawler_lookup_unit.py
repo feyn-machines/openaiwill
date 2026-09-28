@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from crawler import accounts, engine, lookup  # noqa: E402
+from crawler.core import accounts, errors as engine  # noqa: E402
+from crawler.x import lookup  # noqa: E402
 
 
 def user_payload(rest_id="12497", handle="simonw", name="Simon Willison",
@@ -116,10 +117,20 @@ class RunLookups(unittest.TestCase):
         self.assertEqual(results["simonw"]["status"], "found")
         self.assertEqual(p.health_summary()["dead"], 0)
 
-    def test_an_endpoint_404_is_unresolved_not_missing(self):
-        s = FakeSession({"simonw": ValueError("lookup endpoint returned 404")})
-        results, _ = run(["simonw"], [s])
+    def test_an_endpoint_404_is_unresolved_not_missing_and_stops_the_batch(self):
+        """A gone endpoint says nothing about the account, and every account
+        would get the same 404, so the remaining handles are not asked."""
+        s = FakeSession({"simonw": engine.SchemaChanged("endpoint returned 404")})
+        results, _ = run(["simonw", "karpathy"], [s])
         self.assertEqual(results["simonw"]["status"], "unresolved")
+        self.assertEqual(results["karpathy"]["status"], "unresolved")
+        self.assertEqual(results["karpathy"]["reason"], "schema_changed")
+
+    def test_an_answer_for_another_account_is_unresolved_and_the_batch_continues(self):
+        s = FakeSession({"simonw": user_payload(handle="someone_else"), "gone": {"data": {}}})
+        results, _ = run(["simonw", "gone"], [s])
+        self.assertEqual(results["simonw"]["status"], "unresolved")
+        self.assertEqual(results["gone"]["status"], "not_found")
 
     def test_when_no_account_can_answer_the_handle_is_unresolved_not_missing(self):
         """A failed request is never evidence that an account does not exist."""
