@@ -32,6 +32,23 @@ async def compatible_indices(self, home_page_response, session, headers):
 ClientTransaction.get_indices = compatible_indices
 
 
+# Since ~2026-09-25 x.com serves the new x-web app, whose page lacks the
+# ondemand.s map; /i/jf/ still serves the responsive-web page with all three
+# transaction inputs. Same fix as iSarabjitDhiman/XClientTransaction PR #48.
+import bs4
+from twikit.x_client_transaction import transaction as _transaction
+
+HOME_PAGE_URL = 'https://x.com/i/jf/'
+
+
+async def compatible_home_page(session, headers):
+    response = await session.request(method='GET', url=HOME_PAGE_URL, headers=headers)
+    return bs4.BeautifulSoup(response.content, 'lxml')
+
+
+_transaction.handle_x_migration = compatible_home_page
+
+
 # Search compatibility: upstream d60/twikit PR #419.
 from twikit.client.gql import GQLClient
 
