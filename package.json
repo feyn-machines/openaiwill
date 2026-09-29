@@ -52,9 +52,8 @@
     "data:panel:import": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-import",
     "data:panel:refresh": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-refresh",
     "data:verify": "data/runtime/venv/bin/python scripts/data-pipeline.py verify",
-    "data:panel:registry": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-registry",
+    "data:official:import": "data/runtime/venv/bin/python scripts/data-pipeline.py official-import",
     "crawl:lookup": "data/runtime/crawler-venv/bin/python scripts/crawler lookup",
-    "data:panel:lookup-plan": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-lookup-plan",
     "data:panel:lookup-import": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-lookup-import",
     "data:relations:backfill": "data/runtime/venv/bin/python scripts/data-pipeline.py relations-backfill",
     "data:post-events": "data/runtime/venv/bin/python scripts/data-pipeline.py post-events"

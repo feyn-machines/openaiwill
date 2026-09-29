@@ -744,6 +744,14 @@
             "zh-CN": "主要转发他人公告；转述不是证据。",
             "en": "Mainly reposts others' announcements; restating is not evidence."
           }
+        },
+        "official": {
+          "en": "Official account",
+          "zh-CN": "官方账号",
+          "definition": {
+            "zh-CN": "机构自己运营的公司、产品、平台或研究部门账号；谈本机构属于厂商自证。",
+            "en": "An account an organisation runs for itself, a product, platform or research unit; about that organisation this is a vendor claim."
+          }
         }
       }
     },

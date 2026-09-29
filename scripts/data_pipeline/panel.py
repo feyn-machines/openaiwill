@@ -36,12 +36,17 @@ def _as_date(value):
     return date.fromisoformat(str(value)[:10])
 
 
-def is_independent(affiliations, org_id, on, model=None):
+def is_independent(affiliations, org_id, on, model=None, owner_org_id=None):
     """Whether an account's post on `on` is independent of `org_id`.
 
     Per company and per date: joining OpenAI in July does not reach back and
     make a June post about OpenAI a vendor claim, and leaving Meta ends it.
+    An organisation's own account is never independent of that organisation
+    (rule:panel-independence, owner_organization_breaks).
     """
+    if owner_org_id is not None and owner_org_id == org_id and \
+            semantic.rule("rule:panel-independence", model)["expression"].get("owner_organization_breaks"):
+        return False
     on = _as_date(on)
     for aff in affiliations:
         if aff.get("org_id") != org_id or not breaks_independence(aff["relation"], model):
@@ -327,21 +332,26 @@ def record_probe(conn, doc, handles, checked_at=None):
     return summary
 
 
-REGISTRY_SQL = """
+TARGETS_SQL = """
     SELECT a.handle, a.platform_account_id, a.panel_role, a.org_name, p.name AS person_name
       FROM public.source_accounts a
       LEFT JOIN public.people p ON p.person_id = a.person_id
      WHERE a.platform = 'x' AND a.panel_state = 'enabled' AND NOT a.excluded
+       AND a.platform_account_id IS NOT NULL
+       AND (%(roles)s::text[] IS NULL OR a.panel_role = ANY(%(roles)s))
+       AND NOT (a.panel_role = ANY(%(skip)s::text[]))
      ORDER BY a.handle
 """
 
+TARGET_SETS = ("official", "panel", "all")
+
 
 def registry_rows(rows):
-    """Enabled panel accounts in the shape the project crawler reads.
+    """Enabled accounts in the shape the crawler plans timeline jobs from.
 
-    scripts/crawler plans one user-timeline job per enabled, confirmed account
-    with a numeric X user id - the same contract as the official registry. The
-    file is derived from the database and private; the database stays the source.
+    One user-timeline job per enabled account with a numeric X user id. For an
+    official account `company` is the organisation name exactly as the official
+    registry wrote it, which event extraction reads back from collected sources.
     """
     out = []
     for r in rows:
@@ -349,19 +359,110 @@ def registry_rows(rows):
             continue
         out.append({"company": r.get("org_name") or r.get("person_name") or r["handle"],
                     "handle": r["handle"], "x_user_id": str(r["platform_account_id"]),
-                    "account_type": "panel", "panel_role": r["panel_role"],
+                    "account_type": "official" if r["panel_role"] == "official" else "panel",
+                    "panel_role": r["panel_role"],
                     "enabled": True, "verification_status": "confirmed"})
     return out
 
 
-def export_registry(conn, path):
-    from pathlib import Path
-    rows = registry_rows(conn.execute(REGISTRY_SQL).fetchall())
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    path.write_text(json.dumps(rows, ensure_ascii=False, indent=1))
-    path.chmod(0o600)
-    return len(rows)
+def crawl_targets(conn, targets="official"):
+    """Enabled accounts the crawler collects: `official`, `panel` (everyone else) or `all`.
+
+    Official and panel accounts are collected in separate runs by default, so a
+    run's posts stay one kind of source.
+    """
+    if targets not in TARGET_SETS:
+        raise ValueError(f"targets must be one of {', '.join(TARGET_SETS)}")
+    params = {"roles": ["official"] if targets == "official" else None,
+              "skip": ["official"] if targets == "panel" else []}
+    return registry_rows(conn.execute(TARGETS_SQL, params).fetchall())
+
+
+def official_grade(evidence):
+    """The identity grade an official registry entry's evidence supports.
+
+    A link from the organisation's own site, repository or navigation is
+    first-party; X's organisation affiliation badge is the account's own
+    profile saying who it is; anything else is only a list.
+    """
+    methods = {e.get("method") or "" for e in evidence or []}
+    if any(m.startswith("official_") for m in methods):
+        return "first_party_link"
+    if "x_organization_affiliation" in methods:
+        return "official_bio"
+    return "third_party_list"
+
+
+def official_records(registry, orgs, source_name, as_of):
+    """Pure: official registry entries -> [(account row, [(kind, outcome, detail, url, checked_at)])].
+
+    Only an enabled, confirmed entry with a numeric user id gets identity and
+    platform-id checks; anything else is recorded as a candidate, so its state
+    stays what the registry says - not yet collectable.
+    """
+    records = []
+    for entry in registry:
+        handle = entry["handle"].lstrip("@")
+        org_id = resolve_org(entry["company"], orgs)
+        if org_id is None:
+            raise ValueError(f"@{handle}: company {entry['company']!r} is not a tracked organisation")
+        evidence = entry.get("identity_evidence") or []
+        confirmed = (entry.get("enabled") is True and entry.get("verification_status") == "confirmed"
+                     and str(entry.get("x_user_id") or "").isdigit())
+        row = {"account_key": account_key("x", handle), "handle": handle,
+               "platform_account_id": str(entry["x_user_id"]) if confirmed else None,
+               "org_name": entry["company"], "org_id": org_id,
+               "identity_grade": official_grade(evidence) if confirmed else "third_party_list",
+               "identity_url": (evidence[0].get("url") if evidence else None) or entry.get("profile_url"),
+               "focus": entry.get("scope"), "added_from": source_name}
+        checks = []
+        if confirmed:
+            at = entry.get("profile_checked_at") or as_of
+            checks = [("identity", "pass", {"grade": row["identity_grade"], "from": source_name},
+                       row["identity_url"], at),
+                      ("platform_id", "pass", {"platform_account_id": row["platform_account_id"]},
+                       entry.get("profile_url"), at)]
+        records.append((row, checks))
+    return records
+
+
+def import_official(conn, registry, source_name, as_of=None):
+    """Load the official registry into source_accounts. Idempotent.
+
+    An official row is refreshed from the registry (a later confirmation fills
+    its user id); a handle already on the panel under another role is refused
+    rather than silently re-labelled.
+    """
+    as_of = as_of or datetime.now(timezone.utc).isoformat()
+    orgs = conn.execute("SELECT org_id, aliases FROM public.org_registry").fetchall()
+    counts = {"accounts": 0, "confirmed": 0, "checks": 0}
+    for row, checks in official_records(registry, orgs, source_name, as_of):
+        existing = conn.execute("SELECT panel_role FROM public.source_accounts WHERE account_key = %s",
+                                (row["account_key"],)).fetchone()
+        if existing and existing["panel_role"] != "official":
+            raise ValueError(f"@{row['handle']} is already a {existing['panel_role']} panel account")
+        conn.execute(
+            """INSERT INTO public.source_accounts
+                 (account_key, platform, handle, platform_account_id, owner_kind, org_name, org_id,
+                  panel_role, excluded, panel_state, identity_grade, identity_url, focus, added_from,
+                  state_changed_at, record_sha256)
+               VALUES (%(account_key)s, 'x', %(handle)s, %(platform_account_id)s, 'organization', %(org_name)s,
+                       %(org_id)s, 'official', false, 'candidate', %(identity_grade)s, %(identity_url)s,
+                       %(focus)s, %(added_from)s, now(), %(sha)s)
+               ON CONFLICT (account_key) DO UPDATE SET
+                   platform_account_id = coalesce(public.source_accounts.platform_account_id,
+                                                  EXCLUDED.platform_account_id),
+                   org_name = EXCLUDED.org_name, org_id = EXCLUDED.org_id,
+                   identity_grade = EXCLUDED.identity_grade, identity_url = EXCLUDED.identity_url,
+                   focus = EXCLUDED.focus, record_sha256 = EXCLUDED.record_sha256""",
+            {**row, "sha": _sha(row)})
+        counts["accounts"] += 1
+        counts["confirmed"] += bool(checks)
+        for kind, outcome, detail, url, at in checks:
+            _add_check(conn, row["account_key"], kind, outcome, datetime.fromisoformat(at),
+                       "imported", detail, url)
+            counts["checks"] += 1
+    return counts
 
 
 PROFILE_FIELDS = ("name", "description", "followers", "following", "posts", "verified", "protected")

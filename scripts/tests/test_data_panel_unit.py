@@ -264,5 +264,60 @@ class IdentityFromOwnProfile(unittest.TestCase):
         profile = {"name": "Ethan Mollick", "description": "Professor at The Wharton School"}
         self.assertFalse(panel.profile_confirms_identity(profile, "Ethan Mollick", []))
 
+
+ORGS = [{"org_id": "org:openai", "aliases": ["OpenAI"]}, {"org_id": "org:moonshot", "aliases": ["Moonshot", "Kimi"]}]
+
+
+def official(handle="OpenAI", company="OpenAI", confirmed=True, method="official_html_link", **kw):
+    entry = {"handle": handle, "company": company, "enabled": confirmed,
+             "verification_status": "confirmed" if confirmed else "official_link_unresolved",
+             "x_user_id": "4398626122" if confirmed else None, "profile_url": f"https://x.com/{handle}",
+             "profile_checked_at": "2026-09-11T15:06:28+00:00", "scope": "launches",
+             "identity_evidence": [{"url": "https://openai.com/x", "method": method}]}
+    entry.update(kw)
+    return entry
+
+
+class OfficialAccounts(unittest.TestCase):
+    """The official registry lands in source_accounts as organisation-owned accounts."""
+
+    def test_a_confirmed_account_carries_its_id_grade_and_two_checks(self):
+        [(row, checks)] = panel.official_records([official()], ORGS, "reg", "2026-09-28T00:00:00+00:00")
+        self.assertEqual((row["platform_account_id"], row["org_id"], row["identity_grade"]),
+                         ("4398626122", "org:openai", "first_party_link"))
+        self.assertEqual([c[0] for c in checks], ["identity", "platform_id"])
+
+    def test_the_company_name_is_kept_exactly_as_the_registry_wrote_it(self):
+        [(row, _)] = panel.official_records([official("Kimi_Moonshot", "Moonshot / Kimi")], ORGS, "reg", "x")
+        self.assertEqual((row["org_name"], row["org_id"]), ("Moonshot / Kimi", "org:moonshot"))
+
+    def test_an_unconfirmed_account_stays_a_candidate_without_checks(self):
+        [(row, checks)] = panel.official_records([official(confirmed=False)], ORGS, "reg", "x")
+        self.assertIsNone(row["platform_account_id"])
+        self.assertEqual(checks, [])
+        self.assertEqual(panel.derive_state({**row, "owner_kind": "organization", "panel_state": "candidate"},
+                                            [], NOW), "candidate")
+
+    def test_an_untracked_company_is_refused_rather_than_left_unowned(self):
+        with self.assertRaises(ValueError):
+            panel.official_records([official(company="Baidu")], ORGS, "reg", "x")
+
+    def test_an_x_affiliation_badge_is_the_account_speaking_for_itself(self):
+        self.assertEqual(panel.official_grade([{"method": "x_organization_affiliation"}]), "official_bio")
+        self.assertEqual(panel.official_grade([]), "third_party_list")
+
+    def test_an_organisations_own_account_is_never_independent_of_it(self):
+        self.assertFalse(panel.is_independent([], "org:openai", date(2026, 9, 1), owner_org_id="org:openai"))
+        self.assertTrue(panel.is_independent([], "org:google", date(2026, 9, 1), owner_org_id="org:openai"))
+
+    def test_crawl_rows_say_which_kind_of_source_they_are(self):
+        rows = panel.registry_rows([
+            {"handle": "OpenAI", "platform_account_id": "1", "panel_role": "official", "org_name": "OpenAI"},
+            {"handle": "simonw", "platform_account_id": "2", "panel_role": "practitioner",
+             "org_name": None, "person_name": "Simon Willison"}])
+        self.assertEqual([(r["account_type"], r["company"]) for r in rows],
+                         [("official", "OpenAI"), ("panel", "Simon Willison")])
+
+
 if __name__ == "__main__":
     unittest.main()

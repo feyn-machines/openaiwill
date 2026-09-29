@@ -96,14 +96,14 @@ TRIGGER_SQL = """
 """
 
 PANEL_SQL = """
-    SELECT a.account_key, a.handle,
+    SELECT a.account_key, a.handle, a.org_id AS owner_org_id,
            coalesce(json_agg(json_build_object('org_id', f.org_id, 'relation', f.relation,
                                                'started_on', f.started_on, 'ended_on', f.ended_on))
                     FILTER (WHERE f.affiliation_id IS NOT NULL), '[]') AS affiliations
       FROM public.source_accounts a
       LEFT JOIN public.person_affiliations f ON f.person_id = a.person_id
      WHERE a.panel_state = 'enabled' AND NOT a.excluded
-     GROUP BY a.account_key, a.handle
+     GROUP BY a.account_key, a.handle, a.org_id
      ORDER BY a.handle
 """
 
@@ -195,7 +195,8 @@ def run(conn, ontology_version="1.0.0", limit_events=None, progress=print):
          digest(semantic.rule("rule:verification-tier")), METHOD_VERSION,
          json.dumps({"events": [e for e, _ in picked]}), datetime.now(timezone.utc), len(picked),
          digest({"events": [e for e, _ in picked], "method_version": METHOD_VERSION})))
-    totals = {"events": len(picked), "accounts": len(accounts), "posts": 0, "evidence": 0, "judge_errors": 0}
+    totals = {"events": len(picked), "accounts": len(accounts), "posts": 0, "evidence": 0, "judge_errors": 0,
+              "own_channel": 0}
     for event_id, readings in picked:
         head = readings[0]
         occurred = head["occurred_at"]
@@ -207,7 +208,13 @@ def run(conn, ontology_version="1.0.0", limit_events=None, progress=print):
         with conn.transaction():
             for post in posts:
                 account = by_handle[post["author"].lower()]
-                independent = panel.is_independent(account["affiliations"], head["primary_org_id"], occurred)
+                if account["owner_org_id"] is not None and account["owner_org_id"] == head["primary_org_id"]:
+                    # The organisation's own account continuing its own announcement
+                    # thread: that is the claim, not a reaction to it. Not judged.
+                    totals["own_channel"] += 1
+                    continue
+                independent = panel.is_independent(account["affiliations"], head["primary_org_id"], occurred,
+                                                   owner_org_id=account["owner_org_id"])
                 try:
                     nature, levels = judge_post(judge, post, head, activities)
                 except JudgeError as error:

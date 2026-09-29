@@ -1276,6 +1276,16 @@
             "zh-CN": "主要转发他人公告；转述不是证据。",
             "en": "Mainly reposts others' announcements; restating is not evidence."
           }
+        },
+        "official": {
+          "label": {
+            "zh-CN": "官方账号",
+            "en": "Official account"
+          },
+          "definition": {
+            "zh-CN": "机构自己运营的公司、产品、平台或研究部门账号；谈本机构属于厂商自证。",
+            "en": "An account an organisation runs for itself, a product, platform or research unit; about that organisation this is a vendor claim."
+          }
         }
       }
     },
@@ -1958,11 +1968,12 @@
       "id": "rule:panel-independence",
       "new": true,
       "statement": {
-        "zh-CN": "独立性按公司、按时间判断：帖子发布时，账号与被谈论机构存在 breaks_independence 的有效关系，其帖子对该机构只算厂商自证。"
+        "zh-CN": "独立性按公司、按时间判断：帖子发布时，账号与被谈论机构存在 breaks_independence 的有效关系，或账号本身就是该机构运营的账号，其帖子对该机构只算厂商自证。"
       },
       "expression": {
         "derive": "affiliation_relation.breaks_independence",
-        "at": "post.published_at"
+        "at": "post.published_at",
+        "owner_organization_breaks": true
       },
       "enforced_by": [
         "panel",

@@ -1,8 +1,12 @@
 """The crawler's one command line.
 
     pnpm crawl timeline --start ... --end ... --output data/collection/official-x/<run>.json
-    pnpm crawl lookup --handles-file ... --output data/collection/lookups/<run>.json
+    pnpm crawl lookup --output data/collection/lookups/<run>.json
     pnpm crawl doctor
+
+Accounts come from public.source_accounts and a finished run is loaded into the
+database (timeline -> collection store, lookup -> account checks) unless
+--no-ingest; the run file under data/ is written first and stays the provenance.
 
 `pnpm crawl:x` and `pnpm crawl:lookup` are aliases for the first two. Exit
 codes: 0 finished, 2 finished but needs attention, 1 setup rejected.
@@ -36,9 +40,13 @@ def build_parser():
     t.add_argument("--start", required=True, help="Inclusive publication time, with timezone")
     t.add_argument("--end", required=True, help="Exclusive publication time, with timezone")
     t.add_argument("--output", type=Path, required=True, help="New JSON file under data/")
-    t.add_argument("--registry", type=Path, default=ROOT / "datasets/official-x-accounts.json")
+    src = t.add_mutually_exclusive_group()
+    src.add_argument("--targets", choices=("official", "panel", "all"), default="official",
+                     help="Enabled accounts from source_accounts (default: official)")
+    src.add_argument("--registry", type=Path, help="Read accounts from this registry file instead")
     t.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     t.add_argument("--handles", help="Comma-separated subset of already enabled accounts")
+    t.add_argument("--no-ingest", action="store_true", help="Leave the run out of the collection store")
     t.add_argument("--expect-post", action="append", default=[],
                    help="Known announcement ID; missing IDs fail the run")
     t.add_argument("--concurrency", type=int, default=5)
@@ -50,9 +58,11 @@ def build_parser():
     t.add_argument("--plan-only", action="store_true")
 
     lk = sub.add_parser("lookup", help="Resolve X handles to user ids and public profiles")
-    src = lk.add_mutually_exclusive_group(required=True)
-    src.add_argument("--handles", help="Comma-separated handles")
+    src = lk.add_mutually_exclusive_group()
+    src.add_argument("--handles", help="Comma-separated handles (default: source_accounts without an id)")
     src.add_argument("--handles-file", type=Path, help="One handle per line")
+    src.add_argument("--all", action="store_true", help="Every live account in source_accounts (profile refresh)")
+    lk.add_argument("--no-ingest", action="store_true", help="Leave the results out of the account checks")
     lk.add_argument("--output", type=Path, required=True, help="New JSON file under data/")
     lk.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     lk.add_argument("--concurrency", type=int, default=1)
@@ -60,7 +70,7 @@ def build_parser():
     lk.add_argument("--timeout", type=float, default=3600)
     lk.add_argument("--pace", type=float, default=MIN_PACE)
 
-    d = sub.add_parser("doctor", help="Offline check of proxy config, account pool and runtime")
+    d = sub.add_parser("doctor", help="Check proxy (TLS handshake only), account pool, database and runtime; never contacts X")
     d.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     return p
 
@@ -129,15 +139,37 @@ class Reporter:
         self._last_lines = text.count("\n") + 1
 
 
+def timeline_accounts(args):
+    """(accounts, provenance) from source_accounts, or from --registry when given."""
+    if args.registry:
+        return json.loads(args.registry.read_text()), {"source": str(args.registry)}
+    from .core import store
+    return store.timeline_targets(args.targets), {"source": "db:source_accounts", "set": args.targets}
+
+
+def _ingest(label, ingest, *arg):
+    try:
+        result = ingest(*arg)
+    except Exception as exc:  # noqa: BLE001 - the run file is safe; report and exit 2
+        print(f"{label} failed; the run file is kept and can be ingested later: {exc}", file=sys.stderr)
+        return False
+    print(f"{label}: {json.dumps(result, default=str)}")
+    return True
+
+
 async def run_timeline(args, on_state):
     from .x import parse, timeline
     proxy_mod.load_env(ROOT)
     proxy_url = proxy_mod.proxy_url()
-    registry = json.loads(args.registry.read_text())
-    jobs = parse.plan_timelines(registry, args.start, args.end,
+    accounts, provenance = timeline_accounts(args)
+    jobs = parse.plan_timelines(accounts, args.start, args.end,
                                 handles=args.handles.split(",") if args.handles else None)
     meta = {
-        "registry_sha256": hashlib.sha256(args.registry.read_bytes()).hexdigest(),
+        # The account list this run was planned from, whichever store it came from.
+        "registry_sha256": hashlib.sha256(json.dumps(accounts, sort_keys=True, ensure_ascii=False)
+                                          .encode()).hexdigest(),
+        "targets": provenance,
+        "proxy_transport": proxy_mod.transport(proxy_url),
         "implementation_sha256": archive.implementation_hashes(),
         "publication_window": {"start": parse.parse_time(args.start).isoformat(),
                                "end": parse.parse_time(args.end).isoformat()},
@@ -159,15 +191,24 @@ async def run_timeline(args, on_state):
     archive.write_json(output, doc)
     print(f"Saved {doc['total']} posts across {len(doc['jobs'])} jobs; "
           f"reconciliation={doc['reconciliation']['status']}; ok={doc['ok']}; {output}")
-    return 0 if doc["ok"] else 2
+    ingested = True
+    if not args.no_ingest:
+        from .core import store
+        ingested = _ingest("Ingested into the collection store", store.ingest_timeline, output)
+    return 0 if doc["ok"] and ingested else 2
 
 
 async def run_lookup(args, on_state):
     from .x import lookup
-    raw = args.handles.split(",") if args.handles else args.handles_file.read_text().split()
+    if args.handles or args.handles_file:
+        raw = args.handles.split(",") if args.handles else args.handles_file.read_text().split()
+    else:
+        from .core import store
+        raw = store.lookup_handles(missing_only=not args.all)
     handles = [j["handle"] for j in lookup.jobs_for(raw)]
     if not handles:
-        raise ValueError("No handles to look up")
+        print("Nothing to look up: every account already has a platform id (use --all to refresh profiles)")
+        return 0
     proxy_mod.load_env(ROOT)
     proxy_url = proxy_mod.proxy_url()
     output = archive.reserve(args.output)
@@ -183,18 +224,35 @@ async def run_lookup(args, on_state):
         pace=args.pace, concurrency=args.concurrency, max_requests=args.max_requests,
         timeout=args.timeout, on_result=report, on_state=on_state)
     doc = lookup.assemble_output(results, started, pool.health_summary(), state)
+    doc["proxy_transport"] = proxy_mod.transport(proxy_url)
     archive.write_json(output, doc, indent=1)
     print(json.dumps({"output": str(output), "counts": doc["counts"], "pool": doc["pool_health"]}))
-    return 0 if doc["ok"] else 2
+    ingested = True
+    if not args.no_ingest:
+        from .core import store
+        ingested = _ingest("Recorded as account checks", store.ingest_lookup, doc)
+    return 0 if doc["ok"] and ingested else 2
 
 
 def doctor(args):
-    """Offline readiness report. Prints labels and counts only, never secrets."""
+    """Readiness report. Touches only the proxy entry's TLS handshake, never X;
+    prints labels and counts only, never secrets."""
     problems = []
     proxy_mod.load_env(ROOT)
     try:
-        proxy_mod.proxy_url()
-        print("proxy      configured")
+        url = proxy_mod.proxy_url()
+        scheme = proxy_mod.transport(url)
+        cert = proxy_mod.entry_report(url)
+        if not cert["ok"]:
+            problems.append(f"proxy entry ({scheme}) failed: {cert['error']}")
+            print(f"proxy      configured ({scheme}) · FAILED: {cert['error']}")
+        else:
+            print(f"proxy      configured (https) · certificate valid until {cert['not_after']} "
+                  f"({cert['days_left']} days)" if cert["not_after"]
+                  else f"proxy      configured ({scheme}) · {cert.get('note', 'ok')}; "
+                       "proxy credential travels unencrypted")
+            if cert["days_left"] is not None and cert["days_left"] < 7:
+                problems.append(f"proxy certificate expires in {cert['days_left']} days")
     except RuntimeError as exc:
         problems.append(str(exc))
         print(f"proxy      MISSING: {exc}")
@@ -211,6 +269,15 @@ def doctor(args):
     else:
         problems.append(f"pool file not found: {args.pool}")
         print("pool       MISSING")
+    try:
+        from .core import store
+        official, panel_ = len(store.timeline_targets("official")), len(store.timeline_targets("panel"))
+        print(f"database   {official} official + {panel_} panel accounts enabled for collection")
+        if official == 0:
+            problems.append("no official account is enabled; run `pnpm data:official:import`")
+    except Exception as exc:  # noqa: BLE001 - report any reason the store is unreachable
+        problems.append(f"database unavailable: {exc}")
+        print("database   UNAVAILABLE")
     try:
         import twikit  # noqa: F401
         print(f"runtime    twikit {getattr(twikit, '__version__', '?')}")

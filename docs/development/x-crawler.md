@@ -26,12 +26,23 @@ scripts/crawler/
 
 每类任务只提供"怎么做一个任务"，账号策略全部在 `core/scheduler`。新增数据源（如 Reddit）作为与 `x/` 平级的包加入，复用调度、存档与入库衔接。
 
+## 采集哪些账号
+
+账号都在数据库 `public.source_accounts`，爬虫直接读表，不再经中间文件：
+
+- 官方号：`panel_role='official'`，由 `pnpm data:official:import` 从 `datasets/official-x-accounts.json`（经核验的公开名单，仍是官方号的来源与证据）幂等导入，归属机构记在 `org_id`。已确认、有数字 user id 的账号会启用；其余作为候选，不采集。名单更新后重跑导入即可。
+- 名单账号：其余角色，由 `pnpm data:panel:import` 导入研究草稿。
+- 账号状态只由检查记录推导（`rule:panel-lifecycle`）。机构自己的账号对本机构不独立（`rule:panel-independence`），在验证中不算第三方。
+
+`--targets official|panel|all` 选采哪一类，默认 `official`。官方号和名单账号默认分开跑，让一次运行只含一类来源（事件抽取把运行里的原创帖都当候选）。`--registry <file>` 可改为读指定名单文件（离线或排查用）。运行文件记录 `targets`（来源与类别）和所用账号列表的哈希 `registry_sha256`。
+
 ## 前置
 
-- 代理：`X_PROXY`（或 `QINGGUO_PROXY_URL` / `SOCIAL_PROXY_URL`）在 `.env`，青果 https 隧道。代理是基础设施凭据，留在 env。
+- 代理：`X_PROXY`（或 `QINGGUO_PROXY_URL` / `SOCIAL_PROXY_URL`）在 `.env`，青果隧道入口。代理是基础设施凭据，留在 env。入口同一端口同时接受 http 与 https；入口证书 2026-09-27 过期后，自 2026-09-29 起按用户决定改用 `http://`：代理账号密码明文传输，x.com 流量仍在 CONNECT 隧道内端到端 TLS。运行文件记录 `proxy_transport`。青果必须经本机 VPN（Shadowrocket）出去，不能 DIRECT；但 VPN 会把按域名发出的明文代理连接送错地方（表现为 Cloudflare 400），按 IP 则正常，所以 `X_PROXY` 用入口 IP（2026-09-29：`overseas.tunnel.qg.net` → `overseas-us.tunnel.qg.net` → `23.236.65.26`）。青果换 IP 时 `pnpm crawl doctor` 会报错，届时用公共 DNS 重新解析。
 - 账号池：`data/secrets/x-accounts/pool.json`（gitignore、0600）。字段 `username,password,totp_secret,email,email_password,auth_token,ct0,status,cooldown_until,last_used_at,label`。仅 token（有 `auth_token`、`ct0` 为 null）的账号可用——引擎会合成 32 位 ct0（cookie 与 `x-csrf-token` 同值，X 读接口接受），已于 2026-09-14 实机验证。
-- venv：`data/runtime/crawler-venv`。首次或依赖变更后 `pnpm crawl:setup`（装 `requirements-crawler.txt`：twikit 2.3.3、httpx 0.28.1）。
-- 自检：`pnpm crawl doctor` 离线检查代理配置、账号池（数量、健康态、0600 权限）与 twikit，不访问 X、不打印凭据。
+- venv：`data/runtime/crawler-venv`。首次或依赖变更后 `pnpm crawl:setup`（装 `requirements-crawler.txt`：twikit 2.3.3、httpx 0.28.1、psycopg 3.3.5）。
+- 本地 PostgreSQL 已 `pnpm data:up`：读账号与自动入库都经 `core/store.py` 借用 `data_pipeline` 的连接。
+- 自检：`pnpm crawl doctor` 检查代理配置、账号池（数量、健康态、0600 权限）、本地数据库中可采集的官方号/名单账号数与 twikit，不访问 X、不打印凭据。
 
 ## 运行
 
@@ -52,11 +63,11 @@ pnpm crawl:x -- --start ... --end ... --handles OpenAI \
 账号查询（名单解析 handle → user id 与公开资料；worker 在成功后保留账号与连接给下一个 handle，因为每次只是一个请求）：
 
 ```sh
-pnpm data:panel:lookup-plan                     # 从库里写出待查 handle
-pnpm crawl lookup --handles-file data/panel/lookup-handles.txt \
-  --output data/collection/lookups/<new-run>.json
-pnpm data:panel:lookup-import -- data/collection/lookups/<new-run>.json
+# 默认查库里还没有 user id 的账号；--all 刷新全部在册账号的资料
+pnpm crawl lookup --output data/collection/lookups/<new-run>.json
 ```
+
+查完自动写成账号检查记录并重新推导状态（`--no-ingest` 跳过；之后可用 `pnpm data:panel:lookup-import <run>.json` 补录）。`--handles` / `--handles-file` 可指定 handle。
 
 退出码：0 完成，2 完成但需处理，1 启动被拒绝。
 
@@ -67,6 +78,8 @@ pnpm data:panel:lookup-import -- data/collection/lookups/<new-run>.json
 运行时向 stderr 打印进度。TTY 下是原地刷新的多行块（总体 + 每个活跃 worker `@handle 第N页 (账号label)` + 账号池 usable/cooldown/dead）；重定向到日志时是节流的单行汇总加 failover 里程碑行。收尾打印一行总结：完成/incomplete 数、总帖数、请求数、用时、账号冷却/失效数、reconciliation 状态。
 
 ## 入库到采集库（data:ingest:x）
+
+时间线运行结束后**自动入库**（`--no-ingest` 跳过）。入库失败不影响运行文件，退出码为 2，之后可手动补：
 
 把一次爬虫运行归档幂等地落进 Postgres 里独立的采集库（migration `004_collection_store.sql`：`collection_runs / collected_sources / collected_captures / collection_gaps`）。这层不带市场范围、权重、指标或进度——那属于后续的计算批次。
 
@@ -109,7 +122,7 @@ pnpm data:ingest:x -- data/collection/official-x/<run>.json
 
 ## 尚未完成
 
-官网发布记录自动对账；回复/评论**正文**抓取（现仅采 `replies` 计数）；链接与媒体字段解析；目标账号直接从 `source_accounts` 读取（现仍经 registry/handle 文件）；定时/增量重跑调度；事件抽取与定向 Reddit/X 深挖；**段 3**（采集库→市场范围计算批次的投影与估计，走现有 `run_batch`）。采集(段1)与入库到采集库(段2)已实现。旧手册 [official-x-monitoring](official-x-monitoring.md) 描述的是已删除的单账号入口。
+官网发布记录自动对账；回复/评论**正文**抓取（现仅采 `replies` 计数）；链接与媒体字段解析；定时/增量重跑调度；事件抽取与定向 Reddit/X 深挖；**段 3**（采集库→市场范围计算批次的投影与估计，走现有 `run_batch`）。采集(段1)与入库到采集库(段2)已实现。旧手册 [official-x-monitoring](official-x-monitoring.md) 描述的是已删除的单账号入口。
 
 **基准已建立(2026-09-14)**:全 51 账号、窗口 `[2026-08-24, 2026-09-14)`、并发 5、每账号 20 页，一次跑完 51/51 complete、0 incomplete、1625 帖(原创~880/转推435/回复310)、164 请求、3分06秒、0 冷却/失效、6 次传输重试自愈。已 `data:ingest:x` 入库为 `run_id=baseline-3wk`(1625 sources/captures、51 gap 全 complete)。早先 calib-3day(115)与 smoke-2handle(22)的帖被完整覆盖并再次观测,证明同一帖跨运行的多 capture 观测序列成立。运行文件 `data/collection/official-x/baseline-3wk.json`(gitignore 的 `data/` 下)。
 

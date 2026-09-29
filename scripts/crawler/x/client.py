@@ -44,7 +44,9 @@ class _Session:
 
     def __init__(self, lease, proxy_url, pages_dir):
         self._pages_dir = Path(pages_dir)
-        ctx = proxy_mod.proxy_ssl_context(proxy_url)
+        # A TLS context applies only to an https:// proxy entry; httpx refuses one for http.
+        ctx = (proxy_mod.proxy_ssl_context(proxy_url)
+               if proxy_mod.transport(proxy_url) == "https" else None)
         limits = httpx.Limits(max_connections=1, max_keepalive_connections=1)
         self._client = Client(
             proxy=httpx.Proxy(proxy_url, ssl_context=ctx),

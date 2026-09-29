@@ -135,13 +135,9 @@ def main():
     pimp = sub.add_parser('panel-import',
                           help='Load a panel research draft; idempotent, nothing is enabled by it')
     pimp.add_argument('draft', type=Path)
-    preg = sub.add_parser('panel-registry',
-                          help='Write enabled panel accounts as a crawler registry (private, derived)')
-    preg.add_argument('--output', type=Path, default=Path('data/panel/registry.json'))
-    lplan = sub.add_parser('panel-lookup-plan',
-                           help='Write panel handles to look up (default: those without a platform id)')
-    lplan.add_argument('--output', type=Path, default=Path('data/panel/lookup-handles.txt'))
-    lplan.add_argument('--all', action='store_true', help='Every non-excluded account (profile refresh)')
+    oimp = sub.add_parser('official-import',
+                          help='Load the official account registry into source_accounts; idempotent')
+    oimp.add_argument('registry', type=Path, nargs='?', default=Path('datasets/official-x-accounts.json'))
     limp = sub.add_parser('panel-lookup-import', help='Record a crawler lookup run as panel checks')
     limp.add_argument('run', type=Path)
     rb = sub.add_parser('relations-backfill',
@@ -171,21 +167,19 @@ def main():
             migrate(conn)
             print(json.dumps(summary(conn, args.ontology_version),
                              ensure_ascii=False, indent=2, default=json_default))
-        elif args.command in ('panel-import', 'panel-refresh', 'panel-registry',
-                              'panel-lookup-plan', 'panel-lookup-import'):
+        elif args.command in ('panel-import', 'panel-refresh', 'official-import', 'panel-lookup-import'):
             from data_pipeline import panel
+            from data_pipeline.pipeline import digest
             migrate(conn)
-            if args.command == 'panel-lookup-plan':
-                handles = panel.lookup_plan(conn, missing_only=not args.all)
-                args.output.parent.mkdir(parents=True, exist_ok=True)
-                args.output.write_text("\n".join(handles) + "\n")
-                result = {'handles': len(handles), 'file': str(args.output)}
+            if args.command == 'official-import':
+                registry = json.loads(args.registry.read_text(encoding='utf-8'))
+                source = f"{args.registry.name}@{digest(registry)[:12]}"
+                with conn.transaction():
+                    result = {'imported': panel.import_official(conn, registry, source)}
             elif args.command == 'panel-lookup-import':
                 doc = json.loads(args.run.read_text(encoding='utf-8'))
                 with conn.transaction():
                     result = {'lookup': panel.record_lookup(conn, doc)}
-            elif args.command == 'panel-registry':
-                result = {'registry': str(args.output), 'accounts': panel.export_registry(conn, args.output)}
             elif args.command == 'panel-import':
                 doc = json.loads(args.draft.read_text(encoding='utf-8'))
                 with conn.transaction():

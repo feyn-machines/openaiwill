@@ -33,6 +33,16 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def describe(exc, limit=200):
+    """The innermost cause of a failure, as one short line (no request objects)."""
+    parts, seen = [], set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        parts.append(f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__)
+        exc = exc.__cause__ or exc.__context__
+    return parts[-1][:limit] if parts else None
+
+
 def new_state(jobs, *, concurrency, budgets):
     return {
         "status": "running", "ok": False,
@@ -93,12 +103,17 @@ async def run_jobs(jobs, pool, session_factory, work, unfinished, *, done_status
         else:
             pool.mark_cooldown(label, cooldown_seconds)
 
-    def failover(js, job_id, label, reason):
+    def record(js, job_id, label, reason, exc):
+        # The underlying reason (an expired proxy certificate, a reset
+        # connection) is what makes a failed run diagnosable from its file.
+        state["failovers"].append({"job_id": job_id, "handle": js["handle"], "account_label": label,
+                                   "reason": reason, "detail": describe(exc)})
+
+    def failover(js, job_id, label, reason, exc):
         js["attempts"] += 1
         if label not in js["tried_labels"]:
             js["tried_labels"].append(label)
-        state["failovers"].append({"job_id": job_id, "handle": js["handle"],
-                                   "account_label": label, "reason": reason})
+        record(js, job_id, label, reason, exc)
         if js["attempts"] >= max_attempts:
             fail(job_id, f"exhausted_accounts:{reason}")
             return False
@@ -106,10 +121,9 @@ async def run_jobs(jobs, pool, session_factory, work, unfinished, *, done_status
         queue.put_nowait(job_id)
         return True
 
-    def transient_retry(js, job_id, label):
+    def transient_retry(js, job_id, label, exc):
         js["transient"] += 1
-        state["failovers"].append({"job_id": job_id, "handle": js["handle"],
-                                   "account_label": label, "reason": "transport_error"})
+        record(js, job_id, label, "transport_error", exc)
         if js["transient"] >= max_transient:
             fail(job_id, "transport_exhausted")
             return False
@@ -184,14 +198,14 @@ async def run_jobs(jobs, pool, session_factory, work, unfinished, *, done_status
                     keep = sticky
             except errors.RateLimited as exc:
                 cool(lease.label, exc.reset_at)
-                failover(js, job_id, lease.label, "rate_limited")
-            except errors.AuthFailed:
+                failover(js, job_id, lease.label, "rate_limited", exc)
+            except errors.AuthFailed as exc:
                 pool.mark_dead(lease.label, "auth_failed")
-                failover(js, job_id, lease.label, "auth_failed")
-            except errors.TransportError:
+                failover(js, job_id, lease.label, "auth_failed", exc)
+            except errors.TransportError as exc:
                 # Usually a bad exit IP: a fresh connection is a new IP. Neither
                 # retires the account nor counts against max_attempts.
-                if transient_retry(js, job_id, lease.label):
+                if transient_retry(js, job_id, lease.label, exc):
                     await drop()
                     await sleep(min(transient_backoff, timeout))
             except errors.SchemaChanged as exc:

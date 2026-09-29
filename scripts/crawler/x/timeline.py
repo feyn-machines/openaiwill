@@ -189,6 +189,7 @@ def assemble_output(state, results, meta, expected_posts):
         "total": len(all_ids), "requests": state["requests"],
         "schema_change": state.get("schema_change"),
         "jobs": jobs, "reconciliation": reconciliation, "account_usage": account_usage,
-        "registry_sha256": meta.get("registry_sha256"),
+        "registry_sha256": meta.get("registry_sha256"), "targets": meta.get("targets"),
+        "proxy_transport": meta.get("proxy_transport"),
         "implementation_sha256": meta.get("implementation_sha256"),
     }

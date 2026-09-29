@@ -100,5 +100,55 @@ class PanelImport(unittest.TestCase):
         self.run_rolled_back(body)
 
 
+
+REGISTRY = Path(__file__).resolve().parents[2] / "datasets/official-x-accounts.json"
+
+
+class OfficialImport(unittest.TestCase):
+    """The official registry, imported for real and rolled back."""
+
+    setUpClass = classmethod(PanelImport.setUpClass.__func__)
+    run_rolled_back = PanelImport.run_rolled_back
+
+    def test_the_database_targets_match_the_registry_file(self):
+        """The crawler used to read the file; reading the table must plan the same jobs."""
+        import json
+        registry = json.loads(REGISTRY.read_text())
+        expected = {(a["handle"], a["x_user_id"], a["company"]) for a in registry
+                    if a.get("enabled") and a.get("verification_status") == "confirmed"}
+
+        def body():
+            panel.import_official(self.conn, registry, "test")
+            panel.refresh(self.conn)
+            got = {(r["handle"], r["x_user_id"], r["company"]) for r in panel.crawl_targets(self.conn, "official")}
+            self.assertEqual(got, expected)
+            panel_handles = {r["handle"] for r in panel.crawl_targets(self.conn, "panel")}
+            self.assertFalse(panel_handles & {h for h, _, _ in expected})
+        self.run_rolled_back(body)
+
+    def test_reimport_is_idempotent(self):
+        import json
+        registry = json.loads(REGISTRY.read_text())
+
+        def body():
+            panel.import_official(self.conn, registry, "test")
+            count = lambda: self.conn.execute(
+                "SELECT (SELECT count(*) FROM source_accounts) a, (SELECT count(*) FROM source_account_checks) c"
+            ).fetchone()
+            before = count()
+            panel.import_official(self.conn, registry, "test")
+            self.assertEqual(before, count())
+        self.run_rolled_back(body)
+
+    def test_a_panel_account_is_not_relabelled_official(self):
+        def body():
+            panel.import_draft(self.conn, DRAFT, "test")
+            clash = {"handle": "panel_test_eval", "company": "OpenAI", "enabled": True,
+                     "verification_status": "confirmed", "x_user_id": "1"}
+            with self.assertRaises(ValueError):
+                panel.import_official(self.conn, [clash], "test")
+        self.run_rolled_back(body)
+
+
 if __name__ == "__main__":
     unittest.main()

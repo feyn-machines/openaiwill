@@ -195,6 +195,27 @@ class Scheduler(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(state["ok"])
         self.assertEqual(pool.health_summary()["cooldown"], 1)
 
+    async def test_a_failover_keeps_the_underlying_reason(self):
+        """An expired proxy certificate must be readable from the run file (2026-09-28)."""
+        clock = Clock()
+        pool = pool_of(["a"], clock)
+        ssl_error = OSError("certificate verify failed: certificate has expired")
+
+        def refused():
+            try:
+                raise ssl_error
+            except OSError as inner:
+                try:
+                    raise errors.TransportError("ConnectError") from inner
+                except errors.TransportError as outer:
+                    return outer
+
+        async def factory(lease, job):
+            return Scripted([refused()])
+        state, _ = await run([target("j")], pool, factory, clock, max_transient=1)
+        self.assertEqual(state["jobs"]["j"]["stop_reason"], "transport_exhausted")
+        self.assertIn("certificate has expired", state["failovers"][0]["detail"])
+
     async def test_an_absurd_reset_header_falls_back_to_the_fixed_cooldown(self):
         clock = Clock()
         pool = pool_of(["bad", "good"], clock)
@@ -222,6 +243,30 @@ class Cli(unittest.TestCase):
         args = cli.parse_args(["timeline", "--start", "a", "--end", "b", "--output", "o.json",
                                "--expect-post", "abc"])
         self.assertIsNotNone(cli.validate(args))
+
+
+class Targets(unittest.TestCase):
+    def test_accounts_come_from_the_database_by_default(self):
+        args = cli.parse_args(["timeline", "--start", "a", "--end", "b", "--output", "o.json"])
+        self.assertEqual((args.targets, args.registry, args.no_ingest), ("official", None, False))
+
+    def test_a_registry_file_and_a_database_set_are_exclusive(self):
+        with self.assertRaises(SystemExit):
+            cli.parse_args(["timeline", "--start", "a", "--end", "b", "--output", "o.json",
+                            "--targets", "panel", "--registry", "r.json"])
+
+    def test_an_explicit_registry_file_is_read_without_the_database(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "r.json")
+            path.write_text('[{"handle": "OpenAI"}]')
+            args = cli.parse_args(["timeline", "--start", "a", "--end", "b", "--output", "o.json",
+                                   "--registry", str(path)])
+            accounts, provenance = cli.timeline_accounts(args)
+        self.assertEqual((accounts, provenance["source"]), ([{"handle": "OpenAI"}], str(path)))
+
+    def test_a_lookup_needs_no_handle_file(self):
+        args = cli.parse_args(["lookup", "--output", "o.json"])
+        self.assertEqual((args.handles, args.handles_file, args.all), (None, None, False))
 
 
 class Config(unittest.TestCase):
