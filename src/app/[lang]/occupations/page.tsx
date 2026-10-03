@@ -29,7 +29,7 @@ import s from "./occupations.module.css";
 const copy = bilingual({
   en: {
     metaTitle: "Find your occupation",
-    metaDescription: "Every occupation in the snapshot, with how much of its work AI finishes.",
+    metaDescription: "Every occupation in the snapshot and its tasks, with the level AI updates have reached.",
     title: "Find your occupation",
     lead: "Search for your job title; the number beside it is the share AI already finishes.",
     statTotalLabel: "Occupations",
@@ -41,7 +41,7 @@ const copy = bilingual({
   },
   "zh-CN": {
     metaTitle: "找到你的职业",
-    metaDescription: "快照中的全部职业，以及 AI 能做完其中多少工作。",
+    metaDescription: "快照中的全部职业及其任务，以及 AI 更新已达到的等级。",
     title: "找到你的职业",
     lead: "搜你的职业名；后面那个数字，是 AI 已经能做完的占比。",
     statTotalLabel: "职业",
@@ -104,7 +104,7 @@ export default async function Occupations() {
 
   return (
     <div className={`${s.page} ${bp.canvas}`}>
-      <JsonLd data={datasetLd(language, { name: c.title, description: c.lead, path: "/occupations" })} />
+      <JsonLd data={datasetLd(language, { name: c.title, description: c.metaDescription, path: "/occupations" })} />
       <h1 className={s.title}>{c.title}</h1>
       <p className={s.pageLead}>{c.lead}</p>
 

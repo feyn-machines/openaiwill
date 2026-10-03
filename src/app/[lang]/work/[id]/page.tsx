@@ -7,6 +7,7 @@ import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
+import { fill } from "@/app/[lang]/markets/copy";
 import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
@@ -20,6 +21,7 @@ const copy = bilingual({
   en: {
     back: "← {market}",
     eyebrow: "WORK",
+    metaDescription: "{name}: L{level} {levelName}, from {count} AI updates.",
     say: "As of {date}, AI does this work at {level}. {n} updates bear on it. Strongest evidence: {tier}.",
     level: "Level",
     updates: "Updates",
@@ -42,6 +44,7 @@ const copy = bilingual({
   "zh-CN": {
     back: "← {market}",
     eyebrow: "工作",
+    metaDescription: "{name}：L{level} {levelName}，依据 {count} 条 AI 更新。",
     say: "截至 {date}，AI 把这项工作做到 {level}。{n} 条更新涉及它，最强的证据：{tier}。",
     level: "级别",
     updates: "更新",
@@ -82,7 +85,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!work) return { title: copy[language].meta };
   const name = (language === "zh-CN" ? work.label_zh_cn : work.label_en) ?? work.label_en;
   const level = Math.round(work.level ?? 0);
-  return pageMetadata({ language, path: `/work/${id}`, title: `${name} · L${level} ${LEVEL_NAMES[language][level]}` });
+  const levelName = LEVEL_NAMES[language][level];
+  return pageMetadata({
+    language,
+    path: `/work/${id}`,
+    title: `${name} · L${level} ${levelName}`,
+    description: fill(copy[language].metaDescription, { name, level, levelName, count: work.evidence_rows ?? 0 }),
+  });
 }
 
 export default async function WorkPage({ params }: Props) {

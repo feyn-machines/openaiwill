@@ -86,13 +86,26 @@ test("the default title is the confirmed headline, not the retired one", () => {
   }
 });
 
+const BANNED_CLAIMS = /replacement rate|% of jobs|probability of failure|verified score|share AI|AI finishes|替代率|失败概率|已审核|占比|做完其中多少/i;
+
 test("no page claims a replacement share, a probability or a reviewed score", () => {
-  const banned = /replacement rate|% of jobs|probability of failure|verified score|替代率|失败概率|已审核/i;
+  const banned = BANNED_CLAIMS;
   for (const language of ["en", "zh-CN"]) {
     for (const path of FIXED) {
       const page = html(language, path);
       assert.doesNotMatch(tag(page, /<title>([^<]*)<\/title>/) ?? "", banned);
       assert.doesNotMatch(tag(page, /<meta name="description" content="([^"]+)"/) ?? "", banned);
+    }
+  }
+});
+
+test("no Dataset JSON-LD description claims a share", () => {
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of ["/markets", "/occupations"]) {
+      const blocks = [...html(language, path).matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1]));
+      const datasets = blocks.flat().filter((b) => b?.["@type"] === "Dataset");
+      if (HAS_SNAPSHOT) assert.ok(datasets.length > 0, `${language}${path} has no Dataset`);
+      for (const d of datasets) assert.doesNotMatch(d.description ?? "", BANNED_CLAIMS, `${language}${path}`);
     }
   }
 });
