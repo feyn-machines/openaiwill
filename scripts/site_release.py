@@ -296,7 +296,7 @@ def valid_deploy_root(path: str) -> bool:
     `sudo install -d` on the server, so nothing else is accepted."""
     parts = path.split("/")
     return (bool(DEPLOY_ROOT_CHARS.fullmatch(path)) and path.startswith("/") and "//" not in path
-            and not path.endswith("/") and len(parts) >= 3 and ".." not in parts)
+            and not path.endswith("/") and len(parts) >= 3 and "." not in parts and ".." not in parts)
 
 
 def load_target() -> dict:
@@ -380,12 +380,6 @@ def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
     finally:
         forward.terminate()
         forward.wait()
-
-
-def remote_result(target: dict, script: str) -> subprocess.CompletedProcess:
-    """Run a script on the server; the caller decides what a non-zero status means."""
-    return subprocess.run([*ssh_base(target), "bash", "-euo", "pipefail", "-c", shlex.quote(script)],
-                          text=True, capture_output=True)
 
 
 def remote(target: dict, script: str, capture: bool = False) -> str:

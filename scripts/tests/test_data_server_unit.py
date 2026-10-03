@@ -199,7 +199,7 @@ class DeployRootTest(unittest.TestCase):
             self.assertTrue(site_release.valid_deploy_root(value), value)
 
     def test_everything_else_is_refused(self):
-        for value in ("/opt", "opt/x", "/opt/open aiwill", "/", "", "/opt/../etc", "/opt//x", "/opt/x/", "/opt/x;y",
+        for value in ("/opt", "opt/x", "/opt/open aiwill", "/", "", "/opt/../etc", "/opt/.", "/opt/./x", "/opt/x/.", "/opt/..", "/opt//x", "/opt/x/", "/opt/x;y",
                       "/opt/$(id)", "/opt/'x", "~/x"):
             self.assertFalse(site_release.valid_deploy_root(value), value)
 
