@@ -1,6 +1,7 @@
 import { LanguageSwitch } from "@/components/language-switch";
 import { bilingual, getLocale } from "@/lib/i18n";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
+import { OFFICIAL_X_HANDLE, SITE_SOCIAL } from "@/lib/site-social";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
@@ -12,12 +13,14 @@ const copy = bilingual({
     brandLabel: "openaiwill home",
     footerBrand: "openaiwill · Before you build.",
     footerNote: "Evidence first. Opinions that can change.",
+    communityLabel: "Community links",
   },
   "zh-CN": {
     metaDescription: "每一次 AI 更新，都可能改变你的创业判断。对照 AI 平台已经做到的事情检查你的想法，并跟踪它的变化。",
     brandLabel: "openaiwill 首页",
     footerBrand: "openaiwill · 在动手之前。",
     footerNote: "以证据为先，判断随事实更新。",
+    communityLabel: "社区链接",
   },
 });
 
@@ -64,6 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { default: "Will AI Kill Your Idea?", template: "%s | openaiwill" },
     description: copy[language].metaDescription,
+    twitter: { card: "summary", site: OFFICIAL_X_HANDLE },
   };
 }
 
@@ -82,7 +86,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </div>
         </header>
         <main className="wrap">{children}</main>
-        <footer className="footer wrap"><span>{c.footerBrand}</span><span>{c.footerNote}</span></footer>
+        <footer className="footer wrap">
+          <div className="footer-copy"><span>{c.footerBrand}</span><span>{c.footerNote}</span></div>
+          <nav className="footer-social" aria-label={c.communityLabel}>
+            {SITE_SOCIAL.map((item) => <a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer">{item.label}</a>)}
+          </nav>
+        </footer>
       </body>
     </html>
   );
