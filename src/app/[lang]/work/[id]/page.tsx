@@ -77,7 +77,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
   const id = (await params).id;
   const work = find(id);
-  if (!work) return { title: copy[language].meta };
+  if (!work) notFound();
   const name = (language === "zh-CN" ? work.label_zh_cn : work.label_en) ?? work.label_en;
   const level = Math.round(work.level ?? 0);
   const levelName = LEVEL_NAMES[language][level];

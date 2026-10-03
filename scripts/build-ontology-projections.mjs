@@ -2,7 +2,7 @@
 // Projects the ontology schema into the artefacts that must agree with it:
 // the SQL constraints for migration 006 and the bilingual site labels.
 // Nothing here is hand-maintained; editing an output is always wrong.
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { schema, termIds, term, sqlValueList, validateSchema } from "./lib/ontology-schema.mjs";
@@ -297,6 +297,29 @@ export function siteLabels() {
   };
 }
 
+/**
+ * The market groups of the current sealed release (the one named by the schema's
+ * own version) and the group each market sits in, for the homepage's domains.
+ * Sorted, so the same release gives the same bytes.
+ */
+export function marketGroups() {
+  const dir = join(root, "datasets", "ontology", "releases", `v${schema.version}`);
+  const lines = (name) =>
+    readFileSync(join(dir, name), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  const sorted = (entries) => Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  return {
+    generated_from: `datasets/ontology/releases/v${schema.version}`,
+    groups: sorted(
+      lines("concepts.jsonl")
+        .filter((c) => c.kind === "market_group")
+        .map((c) => [c.id, { en: c.label_en, zh: c.label_zh_cn ?? c.label_en }]),
+    ),
+    group_of_market: sorted(
+      lines("relations.jsonl").filter((r) => r.kind === "has_market").map((r) => [r.child_id, r.parent_id]),
+    ),
+  };
+}
+
 function main() {
   const problems = validateSchema();
   if (problems.length) {
@@ -312,9 +335,12 @@ function main() {
   writeFileSync(join(root, "db", "generated", "011_gate_state_task.sql"), migrationSql011());
   const labelsPath = join(root, "src", "content", "ontology-labels.json");
   writeFileSync(labelsPath, JSON.stringify(siteLabels(), null, 2) + "\n");
+  const groupsPath = join(root, "src", "content", "market-groups.json");
+  writeFileSync(groupsPath, JSON.stringify(marketGroups(), null, 2) + "\n");
   console.log(`Wrote ${sqlPath}`);
   console.log(`Wrote ${join(root, "db", "generated", "007_semantic_judge_vocabulary.sql")}`);
   console.log(`Wrote ${labelsPath}`);
+  console.log(`Wrote ${groupsPath}`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

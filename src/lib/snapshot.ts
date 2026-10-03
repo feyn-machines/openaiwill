@@ -407,15 +407,15 @@ function current(): Store {
   return g[STORE] ?? EMPTY;
 }
 
-/** Swap in a release, or `null` for the no-data state. */
+/** Swap in a release, or `null` for a database with no active release or no data at all. */
 export function replaceSnapshot(
   payload: Payload | null,
   meta: { releaseId: string | null; source: "database" | "files" | "none"; loadedAt?: string },
 ) {
   g[STORE] = buildStore(payload, {
     releaseId: meta.releaseId,
-    source: payload ? meta.source : "none",
-    loadedAt: payload ? (meta.loadedAt ?? new Date().toISOString()) : null,
+    source: meta.source,
+    loadedAt: meta.source === "none" ? null : (meta.loadedAt ?? new Date().toISOString()),
   });
 }
 

@@ -7,7 +7,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { schema, termIds, validateSchema, governedColumns } from "./lib/ontology-schema.mjs";
-import { migrationSql, migrationSql007, migrationSql009, migrationSql011, siteLabels } from "./build-ontology-projections.mjs";
+import { migrationSql, migrationSql007, migrationSql009, migrationSql011, siteLabels, marketGroups } from "./build-ontology-projections.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const problems = [];
@@ -22,6 +22,7 @@ const generated = [
   ["db/generated/009_kind_check_null_repair.sql", migrationSql009()],
   ["db/generated/011_gate_state_task.sql", migrationSql011()],
   ["src/content/ontology-labels.json", JSON.stringify(siteLabels(), null, 2) + "\n"],
+  ["src/content/market-groups.json", JSON.stringify(marketGroups(), null, 2) + "\n"],
 ];
 for (const [relative, expected] of generated) {
   const path = join(root, relative);

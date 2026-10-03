@@ -2,6 +2,9 @@ import { join } from "node:path";
 import { dataRelease, replaceSnapshot } from "./lib/snapshot";
 import { activeReleaseId, loadFromDatabase, loadFromFiles } from "./lib/snapshot-source";
 
+const START_ATTEMPTS = 5;
+const START_RETRY_MS = 2000;
+
 /**
  * Loads the data release and keeps it current. `register()` waits for it, so a
  * server that cannot load its data does not stay up.
@@ -19,13 +22,16 @@ export async function loadData() {
 
 async function load() {
   const url = process.env.DATABASE_URL;
+  if (!url && process.env.SITE_REQUIRE_DATABASE === "1") {
+    throw new Error("SITE_REQUIRE_DATABASE is on but DATABASE_URL is not set");
+  }
   if (!url) {
     // Development, tests and CI: the published snapshot files, or no data at all.
     // The ignore comment keeps the file tracer from copying the whole project beside the server.
     const dir = process.env.SNAPSHOT_DIR ?? join(/* turbopackIgnore: true */ process.cwd(), "datasets", "published", "latest");
     try {
       const loaded = loadFromFiles(dir);
-      replaceSnapshot(loaded?.payload ?? null, { releaseId: loaded?.releaseId ?? null, source: "files" });
+      replaceSnapshot(loaded?.payload ?? null, { releaseId: loaded?.releaseId ?? null, source: loaded ? "files" : "none" });
     } catch (error) {
       // A malformed snapshot must not take the site down; the pages show the gap.
       console.error(`[data-release] snapshot files not loaded: ${(error as Error).message}`);
@@ -34,8 +40,19 @@ async function load() {
     return;
   }
 
-  // An unreachable database throws here and stops the server; an empty one is the no-data state.
-  const first = await loadFromDatabase(url);
+  // A database that stays unreachable throws here and stops the server; an empty one is the no-data state.
+  // A few attempts first: a database container may come up a moment after the site.
+  let first: Awaited<ReturnType<typeof loadFromDatabase>> = null;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      first = await loadFromDatabase(url);
+      break;
+    } catch (error) {
+      if (attempt >= START_ATTEMPTS) throw error;
+      console.error(`[data-release] load attempt ${attempt}/${START_ATTEMPTS} failed: ${(error as Error).message}`);
+      await new Promise((resolve) => setTimeout(resolve, START_RETRY_MS));
+    }
+  }
   replaceSnapshot(first?.payload ?? null, { releaseId: first?.releaseId ?? null, source: "database" });
   console.log(`[data-release] loaded ${first?.releaseId ?? "no active release"} from the database`);
 

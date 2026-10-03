@@ -58,7 +58,7 @@ async function startServer(env) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     if (proc.exitCode !== null) assert.fail(`the server exited with ${proc.exitCode}:\n${log}`);
     try {
-      if ((await fetch(`${base}/healthz`)).status === 200) return { base, proc };
+      if ((await fetch(`${base}/healthz`, { signal: AbortSignal.timeout(2000) })).status === 200) return { base, proc };
     } catch {
       // not listening yet
     }
@@ -72,7 +72,20 @@ async function stop(proc) {
   if (proc.exitCode !== null || proc.signalCode !== null) return;
   const exited = new Promise((resolve) => proc.once("exit", resolve));
   proc.kill("SIGTERM");
+  const grace = setTimeout(() => proc.kill("SIGKILL"), 5000);
   await exited;
+  clearTimeout(grace);
+}
+
+/** The exit code of a server expected to stop by itself; fails when it is still up after `ms`. */
+function exitsWithin(proc, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`the server was still running after ${ms} ms`)), ms);
+    proc.once("exit", (code) => {
+      clearTimeout(timer);
+      resolve(code);
+    });
+  });
 }
 
 let site;
@@ -138,7 +151,8 @@ test("with a snapshot, a detail page of each kind answers", { skip: !HAS_SNAPSHO
   const locs = [...files.get("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   for (const section of ["markets", "occupations/g", "occupations", "updates", "work"]) {
     for (const prefix of ["https://openaiwill.com", "https://openaiwill.com/zh-CN"]) {
-      const loc = locs.find((l) => l.startsWith(`${prefix}/${section}/`));
+      const loc = locs.find((l) =>
+        l.startsWith(`${prefix}/${section}/`) && (section !== "occupations" || !l.startsWith(`${prefix}/occupations/g/`)));
       assert.ok(loc, `${prefix}/${section} is not in the sitemap`);
       assert.equal((await fetch(`${site.base}${new URL(loc).pathname}`)).status, 200, loc);
     }
@@ -155,16 +169,22 @@ test("every data page asks to be rendered per request, so none is baked into the
   }
 });
 
-test("the market groups on the home page match the sealed ontology release", () => {
-  const dir = join(ROOT, "datasets", "ontology", "releases", "v1.0.0");
-  if (!existsSync(join(dir, "concepts.jsonl"))) return;
-  const lines = (name) => readFileSync(join(dir, name), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
-  const groups = Object.fromEntries(lines("concepts.jsonl").filter((c) => c.kind === "market_group")
-    .map((c) => [c.id, { en: c.label_en, zh: c.label_zh_cn ?? c.label_en }]));
-  const groupOfMarket = Object.fromEntries(lines("relations.jsonl").filter((r) => r.kind === "has_market").map((r) => [r.child_id, r.parent_id]));
+test("every market in the loaded data belongs to a market group the home page can draw", { skip: !HAS_SNAPSHOT }, () => {
+  const chain = JSON.parse(readFileSync(join(SNAPSHOT_DIR, "chain.json"), "utf8"));
   const stored = JSON.parse(readFileSync(join(ROOT, "src", "content", "market-groups.json"), "utf8"));
-  assert.deepEqual(stored.groups, groups);
-  assert.deepEqual(stored.group_of_market, groupOfMarket);
+  const markets = new Set(chain.activities.map((a) => a.market_id));
+  assert.ok(markets.size > 0);
+  const ungrouped = [...markets].filter((id) => !stored.groups[stored.group_of_market[id]]);
+  assert.deepEqual(ungrouped, [], "markets with no group are left off the home page");
+});
+
+test("the standalone output carries the database client and the data loader", () => {
+  assert.ok(existsSync(join(STANDALONE, "node_modules", "pg", "package.json")), "pg is not in the standalone output");
+  const server = join(STANDALONE, ".next", "server");
+  assert.ok(existsSync(join(server, "instrumentation.js")), "instrumentation.js is not in the standalone output");
+  const chunks = join(server, "chunks");
+  const loader = readdirSync(chunks).some((name) => readFileSync(join(chunks, name), "utf8").includes("[data-release]"));
+  assert.ok(loader, "the data loader is not in the standalone server bundle");
 });
 
 test("/healthz names the data release and is not cached", async () => {
@@ -172,6 +192,7 @@ test("/healthz names the data release and is not cached", async () => {
   assert.equal(res.headers.get("cache-control"), "no-store");
   const { ok, data } = await res.json();
   assert.equal(ok, true);
+  assert.equal(res.status, 200);
   if (HAS_SNAPSHOT) {
     assert.equal(data.source, "files");
     assert.match(data.releaseId, /^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
@@ -367,7 +388,7 @@ test("with a database, the server serves the active release", async (t) => {
   }
 });
 
-test("a server that cannot reach its database does not stay up", async () => {
+test("a server that cannot reach its database does not stay up", { timeout: 60000 }, async () => {
   const dir = assemble();
   const port = await freePort();
   const proc = spawn(process.execPath, ["server.js"], {
@@ -378,7 +399,37 @@ test("a server that cannot reach its database does not stay up", async () => {
   running.push(proc);
   let log = "";
   proc.stderr.on("data", (chunk) => (log += chunk));
-  const code = await new Promise((resolve) => proc.once("exit", resolve));
+  // Five attempts two seconds apart, then it gives up.
+  const code = await exitsWithin(proc, 40000);
   assert.notEqual(code, 0);
+  assert.match(log, /load attempt 1\/5 failed/);
   assert.match(log, /cannot load the data release/);
+});
+
+test("a server that must use the database exits when none is configured", { timeout: 30000 }, async () => {
+  const dir = assemble();
+  const port = await freePort();
+  const env = { ...process.env, SITE_REQUIRE_DATABASE: "1", PORT: String(port), HOSTNAME: "127.0.0.1", NODE_ENV: "production" };
+  delete env.DATABASE_URL;
+  const proc = spawn(process.execPath, ["server.js"], { cwd: dir, env, stdio: ["ignore", "ignore", "pipe"] });
+  running.push(proc);
+  let log = "";
+  proc.stderr.on("data", (chunk) => (log += chunk));
+  assert.notEqual(await exitsWithin(proc, 20000), 0);
+  assert.match(log, /SITE_REQUIRE_DATABASE is on but DATABASE_URL is not set/);
+});
+
+test("a server that must use the database is healthy only when it serves a release from it", async (t) => {
+  const database = await localDatabase();
+  if (!database) return t.skip("no local PostgreSQL with an active data release");
+  const { base, proc } = await startServer({ DATABASE_URL: database.url, SITE_REQUIRE_DATABASE: "1" });
+  try {
+    const res = await fetch(`${base}/healthz`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.data.source, "database");
+  } finally {
+    await stop(proc);
+  }
 });

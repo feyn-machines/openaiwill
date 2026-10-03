@@ -65,9 +65,10 @@ export type HomeData = {
 };
 
 /**
- * The sealed v1.0.0 ontology's market groups and which group each market sits in.
- * A small file generated from the release, because the release itself stays out
- * of the server's files; `site-output.test.mjs` checks the two agree.
+ * The market groups of the current sealed ontology release and which group each
+ * market sits in. `pnpm ontology:projections` generates the file, because the
+ * release itself stays out of the server's files; `pnpm ontology:check` fails
+ * when it is stale. A market with no group is not drawn on the homepage.
  */
 const GROUPS = marketGroups as { groups: Record<string, Both>; group_of_market: Record<string, string> };
 

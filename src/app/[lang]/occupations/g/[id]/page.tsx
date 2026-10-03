@@ -99,7 +99,7 @@ export async function generateMetadata({
   const { id } = await params;
   const { language } = await getLocale();
   const group = groupFromSlug(id);
-  if (!group) return {};
+  if (!group) notFound();
   const label = ((language === "zh-CN" ? group.label_zh_cn : group.label_en) ?? group.label_en) ?? id;
   return pageMetadata({
     language,

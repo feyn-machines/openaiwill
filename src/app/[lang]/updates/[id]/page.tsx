@@ -64,11 +64,10 @@ const find = (id: string) => chainEvents().find((e) => e.event_id === id);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
-  const update = find((await params).id);
   const id = (await params).id;
-  return update
-    ? pageMetadata({ language, path: `/updates/${id}`, title: update.title, description: update.summary })
-    : { title: copy[language].meta };
+  const update = find(id);
+  if (!update) notFound();
+  return pageMetadata({ language, path: `/updates/${id}`, title: update.title, description: update.summary });
 }
 
 function compact(n: number, zh: boolean): string {
