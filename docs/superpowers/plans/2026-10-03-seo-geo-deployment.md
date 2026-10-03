@@ -774,7 +774,7 @@ Expected: `404` on every line.
 
 **Interfaces:**
 - Produces from `@/lib/seo`:
-  - `SITE_URL = "https://openaiwill.com"`, `SITE_NAME = "openaiwill"`, `X_HANDLE = "@openaiwill"`, `X_URL = "https://x.com/openaiwill"`, `DISCORD_URL = "https://discord.gg/ArVHw2K9X"`
+  - `SITE_URL = "https://openaiwill.com"`, `SITE_NAME = "openaiwill"`, `X_HANDLE = "@openaiwill"`, `X_URL = "https://x.com/openaiwill"`, `DISCORD_URL = "https://discord.gg/ArVHw2K9X"`, `GITHUB_URL = "https://github.com/feyn-machines/openaiwill"`, `SOCIAL_LINKS: readonly { label: string; href: string }[]` (X, Discord, GitHub)
   - `siteCopy: Record<Language, { title: string; description: string }>`
   - `absoluteUrl(language: Language, path: string): string`
   - `pageMetadata(page: { language: Language; path: string; title?: string; description?: string }): Metadata`
@@ -801,6 +801,17 @@ test("each page names its own address and its counterpart in the other language"
       assert.equal(tag(page, /<meta property="og:image" content="([^"]+)"/), `${SITE}/og/${language}.png`, where);
       assert.ok(tag(page, /<meta name="description" content="([^"]+)"/), where);
       assert.equal(tag(page, /<meta name="twitter:site" content="([^"]+)"/), "@openaiwill", where);
+    }
+  }
+});
+
+test("every page links to the project's accounts", () => {
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      const links = anchors(html(language, path));
+      for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]) {
+        assert.ok(links.includes(url), `${language}${path} lacks ${url}`);
+      }
     }
   }
 });
@@ -841,6 +852,15 @@ export const X_HANDLE = "@openaiwill";
 export const X_URL = "https://x.com/openaiwill";
 /** The project's community invite on Discord (user-confirmed 2026-10-03). */
 export const DISCORD_URL = "https://discord.gg/ArVHw2K9X";
+/** The public source repository (user-confirmed 2026-10-03). */
+export const GITHUB_URL = "https://github.com/feyn-machines/openaiwill";
+
+/** The project's own places elsewhere, in the order the footer shows them. */
+export const SOCIAL_LINKS = [
+  { label: "X", href: X_URL },
+  { label: "Discord", href: DISCORD_URL },
+  { label: "GitHub", href: GITHUB_URL },
+] as const;
 
 /**
  * The words confirmed for the first screen on 2026-09-22 (DESIGN.md): the
@@ -916,7 +936,19 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 ```
 
-Import `SITE_NAME, SITE_URL, siteCopy` from `@/lib/seo`. Rewrite the comment above it: titles and descriptions follow the language of the address.
+Import `SITE_NAME, SITE_URL, SOCIAL_LINKS, siteCopy` from `@/lib/seo`. Rewrite the comment above it: titles and descriptions follow the language of the address.
+
+In the same file, show the project's accounts in the footer (user request, 2026-10-03). Add a `footerLinks` key to both languages of `copy` (en `"openaiwill elsewhere"`, zh-CN `"openaiwill 的其他地址"`) and add inside `<footer>`, after the two existing `<span>`s:
+
+```tsx
+<nav className="footer-links" aria-label={c.footerLinks}>
+  {SOCIAL_LINKS.map((link) => (
+    <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
+  ))}
+</nav>
+```
+
+Add one rule next to the existing `.footer` rule in `src/app/globals.css`, using only existing tokens: `.footer-links{display:flex;gap:var(--ah-space-4)}.footer-links a{text-decoration:underline;text-underline-offset:4px}`. The labels are names and are the same in both languages.
 
 - [ ] **Step 5: Every page**
 
@@ -1141,7 +1173,7 @@ test("structured data names the organisation, the datasets and their status", ()
     assert.deepEqual(types(html(language, "")).sort(), ["Organization", "WebSite"]);
     assert.ok(types(html(language, "/whitepaper")).includes("Article"));
     const org = ld(html(language, "")).find((item) => item["@type"] === "Organization");
-    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X"]);
+    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]);
   }
 });
 
@@ -1194,7 +1226,7 @@ const organization = {
   name: SITE_NAME,
   url: SITE_URL,
   logo: `${SITE_URL}/icon.svg`,
-  sameAs: [X_URL, DISCORD_URL],
+  sameAs: [X_URL, DISCORD_URL, GITHUB_URL],
 } as const;
 
 export function siteLd(language: Language): object[] {
@@ -1315,6 +1347,7 @@ test("llms.txt is generated from the site, names real pages, and overstates noth
   assert.match(text, /machine-proposed/i);
   assert.match(text, /https:\/\/x\.com\/openaiwill/);
   assert.match(text, /https:\/\/discord\.gg\/ArVHw2K9X/);
+  assert.match(text, /https:\/\/github\.com\/feyn-machines\/openaiwill/);
   for (const [, url] of text.matchAll(/\]\((https:\/\/openaiwill\.com[^)]*)\)/g)) {
     const path = url.slice(SITE.length).replace(/\/$/, "");
     if (/\.(txt|xml)$/.test(path)) continue;
@@ -1336,7 +1369,7 @@ test("the figures on the home page are in its HTML, not only drawn by script", {
 
 ```ts
 import { LEVEL_NAMES } from "@/lib/level-names";
-import { DISCORD_URL, SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
+import { DISCORD_URL, GITHUB_URL, SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
 import { manifest } from "@/lib/snapshot";
 
@@ -1361,6 +1394,7 @@ export function GET() {
     `- [简体中文](${absoluteUrl("zh-CN", "/")})`,
     `- [openaiwill on X](${X_URL})`,
     `- [openaiwill on Discord](${DISCORD_URL})`,
+    `- [Source on GitHub](${GITHUB_URL})`,
     "",
     "## Levels",
     "",
@@ -2089,4 +2123,4 @@ A 403 for a crawler user agent, or a `robots.txt` that is not the one this build
 
 Walk the user through section 5 of the runbook; these need their accounts.
 
-- [ ] **Step 7: Update `CLAUDE.md`** — in "Current state", replace "no … production deployment" with one sentence naming the runbook and that data updates are published by `pnpm site:release` then `pnpm site:promote`; note the language rule is now path-based; record the official accounts (X `https://x.com/openaiwill`, Discord `https://discord.gg/ArVHw2K9X`) in the product paragraph. Commit — `Document deployment and record the first release`
+- [ ] **Step 7: Update `CLAUDE.md`** — in "Current state", replace "no … production deployment" with one sentence naming the runbook and that data updates are published by `pnpm site:release` then `pnpm site:promote`; note the language rule is now path-based; record the official accounts (X `https://x.com/openaiwill`, Discord `https://discord.gg/ArVHw2K9X`, GitHub `https://github.com/feyn-machines/openaiwill`) in the product paragraph. Commit — `Document deployment and record the first release`
