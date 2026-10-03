@@ -14,6 +14,8 @@ rendered build is uploaded.
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import http.client
 import json
 import os
@@ -152,6 +154,17 @@ def indexnow_key() -> str | None:
     return None
 
 
+# What the router sends on a client-side navigation. Next answers an RSC request with a 307 unless `_rsc`
+# carries the hash of these headers, so the request is built the way the client builds it.
+RSC_STATE_TREE = "%5B%22%22%2C%7B%7D%5D"
+
+
+def rsc_request(path: str) -> tuple[str, dict]:
+    digest = hashlib.sha256(",".join(["0", "0", RSC_STATE_TREE, "0"]).encode()).digest()[:12]
+    param = base64.urlsafe_b64encode(digest).decode().rstrip("=")
+    return f"{path}?_rsc={param}", {"RSC": "1", "Sec-Fetch-Dest": "empty", "Next-Router-State-Tree": RSC_STATE_TREE}
+
+
 def is_reachability(failure: str) -> bool:
     return "is not reachable" in failure or ": no answer (" in failure
 
@@ -200,7 +213,8 @@ def smoke(base: str, release: str | None) -> list[str]:
     expect("/ZH-cn/markets", 308, location="/zh-CN/markets")
     expect("/markets", 307, location="/zh-CN/markets", cookie="openaiwill_language=zh-CN")
     # A client-side navigation asks for the page it is already on; a redirect there breaks the language switch.
-    expect("/markets", 200, cookie="openaiwill_language=zh-CN", headers={"RSC": "1", "Sec-Fetch-Dest": "empty"})
+    rsc_path, rsc_headers = rsc_request("/markets")
+    expect(rsc_path, 200, cookie="openaiwill_language=zh-CN", headers=rsc_headers)
     # The proxy's internal marker must not be forgeable by a client.
     forged = {"x-openaiwill-rewritten": "1"}
     expect("/en/markets", 308, location="/markets", headers=forged)

@@ -193,6 +193,15 @@ class FetchAndSmokeTest(unittest.TestCase):
         self.assertIn("http://127.0.0.1:1 is not reachable", failures[0])
 
 
+class RscRequestTest(unittest.TestCase):
+    def test_the_request_is_the_one_the_router_sends(self):
+        path, headers = release.rsc_request("/markets")
+        # The hash Next 16 expects for exactly these headers (taken from its own 307 Location).
+        self.assertEqual(path, "/markets?_rsc=OxBCQ2sR9P8GlKR3")
+        self.assertEqual(headers["RSC"], "1")
+        self.assertEqual(headers["Sec-Fetch-Dest"], "empty")
+
+
 class PublicCheckMessageTest(unittest.TestCase):
     new = "20261003T102912Z-aaaaaaa"
 

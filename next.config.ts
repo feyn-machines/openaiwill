@@ -32,7 +32,9 @@ const nextConfig: NextConfig = {
   // No page uses the image optimizer, and its native `sharp` binary would be built for this machine, not the server's architecture.
   images: { unoptimized: true },
   outputFileTracingExcludes: {
-    "/**": ["./node_modules/sharp/**", "./node_modules/@img/**", "./node_modules/.pnpm/sharp@*/**", "./node_modules/.pnpm/@img+*/**", "./datasets/**", "./data/**", "./local/**", "./docs/**", "./design/**", "./output/**", "./db/**", "./scripts/**"],
+    "/**": ["./datasets/**", "./data/**", "./local/**", "./docs/**", "./design/**", "./output/**", "./db/**", "./scripts/**"],
+    // Next's own server pulls in `sharp`; it is traced under this key, not under the routes' glob.
+    "next-server": ["**/node_modules/sharp/**/*", "**/node_modules/@img/**/*", "**/node_modules/.pnpm/sharp@*/**/*", "**/node_modules/.pnpm/@img+*/**/*"],
   },
 };
 
