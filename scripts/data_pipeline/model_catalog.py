@@ -82,10 +82,14 @@ def select(doc, mapping):
         released = min(entry["dates"])
         if released < since:
             continue
-        name = sorted(entry["own"])[0] if entry["own"] else \
-            sorted(entry["names"], key=lambda n: (-entry["names"][n], n))[0]
+        slug = canonical.split("/", 1)[1]
+        by_use = sorted(entry["names"], key=lambda n: (-entry["names"][n], n))
+        # A maker's API often serves its newest model under a moving id ("DeepSeek V4 Flash"
+        # for deepseek-v4.1-flash), so a listed name that spells the canonical id comes first.
+        exact = [n for n in by_use if normalize(n) == normalize(slug)]
+        name = exact[0] if exact else sorted(entry["own"])[0] if entry["own"] else by_use[0]
         aliases = []
-        for spelling in (name, canonical.split("/", 1)[1]):
+        for spelling in (slug, name):
             key = normalize(spelling)
             if key and key not in aliases:
                 aliases.append(key)

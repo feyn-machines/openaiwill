@@ -66,13 +66,20 @@ class Selecting(unittest.TestCase):
         self.assertEqual(row["released_on"], date(2026, 8, 3))
         self.assertEqual(row["offerings"], [("amazon-bedrock", date(2026, 8, 5))])
 
+    def test_a_name_that_spells_the_canonical_id_beats_the_owners_moving_alias(self):
+        doc = snapshot(alibaba=[record("Qwen3.8 Max", "alibaba/qwen3.8-max-0902", "2026-09-02")],
+                       r1=[record("Qwen3.8 Max 0902", "alibaba/qwen3.8-max-0902", "2026-09-02")])
+        (row,) = mc.select(doc, MAPPING)
+        self.assertEqual(row["name"], "Qwen3.8 Max 0902")
+        self.assertEqual(row["aliases"], ["qwen 3 8 max 0902"])
+
     def test_aliases_are_the_name_and_the_catalog_slug(self):
         doc = snapshot(anthropic=[record("Claude Opus 5.5", "anthropic/claude-opus-5-5", "2026-09-18")])
         (row,) = mc.select(doc, MAPPING)
         self.assertEqual(row["aliases"], ["claude opus 5 5"])
         doc = snapshot(alibaba=[record("Qwen-Max 3.8", "alibaba/qwen3.8-max", "2026-08-03")])
         (row,) = mc.select(doc, MAPPING)
-        self.assertEqual(row["aliases"], ["qwen max 3 8", "qwen 3 8 max"])
+        self.assertEqual(row["aliases"], ["qwen 3 8 max", "qwen max 3 8"])
 
 
 class CatalogAttributes(unittest.TestCase):

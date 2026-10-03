@@ -154,6 +154,8 @@ def main():
     idm.add_argument('--limit', type=int)
     idm.add_argument('--batch-size', type=int, default=8)
     idm.add_argument('--report', action='store_true', help='Print the counts; no judge calls')
+    idm.add_argument('--reconcile', action='store_true',
+                     help='Fold short-name duplicates into their model and add short aliases; no judge calls')
     cat = sub.add_parser('model-catalog',
                          help='Import our companies\' recent models from a models.dev snapshot (no judge calls)')
     cat.add_argument('snapshot', type=Path, nargs='?', help='Saved api.json; downloaded when omitted')
@@ -240,9 +242,15 @@ def main():
         elif args.command == 'identify-models':
             from data_pipeline import model_identification
             migrate(conn)
-            result = (model_identification.report(conn) if args.report else
-                      model_identification.run(conn, batch_size=args.batch_size, limit=args.limit,
-                                               progress=lambda line: print(line, file=sys.stderr)))
+            if args.reconcile:
+                with conn.transaction():
+                    result = model_identification.reconcile(conn)
+                model_identification.confirm(conn)
+            elif args.report:
+                result = model_identification.report(conn)
+            else:
+                result = model_identification.run(conn, batch_size=args.batch_size, limit=args.limit,
+                                                  progress=lambda line: print(line, file=sys.stderr))
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
         elif args.command == 'model-catalog':
             from data_pipeline import model_catalog

@@ -34,6 +34,39 @@ class AgreesWithTheSemanticModel(unittest.TestCase):
         self.assertEqual(rule["expression"]["event_kinds"], list(mi.RELEASE_KINDS))
 
 
+class ShortNames(unittest.TestCase):
+    @staticmethod
+    def registry(*releases):
+        rows = [{"model_id": "f:claude", "level": "family", "name": "Claude", "parent_model_id": None},
+                {"model_id": "f:gemini", "level": "family", "name": "Gemini", "parent_model_id": None},
+                {"model_id": "f:qwen", "level": "family", "name": "Qwen", "parent_model_id": None}]
+        return rows + [{"model_id": f"r:{name}", "level": "release", "name": name, "parent_model_id": family}
+                       for name, family in releases]
+
+    def test_the_family_name_is_dropped(self):
+        shorts = mi.short_names(self.registry(("Claude Opus 5.5", "f:claude")))
+        self.assertEqual(shorts, {"opus 5 5": "r:Claude Opus 5.5"})
+
+    def test_a_short_name_two_models_share_belongs_to_neither(self):
+        shorts = mi.short_names(self.registry(("Gemini Flash 4", "f:gemini"), ("Qwen Flash 4", "f:qwen"),
+                                              ("Claude Opus 5.5", "f:claude")))
+        self.assertEqual(shorts, {"opus 5 5": "r:Claude Opus 5.5"})
+
+    def test_a_short_name_starts_with_a_word(self):
+        shorts = mi.short_names(self.registry(("Gemini 3.8 Flash", "f:gemini"), ("Qwen 3.7", "f:qwen")))
+        self.assertEqual(shorts, {})
+
+    def test_a_short_name_needs_a_version_and_more_than_one_word(self):
+        shorts = mi.short_names(self.registry(("Claude Opus", "f:claude"), ("Claude 5", "f:claude"),
+                                              ("Opus 5.5", "f:claude")))
+        self.assertEqual(shorts, {})
+
+    def test_a_family_and_a_release_without_one_have_no_short_name(self):
+        rows = self.registry() + [{"model_id": "r:x", "level": "release", "name": "Claude Opus 5.5",
+                                   "parent_model_id": None}]
+        self.assertEqual(mi.short_names(rows), {})
+
+
 class Normalising(unittest.TestCase):
     def test_spellings_of_one_name_meet(self):
         self.assertEqual(mi.normalize("Gemini 3.8-Flash"), mi.normalize("gemini-3.8 flash"))
