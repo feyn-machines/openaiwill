@@ -66,7 +66,11 @@
     "data:relations:backfill": "data/runtime/venv/bin/python scripts/data-pipeline.py relations-backfill",
     "data:post-events": "data/runtime/venv/bin/python scripts/data-pipeline.py post-events",
     "data:identify:models": "data/runtime/venv/bin/python scripts/data-pipeline.py identify-models",
-    "data:models:catalog": "data/runtime/venv/bin/python scripts/data-pipeline.py model-catalog"
+    "data:models:catalog": "data/runtime/venv/bin/python scripts/data-pipeline.py model-catalog",
+    "data:release": "data/runtime/venv/bin/python scripts/data-release.py release --target server",
+    "data:promote": "data/runtime/venv/bin/python scripts/data-release.py promote --target server",
+    "data:rollback": "data/runtime/venv/bin/python scripts/data-release.py rollback --target server",
+    "data:status:release": "data/runtime/venv/bin/python scripts/data-release.py status --target server"
   },
   "dependencies": {
     "next": "16.3.4",
