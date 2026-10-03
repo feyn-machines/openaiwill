@@ -158,3 +158,27 @@ test("structured data never claims a review or a rating", () => {
     }
   }
 });
+
+test("llms.txt is generated from the site, names real pages, and overstates nothing", () => {
+  const text = body("llms.txt");
+  assert.match(text, /^# openaiwill\n/);
+  assert.doesNotMatch(text, /\bplatform\b|verified|reviewed score|replacement rate/i);
+  assert.match(text, /machine-proposed/i);
+  assert.match(text, /https:\/\/x\.com\/openaiwill/);
+  assert.match(text, /https:\/\/discord\.gg\/ArVHw2K9X/);
+  assert.match(text, /https:\/\/github\.com\/feyn-machines\/openaiwill/);
+  for (const [, url] of text.matchAll(/\]\((https:\/\/openaiwill\.com[^)]*)\)/g)) {
+    const path = url.slice(SITE.length).replace(/\/$/, "");
+    if (/\.(txt|xml)$/.test(path)) continue;
+    const file = path.startsWith("/zh-CN") ? path.slice(1) : `en${path}`;
+    assert.ok(existsSync(join(APP, `${file}.html`)), `${url} is not a page`);
+  }
+});
+
+test("the figures on the home page are in its HTML, not only drawn by script", { skip: !HAS_SNAPSHOT }, () => {
+  for (const language of ["en", "zh-CN"]) {
+    const text = html(language, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, " ");
+    assert.match(text, /\bL[0-5]\b/, `${language}: no level appears as text`);
+    assert.ok((text.match(/\d{2,}/g) ?? []).length >= 5, `${language}: fewer than five numbers appear as text`);
+  }
+});
