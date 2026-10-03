@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import {
   chainEvents,
   coverage,
@@ -151,7 +152,7 @@ const copy = bilingual({
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
   const c = copy[language];
-  return { title: c.title, description: c.lead };
+  return pageMetadata({ language, path: "/updates", title: c.title, description: c.lead });
 }
 
 export default async function UpdatesPage() {

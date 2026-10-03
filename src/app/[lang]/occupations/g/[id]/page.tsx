@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
@@ -36,6 +37,7 @@ import s from "./group.module.css";
 const copy = bilingual({
   en: {
     back: "All sectors",
+    metaDescription: "{name}: {tasks} tasks, {reached} reached by an AI update.",
     lead: "How far apart the occupations inside this sector are.",
     statShareLabel: "AI finishes",
     statShareNote: "of this sector's tasks, at L2 or above. The middle sector is at {median}%.",
@@ -56,6 +58,7 @@ const copy = bilingual({
   },
   "zh-CN": {
     back: "全部领域",
+    metaDescription: "{name}：{tasks} 项任务，其中 {reached} 项已被 AI 更新触及。",
     lead: "这个领域内部的职业，彼此差多远。",
     statShareLabel: "AI 能做完",
     statShareNote: "的任务到 L2 及以上。中位的那个领域是 {median}%。",
@@ -100,8 +103,16 @@ export async function generateMetadata({
   const { language } = await getLocale();
   const group = groupFromSlug(id);
   if (!group) return {};
-  const label = (language === "zh-CN" ? group.label_zh_cn : group.label_en) ?? group.label_en;
-  return { title: label ?? id, description: copy[language].lead };
+  const label = ((language === "zh-CN" ? group.label_zh_cn : group.label_en) ?? group.label_en) ?? id;
+  return pageMetadata({
+    language,
+    path: `/occupations/g/${id}`,
+    title: label,
+    description: copy[language].metaDescription
+      .replace("{name}", label)
+      .replace("{tasks}", String(group.tasks))
+      .replace("{reached}", String(assessedCount(group.by_stage))),
+  });
 }
 
 export default async function OccupationGroup({ params }: { params: Promise<{ id: string }> }) {

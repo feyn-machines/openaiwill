@@ -1,5 +1,7 @@
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
+import type { Metadata } from "next";
 import { href } from "@/lib/routes";
 import { buildHomeData } from "@/lib/home-data";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
@@ -35,6 +37,11 @@ const copy = bilingual({
     noData: "暂无已发布的数据。网站读取本地快照，而这次构建没有生成快照。",
   },
 });
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { language } = await getLocale();
+  return pageMetadata({ language, path: "/" });
+}
 
 export default async function Home() {
   const { language } = await getLocale();

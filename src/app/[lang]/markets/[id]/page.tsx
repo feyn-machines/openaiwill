@@ -5,6 +5,7 @@ import { Bar, Blank, Block, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { termNameOrRaw } from "@/components/ontology-labels";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
@@ -62,13 +63,19 @@ function marketForSlug(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
   const c = detailCopy[language];
-  const market = marketForSlug((await params).id);
+  const id = (await params).id;
+  const market = marketForSlug(id);
   if (!market) {
     if (!hasSnapshot) return { title: c.metaSuffix };
     notFound();
   }
   const name = (language === "zh-CN" ? market.zh_cn : market.en) ?? market.en;
-  return { title: `${name} · ${c.metaSuffix}`, description: c.lead };
+  return pageMetadata({
+    language,
+    path: `/markets/${id}`,
+    title: `${name} · ${c.metaSuffix}`,
+    description: fill(c.metaDescription, { name, count: market.activities }),
+  });
 }
 
 export default async function MarketPage({ params }: Props) {

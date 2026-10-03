@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { manifest, snapshotExists, sources, type Source } from "@/lib/snapshot";
 import { NoSnapshot, PageHeader, Section, bilingual, dataStyles as d, formatNumber, isoDate } from "@/components/data-page";
 import { termName } from "@/components/ontology-labels";
@@ -55,7 +56,7 @@ const copy = bilingual({
 
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
-  return { title: copy[language].metaTitle, description: copy[language].metaDescription };
+  return pageMetadata({ language, path: "/voices", title: copy[language].metaTitle, description: copy[language].metaDescription });
 }
 
 const fill = (text: string, values: Record<string, string | number>) =>

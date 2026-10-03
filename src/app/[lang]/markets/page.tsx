@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Blank, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import {
   activitiesOfMarket,
   markets,
@@ -38,7 +39,7 @@ import x from "./markets.module.css";
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
   const c = indexCopy[language];
-  return { title: c.title, description: c.lead };
+  return pageMetadata({ language, path: "/markets", title: c.title, description: c.lead });
 }
 
 export default async function MarketsPage() {

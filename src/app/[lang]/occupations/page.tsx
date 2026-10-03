@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import {
   assessedCount,
   atOrAboveL2,
@@ -59,7 +60,7 @@ function share(counts: StageCounts, tasks: number) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
-  return { title: copy[language].metaTitle, description: copy[language].metaDescription };
+  return pageMetadata({ language, path: "/occupations", title: copy[language].metaTitle, description: copy[language].metaDescription });
 }
 
 export default async function Occupations() {

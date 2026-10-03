@@ -44,3 +44,55 @@ test("detail pages are prerendered when there is a snapshot", { skip: !HAS_SNAPS
     }
   }
 });
+
+const SITE = "https://openaiwill.com";
+// Next writes the site root without its trailing slash; the two spell the same address.
+const publicUrl = (language, path) => `${SITE}${language === "en" ? path : `/zh-CN${path}`}`;
+const tag = (page, pattern) => page.match(pattern)?.[1] ?? null;
+
+test("each page names its own address and its counterpart in the other language", () => {
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      const page = html(language, path);
+      const where = `${language}${path}`;
+      assert.equal(tag(page, /<link rel="canonical" href="([^"]+)"/), publicUrl(language, path), where);
+      assert.equal(tag(page, /<link rel="alternate" hrefLang="en" href="([^"]+)"/), publicUrl("en", path), where);
+      assert.equal(tag(page, /<link rel="alternate" hrefLang="zh-CN" href="([^"]+)"/), publicUrl("zh-CN", path), where);
+      assert.equal(tag(page, /<link rel="alternate" hrefLang="x-default" href="([^"]+)"/), publicUrl("en", path), where);
+      assert.equal(tag(page, /<meta property="og:url" content="([^"]+)"/), publicUrl(language, path), where);
+      assert.equal(tag(page, /<meta property="og:image" content="([^"]+)"/), `${SITE}/og/${language}.png`, where);
+      assert.ok(tag(page, /<meta name="description" content="([^"]+)"/), where);
+      assert.equal(tag(page, /<meta name="twitter:site" content="([^"]+)"/), "@openaiwill", where);
+    }
+  }
+});
+
+test("every page links to the project's accounts in the header and in the footer", () => {
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      const links = anchors(html(language, path));
+      for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]) {
+        assert.equal(links.filter((link) => link === url).length, 2, `${language}${path}: ${url} should appear in header and footer`);
+      }
+    }
+  }
+});
+
+test("the default title is the confirmed headline, not the retired one", () => {
+  assert.match(html("en", ""), /<title>How far AI has taken over the world<\/title>/);
+  assert.match(html("zh-CN", ""), /<title>AI 接管世界的进度<\/title>/);
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) assert.doesNotMatch(html(language, path), /<title>[^<]*Kill Your Idea/);
+  }
+});
+
+test("no page claims a replacement share, a probability or a reviewed score", () => {
+  const banned = /replacement rate|% of jobs|probability of failure|verified score|替代率|失败概率|已审核/i;
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      const page = html(language, path);
+      assert.doesNotMatch(tag(page, /<title>([^<]*)<\/title>/) ?? "", banned);
+      assert.doesNotMatch(tag(page, /<meta name="description" content="([^"]+)"/) ?? "", banned);
+    }
+  }
+});

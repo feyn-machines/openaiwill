@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import { WorkGrid } from "@/components/work-grid";
@@ -45,6 +46,7 @@ import s from "./detail.module.css";
 const copy = bilingual({
   en: {
     metaSuffix: "Occupation",
+    metaDescription: "{name}: {tasks} tasks, {reached} reached by an AI update.",
     back: "All occupations",
     lead: "Which pieces of this job an update has reached, and which nobody has looked at.",
     statReachLabel: "AI finishes",
@@ -68,6 +70,7 @@ const copy = bilingual({
   },
   "zh-CN": {
     metaSuffix: "职业",
+    metaDescription: "{name}：{tasks} 项任务，其中 {reached} 项已被 AI 更新触及。",
     back: "全部职业",
     lead: "这份工作里，哪几件已经被更新触及，哪几件还没人看过。",
     statReachLabel: "AI 能做完",
@@ -114,12 +117,23 @@ function label(id: string, language: Language) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
   const c = copy[language];
-  const id = idForCode((await params).code);
+  const code = (await params).code;
+  const id = idForCode(code);
   if (!id) {
     if (!hasSnapshot) return { title: c.metaSuffix };
     notFound();
   }
-  return { title: `${label(id, language)} · ${c.metaSuffix}`, description: c.lead };
+  const name = label(id, language);
+  const entry = progress?.occupations?.[id];
+  return pageMetadata({
+    language,
+    path: `/occupations/${code}`,
+    title: `${name} · ${c.metaSuffix}`,
+    description: c.metaDescription
+      .replace("{name}", name)
+      .replace("{tasks}", String(entry?.tasks ?? 0))
+      .replace("{reached}", String(entry ? assessedCount(entry.by_stage) : 0)),
+  });
 }
 
 export default async function OccupationPage({ params }: Props) {

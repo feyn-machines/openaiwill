@@ -7,19 +7,20 @@ import localFont from "next/font/local";
 import Link from "next/link";
 import "../globals.css";
 import { href } from "@/lib/routes";
+import { SITE_NAME, SITE_URL, SOCIAL_LINKS, siteCopy } from "@/lib/seo";
 
 const copy = bilingual({
   en: {
-    metaDescription: "Every AI update could change your answer. Check your idea against what AI platforms already do and track what changes.",
     brandLabel: "openaiwill home",
     footerBrand: "openaiwill · Before you build.",
     footerNote: "Evidence first. Opinions that can change.",
+    footerLinks: "openaiwill elsewhere",
   },
   "zh-CN": {
-    metaDescription: "每一次 AI 更新，都可能改变你的创业判断。对照 AI 平台已经做到的事情检查你的想法，并跟踪它的变化。",
     brandLabel: "openaiwill 首页",
     footerBrand: "openaiwill · 在动手之前。",
     footerNote: "以证据为先，判断随事实更新。",
+    footerLinks: "openaiwill 的其他地址",
   },
 });
 
@@ -60,18 +61,13 @@ export function generateStaticParams() {
 }
 export const dynamicParams = false;
 
-/**
- * Static metadata cannot see the reader's language, so a Chinese reader was
- * getting an English <title> and description on every route that does not
- * define its own. The headline itself stays English in both - it is the
- * confirmed brand line - while the description and the tab suffix follow the
- * reader.
- */
+/** Titles and descriptions follow the language of the address, not the reader's browser. */
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
   return {
-    title: { default: "Will AI Kill Your Idea?", template: "%s | openaiwill" },
-    description: copy[language].metaDescription,
+    metadataBase: new URL(SITE_URL),
+    title: { default: siteCopy[language].title, template: `%s | ${SITE_NAME}` },
+    description: siteCopy[language].description,
   };
 }
 
@@ -86,11 +82,24 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
           <div className="header-end">
             <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={href(language, item.href)}>{nav[item.key]}</Link>)}</nav>
+            <nav className="header-social" aria-label={c.footerLinks}>
+              {SOCIAL_LINKS.map((link) => (
+                <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
+              ))}
+            </nav>
             <LanguageSwitch />
           </div>
         </header>
         <main className="wrap">{children}</main>
-        <footer className="footer wrap"><span>{c.footerBrand}</span><span>{c.footerNote}</span></footer>
+        <footer className="footer wrap">
+          <span>{c.footerBrand}</span>
+          <span>{c.footerNote}</span>
+          <nav className="footer-links" aria-label={c.footerLinks}>
+            {SOCIAL_LINKS.map((link) => (
+              <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
+            ))}
+          </nav>
+        </footer>
       </body>
     </html>
   );

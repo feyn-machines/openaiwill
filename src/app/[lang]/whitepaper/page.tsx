@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { whitepaperBlocks, whitepaperExists, type Block, type Inline } from "@/lib/whitepaper";
 import { Head, blueprint as b } from "@/components/blueprint";
 import { WhitepaperToc } from "./whitepaper-toc";
@@ -40,10 +41,7 @@ const copy = bilingual({
 export async function generateMetadata(): Promise<Metadata> {
   const { language } = await getLocale();
   const c = copy[language];
-  return {
-    title: c.metaTitle,
-    description: c.metaDescription,
-  };
+  return pageMetadata({ language, path: "/whitepaper", title: c.metaTitle, description: c.metaDescription });
 }
 
 function renderInline(inline: Inline[], keyPrefix: string) {

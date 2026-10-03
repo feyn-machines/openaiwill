@@ -5,6 +5,7 @@ import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
 import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest } from "@/lib/snapshot";
@@ -74,11 +75,12 @@ export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
-  const work = find((await params).id);
+  const id = (await params).id;
+  const work = find(id);
   if (!work) return { title: copy[language].meta };
   const name = (language === "zh-CN" ? work.label_zh_cn : work.label_en) ?? work.label_en;
   const level = Math.round(work.level ?? 0);
-  return { title: `${name} · L${level} ${LEVEL_NAMES[language][level]}` };
+  return pageMetadata({ language, path: `/work/${id}`, title: `${name} · L${level} ${LEVEL_NAMES[language][level]}` });
 }
 
 export default async function WorkPage({ params }: Props) {

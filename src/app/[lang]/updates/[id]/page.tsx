@@ -6,6 +6,7 @@ import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { pageMetadata } from "@/lib/seo";
 import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
@@ -67,7 +68,10 @@ export const dynamicParams = false;
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
   const update = find((await params).id);
-  return update ? { title: update.title, description: update.summary } : { title: copy[language].meta };
+  const id = (await params).id;
+  return update
+    ? pageMetadata({ language, path: `/updates/${id}`, title: update.title, description: update.summary })
+    : { title: copy[language].meta };
 }
 
 function compact(n: number, zh: boolean): string {
