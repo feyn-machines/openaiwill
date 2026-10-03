@@ -97,15 +97,30 @@ export function localizedPath(language: Language, path: string): string {
 }
 
 /**
- * `/zh-CN/markets` -> zh-CN + `/markets`. `exact` is false when the tag is a
- * published language written in another casing, which is one redirect away
- * from its address rather than a second copy of the page.
+ * `/zh-CN/markets` -> zh-CN + `/markets`. Normalizes slashes (backslash to `/`,
+ * collapses `//+` to `/`, removes trailing `/` unless path is `/`).
+ *
+ * `exact` is true only when the pathname is already in canonical form:
+ * - For no-language paths: `pathname === path` (already normalized).
+ * - For language paths: the language tag is in published casing AND pathname matches
+ *   `/{language}{path}` (where path is the normalized trailing-slash-stripped form).
+ *
+ * `exact: false` means a redirect is needed to canonicalise slashes or casing.
  */
 export function splitLanguagePath(pathname: string): { language: Language | null; path: string; exact: boolean } {
-  const [, first = "", ...rest] = pathname.split("/");
+  // Normalize: backslash → slash, collapse /+ to /, remove trailing / unless root
+  const clean = pathname.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "") || "/";
+
+  const [, first = "", ...rest] = clean.split("/");
   const language = normalizeLanguage(first);
-  if (!language) return { language: null, path: pathname || "/", exact: true };
-  return { language, path: `/${rest.join("/")}`.replace(/\/+$/, "") || "/", exact: first === language };
+  if (!language) {
+    return { language: null, path: clean, exact: pathname === clean };
+  }
+
+  const path = `/${rest.join("/")}`.replace(/\/$/, "") || "/";
+  // exact: true only if language tag is in published casing AND pathname is already normalized
+  const exact = first === language && pathname === clean;
+  return { language, path, exact };
 }
 
 export type LanguageRoute =
@@ -116,13 +131,18 @@ export type LanguageRoute =
 /**
  * What the proxy does with one request. Pure, so every rule is unit tested.
  *
+ * Rules, in order:
+ * 1. `?lang=` parameter: redirect to the target language with other params preserved (307, temporary).
+ * 2. Canonicalization: redirect if not exact (slashes, casing, trailing slashes need fixing) (308, permanent).
+ * 3. Saved language preference: redirect navigation (not prefetch) from English to saved language (307).
+ * 4. Default: rewrite to `/en` prefix internally (no public redirect).
+ *
  * Redirect locations are relative on purpose: the origin sits behind a tunnel
  * and sees plain HTTP on an internal host, and a relative Location cannot
- * leak either.
+ * leak either (never `://`, `//`, or backslash escapes).
  *
- * `?lang=` redirects are temporary. A browser caches a permanent redirect and
- * stops asking the server, so the second click on a language link would no
- * longer save the choice.
+ * `?lang=` redirects are temporary (307). A browser caches a permanent redirect (308)
+ * and stops asking the server, so the second click on a language link would no longer save.
  */
 export function languageRoute(request: {
   pathname: string;
@@ -153,6 +173,11 @@ export function languageRoute(request: {
     return exact
       ? { kind: "pass" }
       : { kind: "redirect", status: 308, location: `${localizedPath(prefix, path)}${request.search}`, save: null };
+  }
+
+  // No language prefix. Canonicalise if needed (slashes, trailing /).
+  if (!exact) {
+    return { kind: "redirect", status: 308, location: `${path}${request.search}`, save: null };
   }
 
   const saved = normalizeLanguage(request.savedLanguage);

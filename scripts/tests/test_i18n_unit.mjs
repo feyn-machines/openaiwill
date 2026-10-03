@@ -17,12 +17,12 @@ const {
   LANGUAGES,
   LANGUAGE_PARAM,
   languageHref,
+  languageRoute,
   localizedPath,
   normalizeLanguage,
   resolveLanguage,
   splitLanguagePath,
   urlLanguage,
-  languageRoute,
 } = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(javascript)}`);
 
 const CHINESE_BROWSER = "zh-CN,zh;q=0.9,en;q=0.8";
@@ -145,4 +145,44 @@ test("a saved Chinese choice redirects a navigation, and only a navigation", () 
   assert.deepEqual(route("/markets", { savedLanguage: "zh-CN", navigation: false }), { kind: "rewrite", pathname: "/en/markets" });
   assert.deepEqual(route("/markets", { savedLanguage: "en" }), { kind: "rewrite", pathname: "/en/markets" });
   assert.deepEqual(route("/markets", { savedLanguage: "garbage" }), { kind: "rewrite", pathname: "/en/markets" });
+});
+
+test("open redirects are blocked: double slashes and other escapes are canonicalised", () => {
+  assert.deepEqual(route("/en//evil.com/x"), { kind: "redirect", status: 308, location: "/evil.com/x", save: null });
+  assert.deepEqual(route("//evil.com"), { kind: "redirect", status: 308, location: "/evil.com", save: null });
+  assert.deepEqual(route("//evil.com", { search: "?lang=en" }), { kind: "redirect", status: 307, location: "/evil.com", save: "en" });
+  assert.deepEqual(route("/zh-CN//markets"), { kind: "redirect", status: 308, location: "/zh-CN/markets", save: null });
+  assert.deepEqual(route("/zh-CN/markets/"), { kind: "redirect", status: 308, location: "/zh-CN/markets", save: null });
+  assert.deepEqual(route("/markets/"), { kind: "redirect", status: 308, location: "/markets", save: null });
+  assert.deepEqual(route("/EN/markets"), { kind: "redirect", status: 308, location: "/markets", save: null });
+  assert.deepEqual(route("/zh-CN/"), { kind: "redirect", status: 308, location: "/zh-CN", save: null });
+});
+
+test("every redirect location is a relative path with no protocol or host", () => {
+  const testPaths = ["//evil.com", "/en//evil.com", "/zh-CN//evil.com", "/\\evil.com", "/en/\\evil.com", "///evil.com/", "/EN//evil.com"];
+  const searchParams = ["", "?lang=en", "?lang=zh-CN", "?lang=fr"];
+  const savedChoices = [undefined, "zh-CN"];
+
+  for (const pathname of testPaths) {
+    for (const search of searchParams) {
+      for (const savedLanguage of savedChoices) {
+        const result = languageRoute({ pathname, search, savedLanguage, navigation: true });
+        if (result.kind === "redirect") {
+          assert.match(result.location, /^\//, `redirect location must start with /: ${pathname} ${search} → ${result.location}`);
+          assert.doesNotMatch(result.location, /^\/\//, `redirect location must not start with //: ${pathname} ${search} → ${result.location}`);
+          assert.doesNotMatch(result.location, /:\\/, `redirect location must not contain :\\ (escaped protocol): ${pathname} ${search} → ${result.location}`);
+          assert.doesNotMatch(result.location, /^[^/].*:\/\//, `redirect location must not contain :// (protocol): ${pathname} ${search} → ${result.location}`);
+        }
+      }
+    }
+  }
+});
+
+test("canonical forms stay exact, non-canonical forms redirect", () => {
+  assert.deepEqual(splitLanguagePath("/markets"), { language: null, path: "/markets", exact: true });
+  assert.deepEqual(splitLanguagePath("/markets/"), { language: null, path: "/markets", exact: false });
+  assert.deepEqual(splitLanguagePath("/zh-CN"), { language: "zh-CN", path: "/", exact: true });
+  assert.deepEqual(splitLanguagePath("/zh-CN/"), { language: "zh-CN", path: "/", exact: false });
+  assert.deepEqual(splitLanguagePath("/ZH-cn/markets"), { language: "zh-CN", path: "/markets", exact: false });
+  assert.deepEqual(splitLanguagePath("/EN/markets"), { language: "en", path: "/markets", exact: false });
 });
