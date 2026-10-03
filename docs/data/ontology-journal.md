@@ -1,12 +1,12 @@
 # 语义层方法札记 / Semantic layer method journal
 
 这份文件记录**方法上的修正、已知缺口和判断者对照**——它们是写给人看的项目笔记，
-不是数据契约。之前它们躺在 `datasets/semantic/semantic-model.v2.json` 的 
+不是数据契约。之前它们躺在 `datasets/ontology/schema/schema.json` 的 
 `derived_content` 里，而那个文件自己的 `rule:type-layer-has-no-state` 写着
 「类型层节点不得携带状态、时间或置信度字段」。带日期的札记放在可封存的类型层里，
 是同一个错误的另一种形态，所以搬到这里。
 
-- 类型与受控词表 → `datasets/semantic/semantic-model.v2.json`
+- 类型与受控词表 → `datasets/ontology/schema/schema.json`
 - 能力与闸门定义 → `capabilities.seed-v1.json`、`capabilities.discovered-v1.json`
 - 状态、边、测量值 → PostgreSQL，发布时由 `publish-snapshot` 现算
 - 方法札记 → 本文件
@@ -50,7 +50,7 @@
 
 *2026-09-22*
 
-组织别名表存在两份（event_extraction.py 的字典与 organizations.json），且已经分叉：一份认识 Qwen 不认识 Google AI，另一份相反，只被其中一份认识的别名会让事件被静默丢弃。合并为一份，抽取层改为读取该文件，并在 semantic:check 里加了「不得出现第二份」的扫描。
+组织别名表存在两份（event_extraction.py 的字典与 organizations.json），且已经分叉：一份认识 Qwen 不认识 Google AI，另一份相反，只被其中一份认识的别名会让事件被静默丢弃。合并为一份，抽取层改为读取该文件，并在 ontology:check 里加了「不得出现第二份」的扫描。
 
 ### correction:gate-must-govern-the-output
 
@@ -236,3 +236,41 @@ data-entry），25 个事件 × 3 项，75 次判断**零翻转**——但那一
 - 关系与映射 ID 现在把子节点 ID 嵌进自己的身份（relation:occupations:oaw:occupation:31-9094.00:oaw:task:9413）。概念一旦拆分即自相矛盾。建议改为不透明 ID，parent/child 只留字段；概念 ID 一个不动。这是 major，待定。
 - relations.order 是展示顺序，现在封在合同里，纯排序调整会逼出新封存版本。是否移出类型层。
 - adoption_stage 七值与 autonomy_stage 五值并存，映射关系待确认。草案按「证据属性 vs 能力结论」分开处理。
+
+## 从类型定义迁出的设计说明（2026-10-03）
+
+本体 2.0.0 把类型定义合并为 `datasets/ontology/schema/schema.json`，schema 里只留定义。下面这些「观察到的问题」「为什么这样设计」原来夹在语义模型里，原文照录：
+
+- **vocabulary event_kind**（replaces）：scripts/data_pipeline/deepseek.py:33 里的无定义词串
+- **vocabulary event_kind**（observed_problem）：两次独立抽取（旧 461 条 / 新 294 条，共 755 条）的实测，结论一致且可复算：
+- **vocabulary event_kind**（version_note）：事件类型词表自己的版本。写在每条事件的 kind_vocabulary 标记里（event_kind-2.0.0），并进入判定 rubric 的哈希。只有词条或边界变了才升；语义层加了与事件分类无关的类型（如 2.1.0 的模型、供应商）不动它，否则新旧抽取会被误判为不可比。
+- **vocabulary evidence_tier**（moved_from）：datasets/scoring/method.v0.json
+- **vocabulary activity_level**（replaces）：autonomy_stage
+- **vocabulary activity_level**（why）：autonomy_stage 是能力层的结论刻度（0-4，允许半步），判断对象是一个能力。活动层级判断的是一条活动，取值是整数 0-5，并且 5 是常设且预期为空的一档——画出一个没人占的最高档，本身就是结论。两把尺子不能互换，也不能合并。
+- **vocabulary autonomy_stage**（moved_from）：datasets/scoring/method.v0.json
+- **vocabulary autonomy_stage**（why_retired）：随能力层一起退役。它的 CHECK (0..4) 已写进已应用的迁移 006 并参与哈希校验，因此原样保留：改它会让 db.migrate 判定已应用的迁移被改过。
+- **vocabulary person_event_role**（replaces）：public.event_people.role（现为无 CHECK 的自由文本）
+- **vocabulary person_event_role**（why）：决定证据层级：同一句话，厂商高管宣布是 T3，采用方工程负责人确认是 T1/T2，匿名社区自述是 T4。没有这个词表，T1–T4 只能人肉判。
+- **vocabulary org_affiliation_role**（replaces）：public.person_affiliations.role_name（现为无 CHECK 的自由文本）
+- **vocabulary relation_status.rejected**（why）：被你划掉的边要留痕，否则下一轮 AI 会再提一遍。
+- **vocabulary lifecycle**（why）：当前本体合同在格式上无法表达「这个概念退休了、由谁接替」。schema.json 全层 additionalProperties:false，今天连加这个字段的口子都没有。
+- **vocabulary judge**（why）：每条 ai_proposed 边都必须能追到是谁提的。006 里把 judge 写死成 deepseek/typesafe，漏了一种真实存在的来源：评审对话中由模型提出的边——本体现有的 5 个能力、2 个闸门、6 条边全部由此而来。漏掉它只会逼人把它伪装成别的来源，那比多一个词更糟。
+- **vocabulary judgment_task.gate_state**（why）：原先借用 demonstrates 记录闸门状态运行，结果证据查询按 task='demonstrates' 取最近一次完成的运行时选中了它，整份快照的证据变成 0 条。借用一个词表项的代价不是不整洁，是下游会按它的本义去用。
+- **class gate**（why_separate_from_capability）：混在一起会把「法律没变」误算成「AI 没进步」。O*NET 全库有 716 条任务原文涉及法规合规、涉及 364 个职业，量级足以扭曲整条进度曲线。
+- **class model**（why_separate_from_product）：事件的 subject_key 是为去重写的自由文本，同一个模型在几乎每条事件里写法都不同。模型单独成节点，才能回答「这条更新说的是哪个模型」。产品不进这张表。
+- **class model**（not_recorded）：目录里还有输入模态、上下文长度、价格、知识截止日期、是否支持推理与工具调用。输入模态在同一模型的不同供应商条目间不一致（152 个里 98 个），其余与「AI 能独立完成哪些工作」无直接关系，均不入库。
+- **relation requires**（why_method_required）：这条边是判断不是匹配。实测：对 18838 条任务原文做关键词匹配找「软件相关」，命中 999 条 / 362 个职业，但抽样核对 oaw:occupation:11-9032.00（中小学教育管理者）的 14 条命中全部是假阳性——program 指课程、code 指法规条文。没有 method/status，我提议的边和你审过的边混在一起，整张图不可信。
+- **rule:tier-caps-stage**（currently_lives_in）：datasets/scoring/method.v0.json 的 stage_caps
+- **rule:ai-proposed-cannot-assert-equivalence**（currently_lives_in）：scripts/lib/ontology-data.mjs（硬编码在校验器里）
+- **rule:definition-must-equal-source**（currently_lives_in）：scripts/lib/ontology-data.mjs（硬编码在校验器里）
+- **rule:blocked-by-needs-source-task**（why_retired）：闸门现在直接挂在活动上（activity_gate_edges），不再需要经由某条任务来取得来源。
+- **rule:breadth-limits-discrimination**（threshold_is_not_load_bearing）：首轮全量 requires 扫描测得的分布只有一个离群值：cap:attention-to-detail 0.875，次高 cap:equipment-operation 0.287，其余全部更低。0.3 到 0.87 之间任何一条线都会得到同一个结论，所以这个阈值放在哪里不影响结果。若将来有能力落到 0.4–0.6 之间，这条规则必须重新论证，而不是照用。
+- **rule:breadth-limits-discrimination**（why_retired）：它是给能力设的护栏：一条能力覆盖面过宽就不再有区分力。活动层不靠覆盖面筛选——一条活动能否被判定，取决于有没有证据打到它，而不是它有多宽。
+- **rule:tier-caps-level**（replaces）：rule:tier-caps-stage
+- **rule:task-level-is-the-minimum**（observed_problem）：取最高一度把行李搬运工判到 59%：迎接客人匹配上了，搬行李没有。
+- **rule:attention-baseline**（why_not_views）：按浏览量相对账号基线排名时，前十被付费推广帖占满：浏览量是账号平时的数千倍，点赞却极少。互动需要真人操作，推广买来的主要是浏览。
+- **rule:attention-baseline**（why_two_captures）：X 帖子的互动大多发生在前一两天，第 7 天基本定型；第 7 天同时是第三方验证的查找窗口终点，定稿热度、收齐回复、触发验证可以在同一次完成。每天回看、重复采集同一帖子，只增加请求，不增加信息。
+- **rule:gate-caps-level**（replaces）：原规则把有障碍的环节直接记为 L0。L0 的意思是 AI 不参与，而一条 AI 更新不可能证明 AI 不参与；这把「有障碍」和「AI 没参与」混成了一件事，把 250 项任务压到了 L0。
+- **rule:verification-tier**（replaces）：原规则按账号角色（评测者、实测者……）决定层级，并按「用途」对账号分组、按连续无产出降级。首次试跑中，降级规则把 139 个验证账号降为印证：一个账号没谈某个产品是常态，不说明它不可靠。
+- **rule:nature-caps-level**（observed_problem）：首次验证试跑中，判官把一段无人机演示判为 L4；若不设限，演示会产生全站第一个 L4。
+- **organizations_are_ids_not_names**（observed_problem）：461 条事件的 primary_org 是自由文本，同一家公司出现两个值：「xAI / SpaceXAI」7 条、「xAI」6 条。所有按公司的聚合因此都是错的，而且没人会注意到。

@@ -22,14 +22,14 @@ import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from . import semantic
+from . import ontology_schema
 from .pipeline import digest  # psycopg is imported lazily inside ingest_extraction
 
 EXTRACTION_VERSION = "event-extraction-2"
-# The kinds come from the semantic layer, which is also what migration 006 projects
+# The kinds come from the schema, which is also what migration 006 projects
 # its CHECK from; a literal set here would be a second, silently diverging list.
-EVENT_KINDS = frozenset(semantic.term_ids("event_kind"))
-EVENT_KIND_VOCABULARY = semantic.EVENT_KIND_VOCABULARY
+EVENT_KINDS = frozenset(ontology_schema.term_ids("event_kind"))
+EVENT_KIND_VOCABULARY = ontology_schema.EVENT_KIND_VOCABULARY
 OCCURRENCE = {"unknown", "scheduled", "occurred", "postponed", "cancelled"}
 RELATION_KINDS = {"part_of", "follows", "supersedes", "refines", "duplicate_of"}
 SOURCE_ROLES = {"primary", "corroborating", "context"}
@@ -43,14 +43,14 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_organizations():
-    """The one organisation registry, read from datasets/semantic/organizations.json.
+    """The one organisation registry, read from datasets/ontology/data/organizations.json.
 
     There used to be two: this dict and the JSON file, hand-maintained in parallel.
     They had already diverged - each knew aliases the other did not - so an event
     naming an alias only the registry knew was silently dropped. That is precisely
     the failure rule:org-must-be-id exists to prevent, so there is now one file.
     """
-    path = ROOT / "datasets/semantic/organizations.json"
+    path = ROOT / "datasets/ontology/data/organizations.json"
     document = json.loads(path.read_text())
     return {
         org["org_id"]: {
@@ -388,8 +388,8 @@ def assemble_extraction(candidates, batches, meta, known_occurrences=None):
         "prompt_sha256": meta["prompt_sha256"], "params": meta.get("params", {}),
         # Which rubric produced these classifications; a boundary edited in the
         # semantic layer changes this hash, so two runs are comparable or visibly not.
-        "semantic_version": semantic.SEMANTIC_VERSION,
-        "rubric_sha256": semantic.rubric_sha256(),
+        "schema_version": ontology_schema.SCHEMA_VERSION,
+        "rubric_sha256": ontology_schema.rubric_sha256(),
         "kind_vocabulary": EVENT_KIND_VOCABULARY,
         "collection_run_ids": sorted({c["run_id"] for c in candidates}),
         "window": meta.get("window"), "started_at": meta["started_at"],

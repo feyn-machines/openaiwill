@@ -117,7 +117,7 @@ def main():
     extract.add_argument('--plan-only', action='store_true')
     ingest_events = sub.add_parser('ingest-events')
     ingest_events.add_argument('archive', type=Path)
-    seed = sub.add_parser('seed-semantic')
+    seed = sub.add_parser('seed-ontology-data')
     seed.add_argument('--ontology-version')
     gs = sub.add_parser('gate-state')
     gs.add_argument('--vocabulary', default='event_kind-2.0.0')
@@ -154,6 +154,9 @@ def main():
     idm.add_argument('--limit', type=int)
     idm.add_argument('--batch-size', type=int, default=8)
     idm.add_argument('--report', action='store_true', help='Print the counts; no judge calls')
+    cat = sub.add_parser('model-catalog',
+                         help='Import our companies\' recent models from a models.dev snapshot (no judge calls)')
+    cat.add_argument('snapshot', type=Path, nargs='?', help='Saved api.json; downloaded when omitted')
     sub.add_parser('panel-refresh',
                    help='Re-derive every panel account\'s use and state from its checks')
     state = sub.add_parser('activity-state',
@@ -241,6 +244,11 @@ def main():
                       model_identification.run(conn, batch_size=args.batch_size, limit=args.limit,
                                                progress=lambda line: print(line, file=sys.stderr)))
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
+        elif args.command == 'model-catalog':
+            from data_pipeline import model_catalog
+            migrate(conn)
+            print(json.dumps(model_catalog.run(conn, args.snapshot), ensure_ascii=False, indent=2,
+                             default=json_default))
         elif args.command == 'migrate':
             print(json.dumps({'applied':migrate(conn)}))
         elif args.command == 'ingest':
@@ -248,7 +256,7 @@ def main():
             migrate(conn)
             result = ingest_run(conn, args.run)
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
-        elif args.command == 'seed-semantic':
+        elif args.command == 'seed-ontology-data':
             from data_pipeline.type_layer import seed
             migrate(conn)
             result = seed(conn, args.ontology_version)

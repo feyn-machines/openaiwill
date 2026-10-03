@@ -167,7 +167,7 @@ export default async function UpdatesPage() {
   }
 
   // The ladder's own words, read from the snapshot. Nothing in src/ restates
-  // them: pnpm semantic:check fails the build if anything does.
+  // them: pnpm ontology:check fails the build if anything does.
   const words = progress?.levels ?? {};
   const caps = progress?.tier_caps ?? null;
   const rung = (level: number | null | undefined): string | null => {

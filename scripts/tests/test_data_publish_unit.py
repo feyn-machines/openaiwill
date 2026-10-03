@@ -21,15 +21,15 @@ from data_pipeline import publish  # noqa: E402
 from data_pipeline.pipeline import digest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-SEMANTIC_MODEL = json.loads(
-    (ROOT / "datasets/semantic/semantic-model.v2.json").read_text(encoding="utf-8"))
+SCHEMA = json.loads(
+    (ROOT / "datasets/ontology/schema/schema.json").read_text(encoding="utf-8"))
 METHOD_VERSION = publish.METHOD_VERSION
 
 # Everything in the snapshot except the manifest is the hashed payload. Derived
 # from the snapshot rather than restated, so a new section cannot slip out of
 # the hash and the counts without failing a test.
 REQUIRED_MANIFEST_FIELDS = {
-    "snapshot_version", "generated_at", "ontology_version", "semantic_version",
+    "snapshot_version", "generated_at", "ontology_version", "schema_version",
     "method_version", "counts", "content_sha256", "caveats"}
 
 
@@ -394,7 +394,7 @@ class BuildManifestTests(unittest.TestCase):
         self.assertLessEqual(REQUIRED_MANIFEST_FIELDS, set(self.manifest))
         self.assertEqual(self.manifest["snapshot_version"], publish.SNAPSHOT_VERSION)
         self.assertEqual(self.manifest["ontology_version"], "1.0.0")
-        self.assertEqual(self.manifest["semantic_version"], SEMANTIC_MODEL["version"])
+        self.assertEqual(self.manifest["schema_version"], SCHEMA["version"])
         self.assertEqual(self.manifest["method_version"], METHOD_VERSION)
 
     def test_every_reading_is_published_not_only_one_runs_worth(self):

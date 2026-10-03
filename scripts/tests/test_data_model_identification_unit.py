@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from data_pipeline import model_identification as mi
+from data_pipeline import ontology_schema
 
 
 def mention(text, name=None, family=None, version=None, variant=None, owner="Google", role="subject",
@@ -15,6 +16,22 @@ def mention(text, name=None, family=None, version=None, variant=None, owner="Goo
 
 
 FLASH = dict(family="Gemini", version="3.8", variant="Flash")
+
+
+class AgreesWithTheSemanticModel(unittest.TestCase):
+    """The schema defines the roles; the prompt and the code restate nothing else."""
+
+    def test_roles_are_the_vocabulary(self):
+        self.assertEqual(list(mi.ROLES), ontology_schema.term_ids("model_role"))
+
+    def test_the_prompt_gives_each_role_its_definition(self):
+        for role in mi.ROLES:
+            self.assertIn(ontology_schema.term("model_role", role)["definition"]["en"], mi.SYSTEM)
+
+    def test_release_kinds_are_event_kinds(self):
+        self.assertLessEqual(set(mi.RELEASE_KINDS), set(ontology_schema.term_ids("event_kind")))
+        rule = next(r for r in ontology_schema.load_schema()["constraints"] if r["id"] == "rule:model-confirmed-by-owner-release")
+        self.assertEqual(rule["expression"]["event_kinds"], list(mi.RELEASE_KINDS))
 
 
 class Normalising(unittest.TestCase):

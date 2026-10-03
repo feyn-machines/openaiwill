@@ -16,14 +16,14 @@ import re
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
-from . import semantic
-from .semantic import EVENT_KIND_VOCABULARY
+from . import ontology_schema
+from .ontology_schema import EVENT_KIND_VOCABULARY
 
 UPSTREAM = (("reply_to", "reply"), ("quote_of", "quote"), ("repost_of", "repost"))
 
 
 def _rule(model=None):
-    return semantic.rule("rule:post-links-to-event", model)["expression"]
+    return ontology_schema.rule("rule:post-links-to-event", model)["expression"]
 
 
 def mentions(text, terms):

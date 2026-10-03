@@ -72,7 +72,7 @@ def compute(conn, vocabulary: str | None = "event_kind-2.0.0", progress=None) ->
     judge = TypeSafeJudge()
     gates = load_gates(conn)
     if not gates:
-        raise ValueError("No active gates; run seed-semantic first")
+        raise ValueError("No active gates; run seed-ontology-data first")
     events = load_policy_events(conn, vocabulary)
     say(f"{len(gates)} gates against {len(events)} policy statements")
 

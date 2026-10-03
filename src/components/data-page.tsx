@@ -3,7 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { bilingual, type Language } from "@/lib/i18n";
 import { manifest, snapshotExists } from "@/lib/snapshot";
-import { termName } from "./semantic-labels";
+import { termName } from "./ontology-labels";
 import styles from "./data-page.module.css";
 
 export { styles as dataStyles };
@@ -65,7 +65,7 @@ export function isoDate(value: string | null | undefined): string | null {
 /**
  * "Stage 3" in English, "阶段 3 · 自主试点" in Chinese: the number is the value
  * and the name comes from the published autonomy_stage vocabulary, which is
- * written in Chinese only in semantic model 2.0.0.
+ * written in Chinese only in this version of the schema.
  */
 export function stageLabel(stage: number, language: Language, prefix: string): string {
   const name = termName("autonomy_stage", String(stage), language);
@@ -92,7 +92,7 @@ const shared = bilingual({
     snapshotVersion: "Snapshot",
     generatedAt: "Generated",
     ontologyVersion: "Ontology",
-    semanticVersion: "Semantic model",
+    schemaVersion: "Ontology schema",
     methodVersion: "Method version",
     contentHash: "Content SHA-256",
     rowCounts: "Rows in this snapshot",
@@ -118,7 +118,7 @@ const shared = bilingual({
     snapshotVersion: "快照版本",
     generatedAt: "生成时间",
     ontologyVersion: "本体版本",
-    semanticVersion: "语义模型",
+    schemaVersion: "本体 schema",
     methodVersion: "方法版本",
     contentHash: "内容 SHA-256",
     rowCounts: "本快照记录数",
@@ -344,8 +344,8 @@ export function Provenance({ language }: { language: Language }) {
           </dd>
           <dt>{c.ontologyVersion}</dt>
           <dd className={styles.mono}>{manifest.ontology_version}</dd>
-          <dt>{c.semanticVersion}</dt>
-          <dd className={styles.mono}>{manifest.semantic_version}</dd>
+          <dt>{c.schemaVersion}</dt>
+          <dd className={styles.mono}>{manifest.schema_version}</dd>
           <dt>{c.methodVersion}</dt>
           <dd className={styles.mono}>{manifest.method_version}</dd>
           <dt>{c.contentHash}</dt>
@@ -434,8 +434,8 @@ export function OriginalLanguage({
   const note =
     reading === "en"
       ? shown === "zh-CN"
-        ? "Published in Chinese only in this version of the semantic model; the original is shown above, unchanged."
-        : "Published in English only in this version of the semantic model; the original is shown above, unchanged."
+        ? "Published in Chinese only in this version of the ontology schema; the original is shown above, unchanged."
+        : "Published in English only in this version of the ontology schema; the original is shown above, unchanged."
       : shown === "en"
         ? "在当前版本的语义模型中，该词条只发布了英文；上方为原文，未作改动。"
         : "在当前版本的语义模型中，该词条只发布了中文；上方为原文，未作改动。";

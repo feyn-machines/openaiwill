@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Bar, Blank, Block, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
-import { termNameOrRaw } from "@/components/semantic-labels";
+import { termNameOrRaw } from "@/components/ontology-labels";
 import { getLocale } from "@/lib/i18n";
 import {
   activitiesOfMarket,

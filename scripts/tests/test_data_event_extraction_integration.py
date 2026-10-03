@@ -23,7 +23,7 @@ from data_pipeline.event_extraction import (
 def seed_org_registry(conn):
     """extracted_events.primary_org_id is an FK, so the registry precedes ingestion.
 
-    Projected from the same datasets/semantic/organizations.json that
+    Projected from the same datasets/ontology/data/organizations.json that
     type_layer.seed reads, so the ids here cannot drift from the ones resolve_org
     returns. Only the organisations: the rest of the seed needs a full ontology
     release, which this file's subject - the event layer - does not touch.

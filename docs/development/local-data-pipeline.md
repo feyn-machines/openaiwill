@@ -45,18 +45,18 @@ pnpm data:import --input=data/my-simulation/input.json --config=data/my-simulati
 
 来源范围在配置中明确指定平台和账号；合成合同的覆盖记录必须与它们、工作/标签和统计窗口一致。真实合同保留多个原始查询及其窗口，不将部分来源查询重写为完整工作覆盖。缺失覆盖保留 unknown；部分覆盖的正计数是已观察到的部分数量。空输入只有在完整覆盖下才得到零，查询失败或覆盖缺失不生成零。覆盖记录不能宣称已完整查询其检查时间之后的窗口。
 
-## 语义层与判断流
+## 本体 schema 与判断流
 
-语义层[semantic-model.v2.json](../../datasets/semantic/semantic-model.v2.json)是唯一源头：
+[本体 schema](../../datasets/ontology/schema/schema.json)是唯一的类型定义：
 SQL 的枚举 CHECK、抽取 prompt、判断 rubric 与站点标签全部由它生成。
-`pnpm semantic:build` 产出投影，`pnpm semantic:check` 校验模型本身，
+`pnpm ontology:projections` 产出投影，`pnpm ontology:check` 校验 schema 本身，
 并逐列比对 `db/migrations` 里实际生效的 CHECK 值表与词表是否逐字相等——
 它的作用不是发现打字错误，而是保证不存在第二份真相。
 
 ```sh
 pnpm data:discover:capabilities -- --output data/discovery/caps.json   # 从任务原文推导能力
 pnpm data:classify:capabilities -- --input caps.json --output classified.json
-pnpm data:seed:semantic                              # 能力、闸门、组织注册表与候选边落库
+pnpm data:seed:ontology                              # 能力、闸门、组织注册表与候选边落库
 pnpm data:judge:requires -- --judge typesafe --occupation oaw:occupation:31-9094.00
 pnpm data:judge:blocked -- --resume                  # 哪些闸门挡住哪些工作
 pnpm data:judge:compare -- --run-a <run> --run-b <run>

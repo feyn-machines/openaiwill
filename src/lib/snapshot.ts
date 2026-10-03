@@ -19,7 +19,7 @@ export type Manifest = {
   snapshot_version: string;
   generated_at: string;
   ontology_version: string;
-  semantic_version: string;
+  schema_version: string;
   method_version: string;
   counts: Record<string, number>;
   content_sha256: string;
@@ -184,7 +184,7 @@ export type Progress = {
   method_version: string;
   /** Published even where empty: an absent L5 is the headline, not a gap. */
   stages: number[];
-  /** The ladder's own words, projected from the semantic layer's activity_level. */
+  /** The ladder's own words, projected from the schema's activity_level. */
   levels: Record<string, Bilingual>;
   /** The full sentence per rung, so no component restates the ladder. */
   level_definitions: Record<string, Bilingual>;

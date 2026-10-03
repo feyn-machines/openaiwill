@@ -19,11 +19,11 @@ import statistics
 from collections import Counter, defaultdict
 from datetime import datetime
 
-from . import semantic
+from . import ontology_schema
 
 
 def _rule(model=None):
-    return semantic.rule("rule:attention-baseline", model)["expression"]
+    return ontology_schema.rule("rule:attention-baseline", model)["expression"]
 
 
 def _hours(later: datetime, earlier: datetime) -> float:

@@ -120,7 +120,7 @@ class AssembleTests(unittest.TestCase):
         doc = assemble_extraction([cand("1")], [{"events": [model_event()]}], meta())
         self.assertEqual(doc["kind_vocabulary"], EVENT_KIND_VOCABULARY)
         self.assertEqual(len(doc["rubric_sha256"]), 64)
-        self.assertEqual(doc["semantic_version"], "2.0.0")
+        self.assertEqual(doc["schema_version"], "2.0.0")
 
 
 class KindTests(unittest.TestCase):
@@ -368,12 +368,12 @@ class DeepSeekPromptTests(unittest.TestCase):
 
     def test_prompt_sha256_covers_the_rubric(self):
         before = deepseek.prompt_sha256()
-        original = deepseek.semantic.rubric_sha256
-        deepseek.semantic.rubric_sha256 = lambda *a, **k: "0" * 64
+        original = deepseek.ontology_schema.rubric_sha256
+        deepseek.ontology_schema.rubric_sha256 = lambda *a, **k: "0" * 64
         try:
             self.assertNotEqual(deepseek.prompt_sha256(), before)
         finally:
-            deepseek.semantic.rubric_sha256 = original
+            deepseek.ontology_schema.rubric_sha256 = original
         self.assertEqual(deepseek.prompt_sha256(), before)
 
     def test_version_tag_names_the_second_prompt(self):

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/levels";
-import { semanticTerm } from "@/components/semantic-labels";
+import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
 import { bilingual, getLocale } from "@/lib/i18n";
 import { marketHref, workHref } from "@/lib/routes";
@@ -79,7 +79,7 @@ export default async function UpdatePage({ params }: Props) {
 
   const zh = language === "zh-CN";
   const more = events.find((e) => e.event_id === update.event_id);
-  const kind = semanticTerm("event_kind", more?.kind);
+  const kind = vocabularyTerm("event_kind", more?.kind);
   const rows = evidenceForEvent(update.event_id).filter((r) => r.level !== null);
   const markets = new Set(rows.map((r) => r.market_id));
   const top = Math.max(0, ...rows.map((r) => r.level ?? 0));

@@ -1,48 +1,156 @@
 {
-  "generated_from": "datasets/semantic/semantic-model.v2.json",
-  "semantic_version": "2.0.0",
-  "node_kinds": {
-    "market_group": {
+  "generated_from": "datasets/ontology/schema/schema.json",
+  "schema_version": "2.0.0",
+  "classes": {
+    "Concept": {
+      "en": "Concept",
+      "zh-CN": "概念"
+    },
+    "MarketGroup": {
       "en": "Market group",
       "zh-CN": "领域"
     },
-    "market": {
+    "Market": {
       "en": "Market",
       "zh-CN": "赛道"
     },
-    "work": {
+    "Work": {
       "en": "Work",
       "zh-CN": "工作"
     },
-    "occupation_group": {
+    "OccupationGroup": {
       "en": "Occupation group",
       "zh-CN": "职业大类"
     },
-    "occupation": {
+    "Occupation": {
       "en": "Occupation",
       "zh-CN": "职业"
     },
-    "capability": {
-      "en": "Capability",
-      "zh-CN": "能力"
-    },
-    "gate": {
+    "Gate": {
       "en": "Gate",
       "zh-CN": "闸门"
+    },
+    "Organization": {
+      "en": "Organization",
+      "zh-CN": "公司"
+    },
+    "Person": {
+      "en": "Person",
+      "zh-CN": "人物"
+    },
+    "SourceAccount": {
+      "en": "Source account",
+      "zh-CN": "来源账号"
+    },
+    "Post": {
+      "en": "Post",
+      "zh-CN": "帖子"
+    },
+    "Event": {
+      "en": "Update",
+      "zh-CN": "更新"
+    },
+    "Model": {
+      "en": "Model",
+      "zh-CN": "模型"
+    },
+    "Provider": {
+      "en": "Provider",
+      "zh-CN": "供应商"
     }
   },
-  "edge_kinds": {
-    "requires": {
-      "en": "requires",
-      "zh-CN": "需要"
+  "relations": {
+    "has_market": {
+      "en": "has market",
+      "zh-CN": "包含赛道"
+    },
+    "has_work": {
+      "en": "has work",
+      "zh-CN": "包含工作"
+    },
+    "has_occupation": {
+      "en": "has occupation",
+      "zh-CN": "包含职业"
+    },
+    "has_task": {
+      "en": "has task",
+      "zh-CN": "包含任务"
+    },
+    "performed_by": {
+      "en": "performed by",
+      "zh-CN": "由…完成"
     },
     "blocked_by": {
       "en": "blocked by",
       "zh-CN": "受阻于"
     },
-    "demonstrates": {
-      "en": "demonstrates",
+    "employs": {
+      "en": "employs",
+      "zh-CN": "用到"
+    },
+    "evidences": {
+      "en": "is evidence for",
       "zh-CN": "佐证"
+    },
+    "verifies": {
+      "en": "verifies",
+      "zh-CN": "验证"
+    },
+    "links_to": {
+      "en": "links to",
+      "zh-CN": "归属于"
+    },
+    "extracted_from": {
+      "en": "extracted from",
+      "zh-CN": "抽取自"
+    },
+    "announced_by": {
+      "en": "announced by",
+      "zh-CN": "主体"
+    },
+    "names_model": {
+      "en": "names",
+      "zh-CN": "提到"
+    },
+    "makes": {
+      "en": "makes",
+      "zh-CN": "出品"
+    },
+    "has_release": {
+      "en": "has release",
+      "zh-CN": "包含版本"
+    },
+    "offers": {
+      "en": "offers",
+      "zh-CN": "上架"
+    },
+    "operated_by": {
+      "en": "operated by",
+      "zh-CN": "运营方"
+    },
+    "owned_by": {
+      "en": "owned by",
+      "zh-CN": "归属"
+    },
+    "affiliated_with": {
+      "en": "affiliated with",
+      "zh-CN": "关联"
+    },
+    "authored_by": {
+      "en": "authored by",
+      "zh-CN": "作者"
+    },
+    "replies_to": {
+      "en": "replies to",
+      "zh-CN": "回复"
+    },
+    "quotes": {
+      "en": "quotes",
+      "zh-CN": "引用"
+    },
+    "reposts": {
+      "en": "reposts",
+      "zh-CN": "转发"
     }
   },
   "vocabularies": {
@@ -672,6 +780,13 @@
             "zh-CN": "名单帖子是否独立证实了一条被证据层级压低的厂商声明。",
             "en": "Whether a panel post independently confirms a vendor claim that was held down by its evidence tier."
           }
+        },
+        "model_identification": {
+          "en": "Models an update names",
+          "zh-CN": "更新提到的模型",
+          "definition": {
+            "en": "Which AI models does this update name, and in what role?"
+          }
         }
       }
     },
@@ -1062,6 +1177,582 @@
           "definition": {
             "zh-CN": "没有上游关系，但在事件发生后 7 天内提到了产品名。",
             "en": "No upstream link, but names the product within 7 days of the event."
+          }
+        }
+      }
+    },
+    "model_level": {
+      "label": {
+        "en": "Model level",
+        "zh-CN": "模型层级"
+      },
+      "terms": {
+        "family": {
+          "en": "Family",
+          "zh-CN": "系列",
+          "definition": {
+            "en": "A line of models under one name, with no version.",
+            "zh-CN": "同一名字下的一条模型线，不带版本。"
+          }
+        },
+        "release": {
+          "en": "Release",
+          "zh-CN": "具体版本",
+          "definition": {
+            "en": "One released model, with its version or variant.",
+            "zh-CN": "一个具体发布的模型，带版本或变体。"
+          }
+        }
+      }
+    },
+    "model_status": {
+      "label": {
+        "en": "Model status",
+        "zh-CN": "模型状态"
+      },
+      "terms": {
+        "candidate": {
+          "en": "Candidate",
+          "zh-CN": "候选",
+          "definition": {
+            "en": "Named in an update or listed in the catalog; not yet confirmed by its maker's own release update.",
+            "zh-CN": "被某条更新提到或被目录收录，尚未被厂商自己的发布帖确认。"
+          }
+        },
+        "confirmed": {
+          "en": "Confirmed",
+          "zh-CN": "已确认",
+          "definition": {
+            "en": "The maker's own release update names it as its subject.",
+            "zh-CN": "厂商自己的发布帖以它为主体。"
+          }
+        }
+      }
+    },
+    "model_role": {
+      "label": {
+        "en": "Model's role in an update",
+        "zh-CN": "模型在更新里的角色"
+      },
+      "terms": {
+        "subject": {
+          "en": "Subject",
+          "zh-CN": "主体",
+          "definition": {
+            "en": "the update releases this model or changes the model itself",
+            "zh-CN": "这条更新发布了这个模型，或改动了模型本身"
+          }
+        },
+        "adopted": {
+          "en": "Adopted",
+          "zh-CN": "被采用",
+          "definition": {
+            "en": "someone builds on it or uses it: an integration, a customer, a demo, a contest or a piece of work made with it",
+            "zh-CN": "有人基于它构建或使用它：集成、客户、演示、比赛，或用它做出的作品"
+          }
+        },
+        "distributed": {
+          "en": "Distributed",
+          "zh-CN": "被分发",
+          "definition": {
+            "en": "it becomes available on another platform, cloud or service",
+            "zh-CN": "它在另一个平台、云或服务上可用了"
+          }
+        },
+        "compared": {
+          "en": "Compared",
+          "zh-CN": "被比较",
+          "definition": {
+            "en": "it is named in a benchmark, ranking or comparison, including its own vendor reporting where it ranks",
+            "zh-CN": "它出现在基准、排名或对比里，包括厂商自己报告它的名次"
+          }
+        }
+      }
+    },
+    "provider_kind": {
+      "label": {
+        "en": "Provider kind",
+        "zh-CN": "供应商类型"
+      },
+      "terms": {
+        "first_party": {
+          "en": "First party",
+          "zh-CN": "官方",
+          "definition": {
+            "en": "The maker's own API.",
+            "zh-CN": "厂商自己的 API。"
+          }
+        },
+        "cloud": {
+          "en": "Cloud",
+          "zh-CN": "云平台",
+          "definition": {
+            "en": "A platform serving several makers' models, whoever runs it.",
+            "zh-CN": "提供多家厂商模型的平台，不论由谁运营。"
+          }
+        }
+      }
+    },
+    "modality": {
+      "label": {
+        "en": "Modality",
+        "zh-CN": "模态"
+      },
+      "terms": {
+        "text": {
+          "en": "Text",
+          "zh-CN": "文本",
+          "definition": {
+            "en": "Text, including code.",
+            "zh-CN": "文本，含代码。"
+          }
+        },
+        "image": {
+          "en": "Image",
+          "zh-CN": "图像",
+          "definition": {
+            "en": "Still images.",
+            "zh-CN": "静态图像。"
+          }
+        },
+        "audio": {
+          "en": "Audio",
+          "zh-CN": "音频",
+          "definition": {
+            "en": "Speech, music or other sound.",
+            "zh-CN": "语音、音乐或其他声音。"
+          }
+        },
+        "video": {
+          "en": "Video",
+          "zh-CN": "视频",
+          "definition": {
+            "en": "Moving images.",
+            "zh-CN": "视频。"
+          }
+        }
+      }
+    },
+    "concept_origin": {
+      "label": {
+        "en": "Concept origin",
+        "zh-CN": "概念来源"
+      },
+      "terms": {
+        "editorial_ai": {
+          "en": "Editorial, AI-proposed",
+          "zh-CN": "编辑目录（AI 提议）",
+          "definition": {
+            "en": "Written for our own market and work catalog; an AI proposal, not a reviewed fact.",
+            "zh-CN": "为我们自己的赛道与工作目录而写；是 AI 提议，未经审定。"
+          }
+        },
+        "onet_projection": {
+          "en": "O*NET projection",
+          "zh-CN": "O*NET 投影",
+          "definition": {
+            "en": "Projected from an O*NET record; the source identity is kept.",
+            "zh-CN": "由 O*NET 记录投影而来，保留来源身份。"
+          }
+        }
+      }
+    },
+    "translation_status": {
+      "label": {
+        "en": "Translation status",
+        "zh-CN": "翻译状态"
+      },
+      "terms": {
+        "ai_translated": {
+          "en": "AI translated",
+          "zh-CN": "AI 翻译",
+          "definition": {
+            "en": "The Chinese label is an AI translation.",
+            "zh-CN": "中文名是 AI 翻译。"
+          }
+        },
+        "pending": {
+          "en": "Pending",
+          "zh-CN": "待翻译",
+          "definition": {
+            "en": "No Chinese label yet.",
+            "zh-CN": "还没有中文名。"
+          }
+        },
+        "source_original": {
+          "en": "Source original",
+          "zh-CN": "原文",
+          "definition": {
+            "en": "The label is the source's own wording.",
+            "zh-CN": "名称是来源的原文。"
+          }
+        }
+      }
+    },
+    "scope_status": {
+      "label": {
+        "en": "Scope status",
+        "zh-CN": "范围状态"
+      },
+      "terms": {
+        "starter_catalog": {
+          "en": "Starter catalog",
+          "zh-CN": "起步目录",
+          "definition": {
+            "en": "An editorial starter entry whose scope is not yet defined by a source.",
+            "zh-CN": "编辑起步条目，范围尚无来源定义。"
+          }
+        },
+        "defined": {
+          "en": "Defined",
+          "zh-CN": "已定义",
+          "definition": {
+            "en": "Scope is given by a source description or task statement.",
+            "zh-CN": "范围由来源的描述或任务原文给出。"
+          }
+        },
+        "source_missing_tasks": {
+          "en": "Source has no tasks",
+          "zh-CN": "来源无任务",
+          "definition": {
+            "en": "The source occupation carries no task statements.",
+            "zh-CN": "来源职业没有任务原文。"
+          }
+        }
+      }
+    },
+    "definition_basis": {
+      "label": {
+        "en": "Definition basis",
+        "zh-CN": "定义依据"
+      },
+      "terms": {
+        "source_occupation_description": {
+          "en": "Source occupation description",
+          "zh-CN": "来源职业描述",
+          "definition": {
+            "en": "The existing English description of the mapped O*NET occupation, copied without new interpretation.",
+            "zh-CN": "所映射 O*NET 职业的英文描述原文，不加新解释。"
+          }
+        },
+        "source_task_statement": {
+          "en": "Source task statement",
+          "zh-CN": "来源任务原文",
+          "definition": {
+            "en": "The existing English statement of the mapped O*NET task, copied without new interpretation.",
+            "zh-CN": "所映射 O*NET 任务的英文原文，不加新解释。"
+          }
+        },
+        "editorial_scope_note": {
+          "en": "Editorial scope note",
+          "zh-CN": "编辑范围说明",
+          "definition": {
+            "en": "An existing editorial scope note, retaining its editorial status.",
+            "zh-CN": "已有的编辑范围说明，保留其编辑身份。"
+          }
+        }
+      }
+    },
+    "concept_view": {
+      "label": {
+        "en": "Browsing view",
+        "zh-CN": "浏览视图"
+      },
+      "terms": {
+        "markets": {
+          "en": "Markets",
+          "zh-CN": "赛道",
+          "definition": {
+            "en": "Our own market and work catalog.",
+            "zh-CN": "我们自己的赛道与工作目录。"
+          }
+        },
+        "occupations": {
+          "en": "Occupations",
+          "zh-CN": "职业",
+          "definition": {
+            "en": "The O*NET occupation and task projection.",
+            "zh-CN": "O*NET 职业与任务投影。"
+          }
+        }
+      }
+    },
+    "mapping_relation": {
+      "label": {
+        "en": "External mapping relation",
+        "zh-CN": "外部映射关系"
+      },
+      "terms": {
+        "source_projection": {
+          "en": "Source projection",
+          "zh-CN": "来源投影",
+          "definition": {
+            "en": "The concept is the projection of this external record.",
+            "zh-CN": "该概念就是这条外部记录的投影。"
+          }
+        },
+        "related": {
+          "en": "Related",
+          "zh-CN": "相关",
+          "definition": {
+            "en": "Related without a broader or narrower claim.",
+            "zh-CN": "相关，不断言上下位。"
+          }
+        },
+        "broader": {
+          "en": "Broader",
+          "zh-CN": "更宽",
+          "definition": {
+            "en": "The external entry is broader than the concept.",
+            "zh-CN": "外部条目比该概念更宽。"
+          }
+        },
+        "narrower": {
+          "en": "Narrower",
+          "zh-CN": "更窄",
+          "definition": {
+            "en": "The external entry is narrower than the concept.",
+            "zh-CN": "外部条目比该概念更窄。"
+          }
+        },
+        "exact": {
+          "en": "Exact",
+          "zh-CN": "等同",
+          "definition": {
+            "en": "The two mean the same thing. An AI proposal cannot assert this.",
+            "zh-CN": "两者含义相同。AI 提议不得断言等同。"
+          }
+        }
+      }
+    },
+    "account_owner_kind": {
+      "label": {
+        "en": "Account owner kind",
+        "zh-CN": "账号归属类型"
+      },
+      "terms": {
+        "person": {
+          "en": "Person",
+          "zh-CN": "个人",
+          "definition": {
+            "en": "The account belongs to a person.",
+            "zh-CN": "账号属于一个人。"
+          }
+        },
+        "organization": {
+          "en": "Organization",
+          "zh-CN": "机构",
+          "definition": {
+            "en": "The account belongs to an organization.",
+            "zh-CN": "账号属于一个机构。"
+          }
+        }
+      }
+    },
+    "account_language": {
+      "label": {
+        "en": "Account language",
+        "zh-CN": "账号语言"
+      },
+      "terms": {
+        "en": {
+          "en": "English",
+          "zh-CN": "英文",
+          "definition": {
+            "en": "Posts mainly in English.",
+            "zh-CN": "主要用英文发帖。"
+          }
+        },
+        "zh": {
+          "en": "Chinese",
+          "zh-CN": "中文",
+          "definition": {
+            "en": "Posts mainly in Chinese.",
+            "zh-CN": "主要用中文发帖。"
+          }
+        },
+        "both": {
+          "en": "Both",
+          "zh-CN": "双语",
+          "definition": {
+            "en": "Posts in both.",
+            "zh-CN": "两种语言都用。"
+          }
+        }
+      }
+    },
+    "occurrence_status": {
+      "label": {
+        "en": "Occurrence status",
+        "zh-CN": "发生状态"
+      },
+      "terms": {
+        "unknown": {
+          "en": "Unknown",
+          "zh-CN": "未知",
+          "definition": {
+            "en": "The text does not say whether it has happened.",
+            "zh-CN": "文本没有说明是否已发生。"
+          }
+        },
+        "scheduled": {
+          "en": "Scheduled",
+          "zh-CN": "已排期",
+          "definition": {
+            "en": "Announced for a future time.",
+            "zh-CN": "已宣布，将在未来发生。"
+          }
+        },
+        "occurred": {
+          "en": "Occurred",
+          "zh-CN": "已发生",
+          "definition": {
+            "en": "It has happened.",
+            "zh-CN": "已经发生。"
+          }
+        },
+        "postponed": {
+          "en": "Postponed",
+          "zh-CN": "推迟",
+          "definition": {
+            "en": "Moved to a later time.",
+            "zh-CN": "已推迟。"
+          }
+        },
+        "cancelled": {
+          "en": "Cancelled",
+          "zh-CN": "取消",
+          "definition": {
+            "en": "Will not happen.",
+            "zh-CN": "已取消。"
+          }
+        }
+      }
+    },
+    "identity_confidence": {
+      "label": {
+        "en": "Identity confidence",
+        "zh-CN": "同一性置信度"
+      },
+      "terms": {
+        "high": {
+          "en": "High",
+          "zh-CN": "高",
+          "definition": {
+            "en": "The subject of the update is stated outright.",
+            "zh-CN": "更新的对象在文本里写明。"
+          }
+        },
+        "low": {
+          "en": "Low",
+          "zh-CN": "低",
+          "definition": {
+            "en": "The subject had to be read from context.",
+            "zh-CN": "更新的对象要从上下文读出。"
+          }
+        }
+      }
+    },
+    "source_role": {
+      "label": {
+        "en": "Source role",
+        "zh-CN": "来源角色"
+      },
+      "terms": {
+        "primary": {
+          "en": "Primary",
+          "zh-CN": "主要",
+          "definition": {
+            "en": "The post the update is mainly drawn from.",
+            "zh-CN": "更新主要依据的帖子。"
+          }
+        },
+        "corroborating": {
+          "en": "Corroborating",
+          "zh-CN": "佐证",
+          "definition": {
+            "en": "Supports the same update.",
+            "zh-CN": "佐证同一条更新。"
+          }
+        },
+        "context": {
+          "en": "Context",
+          "zh-CN": "背景",
+          "definition": {
+            "en": "Gives background only.",
+            "zh-CN": "只提供背景。"
+          }
+        }
+      }
+    },
+    "evidence_sign": {
+      "label": {
+        "en": "Evidence sign",
+        "zh-CN": "证据方向"
+      },
+      "terms": {
+        "positive": {
+          "en": "Positive",
+          "zh-CN": "正向",
+          "definition": {
+            "en": "Shows the work being done at the observed level.",
+            "zh-CN": "表明工作在所观察的级别上被完成。"
+          }
+        },
+        "negative": {
+          "en": "Negative",
+          "zh-CN": "反向",
+          "definition": {
+            "en": "Shows a failure or a limit at that level.",
+            "zh-CN": "表明在该级别上失败或受限。"
+          }
+        }
+      }
+    },
+    "concept_kind": {
+      "label": {
+        "en": "Concept kind",
+        "zh-CN": "概念类型"
+      },
+      "terms": {
+        "market_group": {
+          "en": "Market group",
+          "zh-CN": "领域",
+          "definition": {
+            "en": "An editorial domain organizing related markets; not an industry weight or capability score.",
+            "zh-CN": "归拢相关赛道的编辑领域；不是行业权重，也不是能力分数。"
+          }
+        },
+        "market": {
+          "en": "Market",
+          "zh-CN": "赛道",
+          "definition": {
+            "en": "An editorial market or service area grouping work that serves a related production or service need.",
+            "zh-CN": "一个编辑赛道或服务领域，把服务于同一类生产或服务需求的工作归在一起。"
+          }
+        },
+        "work": {
+          "en": "Work",
+          "zh-CN": "工作",
+          "definition": {
+            "en": "A named scope of work, either an editorial work item or a source occupation task; matching labels do not establish identity.",
+            "zh-CN": "一项有名字的工作范围：编辑的工作条目，或来源职业的任务。名称相同不代表是同一项。"
+          }
+        },
+        "occupation_group": {
+          "en": "Occupation group",
+          "zh-CN": "职业大类",
+          "definition": {
+            "en": "An O*NET occupation family used to organize source occupations.",
+            "zh-CN": "用来组织来源职业的 O*NET 职业大类。"
+          }
+        },
+        "occupation": {
+          "en": "Occupation",
+          "zh-CN": "职业",
+          "definition": {
+            "en": "An O*NET occupation with its source identity and occupational description.",
+            "zh-CN": "一个 O*NET 职业，带来源身份和职业描述。"
           }
         }
       }

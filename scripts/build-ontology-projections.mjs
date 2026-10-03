@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Projects the semantic layer into the artefacts that must agree with it:
+// Projects the ontology schema into the artefacts that must agree with it:
 // the SQL constraints for migration 006 and the bilingual site labels.
 // Nothing here is hand-maintained; editing an output is always wrong.
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { semanticModel, termIds, term, sqlValueList, validateSemanticModel } from "./lib/semantic-model.mjs";
+import { schema, termIds, term, sqlValueList, validateSchema } from "./lib/ontology-schema.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -18,7 +18,10 @@ export const LEGACY_VOCABULARY = "legacy-freeform";
 
 const legacyList = LEGACY_EVENT_KINDS.map((k) => `'${k}'`).join(", ");
 
-/** The migration body. Deterministic: same model in, same bytes out. */
+/** The migration body. Deterministic: same schema in, same bytes out.
+ *
+ * The SQL text mirrors migrations that are already applied and hash-locked, so its
+ * comments keep the names in use when they were written (the semantic model file). */
 export function migrationSql() {
   return `-- Semantic judgment layer: capability and gate type nodes, the typed judgment
 -- edges from ontology concepts to them, and the instance-layer evidence and state
@@ -261,7 +264,7 @@ ALTER TABLE public.events ADD CONSTRAINT events_kind_check CHECK (
 /** Bilingual labels for every controlled vocabulary, for the website. */
 export function siteLabels() {
   const vocabularies = {};
-  for (const [name, vocabulary] of Object.entries(semanticModel.vocabularies)) {
+  for (const [name, vocabulary] of Object.entries(schema.vocabularies)) {
     const terms = {};
     for (const id of termIds(name)) {
       const body = term(name, id) ?? {};
@@ -283,25 +286,19 @@ export function siteLabels() {
       terms,
     };
   }
-  const nodeKinds = Object.fromEntries(
-    Object.entries(semanticModel.node_kinds).map(([k, v]) => [k, v.label]),
-  );
-  const edgeKinds = Object.fromEntries(
-    Object.entries(semanticModel.edge_kinds)
-      .filter(([, v]) => v.label)
-      .map(([k, v]) => [k, v.label]),
-  );
+  const labelsOf = (entries) =>
+    Object.fromEntries(Object.entries(entries).filter(([, v]) => v.label).map(([k, v]) => [k, v.label]));
   return {
-    generated_from: "datasets/semantic/semantic-model.v2.json",
-    semantic_version: semanticModel.version,
-    node_kinds: nodeKinds,
-    edge_kinds: edgeKinds,
+    generated_from: "datasets/ontology/schema/schema.json",
+    schema_version: schema.version,
+    classes: labelsOf(schema.classes),
+    relations: labelsOf(schema.relations),
     vocabularies,
   };
 }
 
 function main() {
-  const problems = validateSemanticModel();
+  const problems = validateSchema();
   if (problems.length) {
     console.error("Semantic model is invalid:\n" + problems.map((p) => `  - ${p}`).join("\n"));
     process.exit(1);
@@ -313,7 +310,7 @@ function main() {
   writeFileSync(join(root, "db", "generated", "007_semantic_judge_vocabulary.sql"), migrationSql007());
   writeFileSync(join(root, "db", "generated", "009_kind_check_null_repair.sql"), migrationSql009());
   writeFileSync(join(root, "db", "generated", "011_gate_state_task.sql"), migrationSql011());
-  const labelsPath = join(root, "src", "content", "semantic-labels.json");
+  const labelsPath = join(root, "src", "content", "ontology-labels.json");
   writeFileSync(labelsPath, JSON.stringify(siteLabels(), null, 2) + "\n");
   console.log(`Wrote ${sqlPath}`);
   console.log(`Wrote ${join(root, "db", "generated", "007_semantic_judge_vocabulary.sql")}`);

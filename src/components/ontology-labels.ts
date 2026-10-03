@@ -1,13 +1,13 @@
-import semanticLabelsJson from "@/content/semantic-labels.json";
+import ontologyLabelsJson from "@/content/ontology-labels.json";
 import type { Language } from "@/lib/i18n";
 
 /**
  * Display names for the controlled vocabularies, read from the published
- * semantic labels file. A term that is not in the vocabulary is never given an
+ * ontology labels file. A term that is not in the vocabulary is never given an
  * invented name: the caller is told so and prints the raw value instead, which
  * is how a superseded vocabulary stays visible rather than being smoothed over.
  */
-export type SemanticTerm = {
+export type VocabularyTerm = {
   en?: string;
   "zh-CN"?: string;
   definition?: { en?: string; "zh-CN"?: string } | null;
@@ -18,18 +18,18 @@ export type SemanticTerm = {
 
 type Vocabulary = {
   label: { en: string; "zh-CN": string };
-  terms: Record<string, SemanticTerm>;
+  terms: Record<string, VocabularyTerm>;
 };
 
-type SemanticLabels = {
-  semantic_version: string;
+type OntologyLabels = {
+  schema_version: string;
   generated_from: string;
   vocabularies: Record<string, Vocabulary>;
 };
 
-const labels = semanticLabelsJson as unknown as SemanticLabels;
+const labels = ontologyLabelsJson as unknown as OntologyLabels;
 
-export const semanticVersion = labels.semantic_version;
+export const schemaVersion = labels.schema_version;
 
 export type VocabularyName =
   | "event_kind"
@@ -54,11 +54,11 @@ export function vocabularyLabel(name: VocabularyName, language: Language): strin
 }
 
 /** Every term of a vocabulary, in published order. */
-export function vocabularyTerms(name: VocabularyName): [string, SemanticTerm][] {
+export function vocabularyTerms(name: VocabularyName): [string, VocabularyTerm][] {
   return Object.entries(vocabulary(name)?.terms ?? {});
 }
 
-export function semanticTerm(name: VocabularyName, key: string | null | undefined): SemanticTerm | null {
+export function vocabularyTerm(name: VocabularyName, key: string | null | undefined): VocabularyTerm | null {
   if (!key) return null;
   return vocabulary(name)?.terms[key] ?? null;
 }
@@ -69,7 +69,7 @@ export function termName(
   key: string | null | undefined,
   language: Language,
 ): string | null {
-  const term = semanticTerm(name, key);
+  const term = vocabularyTerm(name, key);
   if (!term) return null;
   return term[language] ?? term.en ?? key ?? null;
 }
@@ -85,7 +85,7 @@ export function termNameOrRaw(
 
 /**
  * A term's definition plus the language it is actually written in. Several
- * vocabularies publish Chinese-only definitions in semantic model 2.0.0, so the
+ * vocabularies publish Chinese-only definitions in this version of the schema, so the
  * page marks the original language instead of pretending a translation exists.
  */
 export function termDefinition(
@@ -93,7 +93,7 @@ export function termDefinition(
   key: string | null | undefined,
   language: Language,
 ): { text: string; language: Language } | null {
-  const definition = semanticTerm(name, key)?.definition;
+  const definition = vocabularyTerm(name, key)?.definition;
   if (!definition) return null;
   const preferred = definition[language];
   if (preferred) return { text: preferred, language };

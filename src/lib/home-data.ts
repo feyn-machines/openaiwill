@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { semanticTerm } from "@/components/semantic-labels";
+import { vocabularyTerm } from "@/components/ontology-labels";
 import { activities, chainEvents, coverage, events, evidence, manifest } from "@/lib/snapshot";
 
 /**
@@ -35,7 +35,7 @@ export type HomeUpdate = {
   url: string | null;
   sources: number;
   kind: Both | null;
-  /** The semantic `event_kind` id, e.g. `production_adoption`. */
+  /** The `event_kind` vocabulary id, e.g. `production_adoption`. */
   kindId: string | null;
   /** Views of the source posts at snapshot time; null when not collected. */
   views: number | null;
@@ -132,7 +132,7 @@ export function buildHomeData(): HomeData | null {
   for (const e of chainEvents) {
     if (!used.has(e.event_id)) continue;
     const more = detail.get(e.event_id);
-    const term = semanticTerm("event_kind", more?.kind);
+    const term = vocabularyTerm("event_kind", more?.kind);
     const date = e.occurred_at ? e.occurred_at.slice(0, 10) : null;
     const day = date ? Math.min(days - 1, Math.max(0, Math.round((dayOf(date) - start) / DAY))) : days - 1;
     updates.push({

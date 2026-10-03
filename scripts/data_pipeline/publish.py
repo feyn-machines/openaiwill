@@ -16,10 +16,10 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from . import attention, checkpoint, semantic
+from . import attention, checkpoint, ontology_schema
 from .activity_state import ACTIVITY_LEVEL_SQL, IS_TASK, readings_sql
 from .pipeline import digest
-from .semantic import EVENT_KIND_VOCABULARY
+from .ontology_schema import EVENT_KIND_VOCABULARY
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLISHED = ROOT / "datasets/published"
@@ -254,7 +254,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
     # names work without distinguishing it. Neither is a finding, and a page that
     # reports edge counts without this reports the flattering half.
     #
-    # The threshold is passed in from the semantic layer rather than written into
+    # The threshold is passed in from the schema rather than written into
     # this SQL: a literal here would be a second copy of the rule.
     # Two judges over the same pairs. The full sweep is one judge's work, so the
     # --- what was looked at, and what was not ----------------------------------
@@ -352,7 +352,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
         best AS (SELECT activity_id, max(level) AS level FROM capped GROUP BY 1),
         activity AS (
           SELECT b.activity_id,
-                 CASE WHEN g.activity_id IS NOT NULL THEN LEAST(b.level, {semantic.gate_level_cap()}) ELSE b.level END AS level
+                 CASE WHEN g.activity_id IS NOT NULL THEN LEAST(b.level, {ontology_schema.gate_level_cap()}) ELSE b.level END AS level
             FROM best b
             LEFT JOIN LATERAL (
               SELECT ge.activity_id FROM public.activity_gate_edges ge
@@ -501,13 +501,13 @@ def build(conn, ontology_version: str | None = None) -> dict:
         # with no rows would simply not be drawn. The ladder, its wording and its
         # caps all come from the activity_level vocabulary, so the site draws the
         # same scale the judge was asked and never carries its own copy.
-        "stages": semantic.level_ids(),
-        "levels": semantic.level_labels(),
-        "level_definitions": semantic.level_definitions(),
+        "stages": ontology_schema.level_ids(),
+        "levels": ontology_schema.level_labels(),
+        "level_definitions": ontology_schema.level_definitions(),
         "states": ["assessed", "unknown", "untouched"],
         # What each kind of evidence is allowed to support. Published so a reader
         # can see why nothing sits above L2 while the evidence is vendor claims.
-        "tier_caps": {tier: int(cap) for tier, cap in semantic.level_caps().items()},
+        "tier_caps": {tier: int(cap) for tier, cap in ontology_schema.level_caps().items()},
         "work_items_total": sum(r["work_items"] for r in global_buckets),
         "assessed": sum(r["work_items"] for r in global_buckets
                         if r["coverage"] == "assessed"),
@@ -535,7 +535,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
     #
     # It replaces those three files rather than sitting beside them. Two copies
     # of the same 710 readings would eventually disagree.
-    caps = semantic.level_caps()
+    caps = ontology_schema.level_caps()
 
     def published_level(row):
         """What the site shows, as against what the judge said.
@@ -550,9 +550,9 @@ def build(conn, ontology_version: str | None = None) -> dict:
         score = row.get("observed_level")
         # rule:score-below-one-is-not-a-level: "related, but short of L1" is
         # kept on the row as observed_score and counts for nothing.
-        if score is None or float(score) < semantic.min_level_score():
+        if score is None or float(score) < ontology_schema.min_level_score():
             return None
-        observed = semantic.level_of_score(score)
+        observed = ontology_schema.level_of_score(score)
         cap = caps.get(row.get("evidence_tier"))
         if cap is None:
             return None
@@ -564,7 +564,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
             "activity_id": row["activity_id"],
             # The level the judge's reading reached, and the raw score it came
             # from. Only the level is a category a page may show.
-            "observed_level": semantic.level_of_score(row["observed_level"]),
+            "observed_level": ontology_schema.level_of_score(row["observed_level"]),
             "observed_score": row["observed_level"],
             "level": published_level(row),
             "evidence_tier": row["evidence_tier"],
@@ -671,7 +671,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
         "snapshot_version": SNAPSHOT_VERSION,
         "generated_at": generated_at.isoformat(),
         "ontology_version": ontology_version,
-        "semantic_version": semantic.SEMANTIC_VERSION,
+        "schema_version": ontology_schema.SCHEMA_VERSION,
         "method_version": METHOD_VERSION,
         # chain is four lists in one file, so counting it as "1" would publish a
         # manifest that cannot be checked against the file it describes.

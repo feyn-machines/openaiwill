@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from . import semantic
+from . import ontology_schema
 from .pipeline import digest
 
 
@@ -30,11 +30,11 @@ EXTRACTION_VERSION_TAG = "deepseek-events-2"
 
 
 def system_prompt():
-    """The extraction prompt, built from the semantic layer instead of hand-typed.
+    """The extraction prompt, built from the schema instead of hand-typed.
 
     Everything that decides a classification - the 15 event kinds, their
     boundaries and the event identity rule - is rendered from
-    datasets/semantic/semantic-model.v2.json. The previous prompt carried a bare
+    datasets/ontology/schema/schema.json. The previous prompt carried a bare
     ten-word list, which is why the same model drew a different boundary on every
     run and parked a quarter of the events in "other". A boundary now changes in
     one place, and `prompt_sha256` moves when it does.
@@ -47,9 +47,9 @@ def system_prompt():
         "distinct real-world UPDATES they announce, classify each one, and merge every post "
         "that describes the SAME update into ONE event.",
         "",
-        semantic.event_kind_rubric(),
+        ontology_schema.event_kind_rubric(),
         "",
-        semantic.event_identity_rule(),
+        ontology_schema.event_identity_rule(),
         "",
         "Classification rules:",
         "- `kind` MUST be one of the controlled terms above, spelled exactly. There is no "
@@ -94,12 +94,12 @@ def prompt_sha256():
     """Version anchor for the extraction prompt (recorded on every run).
 
     Hashes the rubric alongside the prompt text: the rendered rubric is already
-    inside the prompt, but a separate rubric hash keeps a semantic-layer edit
+    inside the prompt, but a separate rubric hash keeps a schema edit
     legible in provenance instead of hidden inside one opaque digest.
     """
     return digest({"system": system_prompt(), "schema": EXTRACTION_VERSION_TAG,
-                   "rubric_sha256": semantic.rubric_sha256(),
-                   "semantic_version": semantic.SEMANTIC_VERSION})
+                   "rubric_sha256": ontology_schema.rubric_sha256(),
+                   "semantic_version": ontology_schema.EVENT_KIND_VERSION})
 
 
 def load_env(root):

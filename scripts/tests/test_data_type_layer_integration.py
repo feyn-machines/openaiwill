@@ -1,9 +1,9 @@
-"""Real PostgreSQL regressions for the semantic judgment layer (migrations 006-008).
+"""Real PostgreSQL regressions for the judgment layer (migrations 006-008).
 
 Two things are under test here, and they are different in kind:
 
   * the seeding contract of data_pipeline.type_layer - definitions are a
-    projection of the semantic model and may be re-projected, while the proposed
+    projection of the schema and may be re-projected, while the proposed
     edge set is frozen once written, because an edge carries review state and a
     silent overwrite would erase the decision that matters;
 
@@ -16,7 +16,7 @@ Two things are under test here, and they are different in kind:
 
 The ontology here is a stub: the real release has 20796 concepts and none of
 these constraints care how many there are. Only the concepts the seeded edges
-point at are created, and they are derived from the semantic model rather than
+point at are created, and they are derived from the schema rather than
 typed out, so a model that grows an edge does not silently skip these tests.
 """
 import copy
@@ -34,9 +34,9 @@ from psycopg import errors, sql
 
 from data_pipeline import type_layer
 from data_pipeline.db import connect, migrate
-# The markers are half of the SQL CHECK; taking them from the semantic layer keeps
+# The markers are half of the SQL CHECK; taking them from the schema keeps
 # this file from becoming a second, silently diverging copy of the vocabulary.
-from data_pipeline.semantic import EVENT_KIND_VOCABULARY as NEW_VOCABULARY, LEGACY_VOCABULARY
+from data_pipeline.ontology_schema import EVENT_KIND_VOCABULARY as NEW_VOCABULARY, LEGACY_VOCABULARY
 
 ONTOLOGY_VERSION = "semantic-test-ontology-1"
 EXTRACTION_RUN_ID = "extract-semantic-layer-test"
@@ -83,7 +83,7 @@ def seed_stub_ontology(conn):
     conn.execute(
         """INSERT INTO ontology_releases (version, schema_version, manifest_sha256)
            VALUES (%s, '1.0.0', %s)""", (ONTOLOGY_VERSION, sha(ONTOLOGY_VERSION)))
-    for concept_id in seeded_concept_ids(type_layer.load_model()):
+    for concept_id in seeded_concept_ids(type_layer.load_schema()):
         add_concept(conn, concept_id)
 
 
@@ -109,7 +109,7 @@ class SeedingTest(unittest.TestCase):
         self.addCleanup(self.conn.close)
         migrate(self.conn)
         seed_stub_ontology(self.conn)
-        self.document = type_layer.seed_document(type_layer.load_model(), ONTOLOGY_VERSION)
+        self.document = type_layer.seed_document(type_layer.load_schema(), ONTOLOGY_VERSION)
 
     def count(self, table):
         return self.conn.execute(f"SELECT count(*) AS n FROM {table}").fetchone()["n"]

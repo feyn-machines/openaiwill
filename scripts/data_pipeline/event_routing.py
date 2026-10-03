@@ -32,8 +32,8 @@ from . import checkpoint
 from .classify import Classifier, Option
 from .judge import JudgeError, TYPESAFE_URL, _post
 from .pipeline import digest
-from . import semantic
-from .semantic import EVENT_KIND_VOCABULARY
+from . import ontology_schema
+from .ontology_schema import EVENT_KIND_VOCABULARY
 
 METHOD_VERSION = checkpoint.EVENT_ROUTING
 
@@ -58,7 +58,7 @@ LEVEL_QUESTION = (
 # IS L0-L5 and its order is load-bearing. Projected from the activity_level
 # vocabulary rather than typed here, because a copy of the ladder in the prompt
 # can drift from the ladder the answers are recorded against.
-LEVEL_SCALE = semantic.level_scale()
+LEVEL_SCALE = ontology_schema.level_scale()
 
 TIER_QUESTION = "Who produced this claim, and how checkable is it?"
 TIER_SCALE = {

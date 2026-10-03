@@ -6,14 +6,14 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { semanticModel, termIds, validateSemanticModel, governedColumns } from "./lib/semantic-model.mjs";
-import { migrationSql, migrationSql007, migrationSql009, migrationSql011, siteLabels } from "./build-semantic-projections.mjs";
+import { schema, termIds, validateSchema, governedColumns } from "./lib/ontology-schema.mjs";
+import { migrationSql, migrationSql007, migrationSql009, migrationSql011, siteLabels } from "./build-ontology-projections.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const problems = [];
 const fail = (message) => problems.push(message);
 
-for (const problem of validateSemanticModel()) fail(problem);
+for (const problem of validateSchema()) fail(problem);
 
 // 1. Generated artefacts must match what the model would produce right now.
 const generated = [
@@ -21,16 +21,16 @@ const generated = [
   ["db/generated/007_semantic_judge_vocabulary.sql", migrationSql007()],
   ["db/generated/009_kind_check_null_repair.sql", migrationSql009()],
   ["db/generated/011_gate_state_task.sql", migrationSql011()],
-  ["src/content/semantic-labels.json", JSON.stringify(siteLabels(), null, 2) + "\n"],
+  ["src/content/ontology-labels.json", JSON.stringify(siteLabels(), null, 2) + "\n"],
 ];
 for (const [relative, expected] of generated) {
   const path = join(root, relative);
   if (!existsSync(path)) {
-    fail(`${relative} is missing; run node scripts/build-semantic-projections.mjs`);
+    fail(`${relative} is missing; run pnpm ontology:projections`);
     continue;
   }
   if (readFileSync(path, "utf8") !== expected) {
-    fail(`${relative} has drifted from the semantic model; run node scripts/build-semantic-projections.mjs`);
+    fail(`${relative} has drifted from the semantic model; run pnpm ontology:projections`);
   }
 }
 
@@ -110,9 +110,9 @@ for (const [qualified, vocabulary] of Object.entries(governedColumns)) {
 //    that file with it. A gate is not a weak capability: it is a condition that
 //    does not lift when a model improves, and it is what holds an activity at
 //    L0 whatever the evidence says.
-const gatesPath = join(root, "datasets", "semantic", "gates.v1.json");
+const gatesPath = join(root, "datasets", "ontology", "data", "gates.json");
 if (!existsSync(gatesPath)) {
-  fail("datasets/semantic/gates.v1.json is missing; gates survived the capability layer");
+  fail("datasets/ontology/data/gates.json is missing; gates survived the capability layer");
 } else {
   const gates = JSON.parse(readFileSync(gatesPath, "utf8"));
   const types = new Set(termIds("gate_type"));
@@ -131,9 +131,9 @@ if (!existsSync(gatesPath)) {
 // 4. One organisation registry, not two. This existed as a duplicated dict in
 //    event_extraction.py and had already diverged; an alias only one side knew
 //    silently dropped events, which is the failure rule:org-must-be-id prevents.
-const orgPath = join(root, "datasets", "semantic", "organizations.json");
+const orgPath = join(root, "datasets", "ontology", "data", "organizations.json");
 if (!existsSync(orgPath)) {
-  fail("datasets/semantic/organizations.json is missing");
+  fail("datasets/ontology/data/organizations.json is missing");
 } else {
   const organizations = JSON.parse(readFileSync(orgPath, "utf8")).organizations ?? [];
   const seen = new Map();
@@ -153,7 +153,7 @@ if (!existsSync(orgPath)) {
     const source = readFileSync(join(pipeline, file), "utf8");
     // A literal org id inside a dict literal means a second registry is forming.
     if (/^\s*"org:[a-z]+":\s*\{/m.test(source)) {
-      fail(`${file} declares organisation ids inline; read datasets/semantic/organizations.json instead`);
+      fail(`${file} declares organisation ids inline; read datasets/ontology/data/organizations.json instead`);
     }
   }
 }
@@ -186,7 +186,7 @@ if (!existsSync(orgPath)) {
          `activity_level is ${Math.min(...levels)}-${top}`);
   }
 
-  const capField = semanticModel.vocabularies.activity_level.capped_by?.field;
+  const capField = schema.vocabularies.activity_level.capped_by?.field;
   const pipelineDir = join(root, "scripts", "data_pipeline");
   for (const file of readdirSync(pipelineDir).filter((f) => f.endsWith(".py"))) {
     const source = readFileSync(join(pipelineDir, file), "utf8");
@@ -194,11 +194,11 @@ if (!existsSync(orgPath)) {
     const literal = source.match(/["']T[1-4]["']\s*:\s*\d|WHEN\s+'T[1-4]'\s+THEN\s+\d/);
     if (literal) {
       fail(`${file} restates the evidence tier caps (${literal[0].trim()}); read them from ` +
-           `evidence_tier.${capField} via semantic.level_caps() (rule:tier-caps-level)`);
+           `evidence_tier.${capField} via ontology_schema.level_caps() (rule:tier-caps-level)`);
     }
     // The ladder's own wording, typed out instead of projected.
-    if (/AI takes no part in this work\./.test(source) && file !== "semantic.py") {
-      fail(`${file} carries its own copy of the activity ladder; use semantic.level_scale()`);
+    if (/AI takes no part in this work\./.test(source) && file !== "ontology_schema.py") {
+      fail(`${file} carries its own copy of the activity ladder; use ontology_schema.level_scale()`);
     }
   }
 
@@ -210,7 +210,7 @@ if (!existsSync(orgPath)) {
   // progress.levels and progress.level_definitions; components read those.
   const rungs = [];
   for (const id of termIds("activity_level")) {
-    const body = semanticModel.vocabularies.activity_level.terms[id];
+    const body = schema.vocabularies.activity_level.terms[id];
     for (const text of [body.label, body.definition]) {
       for (const language of Object.keys(text ?? {})) rungs.push(text[language]);
     }
@@ -238,11 +238,11 @@ if (!existsSync(orgPath)) {
 //    dated method journal - instances and state inside a file whose own `layers.type`
 //    says its content "does not change because a news item arrived today".
 //    These two checks are what stops that growing back.
-if ("derived_content" in semanticModel) {
+if ("derived_content" in schema) {
   fail(
-    "semantic-model.v2.json has a derived_content key again. Definitions belong in " +
+    "schema.json has a derived_content key again. Definitions belong in " +
     "capabilities.seed-v1.json or capabilities.discovered-v1.json, state belongs in " +
-    "PostgreSQL, and the method journal belongs in docs/data/semantic-layer-journal.md " +
+    "PostgreSQL, and the method journal belongs in docs/data/ontology-journal.md " +
     "(rule:type-layer-has-no-state)."
   );
 }
@@ -262,18 +262,18 @@ const DATED_KEYS = new Set(["on", "closed_on", "as_of", "generated_at", "measure
     }
     noDatedValues(value, `${path}.${key}`);
   }
-})(semanticModel, "semanticModel");
+})(schema, "schema");
 
-if (!existsSync(join(root, "docs", "data", "semantic-layer-journal.md"))) {
-  fail("docs/data/semantic-layer-journal.md is missing; the method journal moved there out of the model");
+if (!existsSync(join(root, "docs", "data", "ontology-journal.md"))) {
+  fail("docs/data/ontology-journal.md is missing; the method journal moved there out of the model");
 }
 
 if (problems.length) {
-  console.error("Semantic layer check failed:\n" + problems.map((p) => `  - ${p}`).join("\n"));
+  console.error("Ontology schema check failed:\n" + problems.map((p) => `  - ${p}`).join("\n"));
   process.exit(1);
 }
 console.log(
-  `Semantic layer OK: ${Object.keys(semanticModel.vocabularies).length} vocabularies, ` +
-  `${semanticModel.rules.length} rules, ${Object.keys(governedColumns).length} governed columns ` +
+  `Ontology schema OK: ${Object.keys(schema.vocabularies).length} vocabularies, ` +
+  `${schema.constraints.length} constraints, ${Object.keys(governedColumns).length} governed columns ` +
   `verified against db/migrations.`
 );
