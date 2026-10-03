@@ -11,7 +11,6 @@ import {
   snapshotExists,
 } from "@/lib/snapshot";
 import {
-  Caveats,
   DataPageLinks,
   NoSnapshot,
   PageHeader,
@@ -129,7 +128,6 @@ export default async function MarketsPage() {
       )}
 
       <Provenance language={language} />
-      <Caveats language={language} />
       <DataPageLinks language={language} current="markets" />
     </div>
   );

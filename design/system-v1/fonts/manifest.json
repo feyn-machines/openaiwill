@@ -26,5 +26,19 @@
     "bytes": 4399,
     "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
     "license": "OFL-1.1"
+  },
+  {
+    "path": "fonts/Outfit-Variable.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/outfit/Outfit%5Bwght%5D.ttf",
+    "bytes": 110884,
+    "sha256": "fc7287273e66929776e2ba54f144fe699080bec29f61bf649d70d871468aeade",
+    "license": "OFL-1.1"
+  },
+  {
+    "path": "fonts/Outfit-OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/outfit/OFL.txt",
+    "bytes": 4389,
+    "sha256": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+    "license": "OFL-1.1"
   }
 ]

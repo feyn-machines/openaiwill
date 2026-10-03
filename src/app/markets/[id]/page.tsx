@@ -19,7 +19,6 @@ import {
   progress,
 } from "@/lib/snapshot";
 import {
-  Caveats,
   DataPageLinks,
   Missing,
   NoSnapshot,
@@ -281,7 +280,6 @@ export default async function MarketPage({ params }: Props) {
       ) : null}
 
       <Provenance language={language} />
-      <Caveats language={language} />
       <DataPageLinks language={language} current="markets" />
     </div>
   );

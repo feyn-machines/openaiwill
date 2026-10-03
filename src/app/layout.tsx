@@ -44,6 +44,15 @@ const interTight = localFont({
   fallback: ["PingFang SC", "Microsoft YaHei", "system-ui", "sans-serif"],
 });
 
+// The geometric face for the wordmark and the large headlines (brand type direction 02).
+const outfit = localFont({
+  src: "../../design/system-v1/fonts/Outfit-Variable.ttf",
+  weight: "100 900",
+  display: "swap",
+  variable: "--font-heading",
+  fallback: ["PingFang SC", "Microsoft YaHei", "system-ui", "sans-serif"],
+});
+
 const jetBrainsMono = localFont({
   src: "../../design/system-v1/fonts/JetBrainsMono-Variable.ttf",
   weight: "100 800",
@@ -71,10 +80,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const { language } = await getLocale();
   const c = copy[language];
   return (
-    <html lang={language} className={`${interTight.variable} ${jetBrainsMono.variable}`}>
+    <html lang={language} className={`${interTight.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
       <body>
         <header className="header wrap">
-          <Link href="/" className="brand" aria-label={c.brandLabel}>openai<span>will</span><span className="brand-dot">.</span></Link>
+          <Link href="/" className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
           <div className="header-end">
             <nav aria-label={c.navLabel}><Link href="/markets">{c.markets}</Link><Link href="/occupations">{c.occupations}</Link><Link href="/updates">{c.updates}</Link><Link href="/whitepaper">{c.whitepaper}</Link></nav>
             <LanguageSwitch />

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
+import { workHref } from "@/lib/routes";
 import { Bar, Blank } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import type { Language } from "@/lib/i18n";
@@ -127,6 +129,9 @@ export function Activities({
           </summary>
 
           <div className={x.actBody}>
+            {activity.readings.length > 0 && activity.rung ? (
+              <p className={x.gateNote}><Link href={workHref(activity.id)}>{c.openWork} →</Link></p>
+            ) : null}
             {activity.gates.map((gate) => (
               <p key={gate.id} className={x.gateNote}>
                 <span className={x.gateName}>{gate.label}</span>

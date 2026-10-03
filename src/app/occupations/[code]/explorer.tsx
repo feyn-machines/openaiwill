@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useScrollPages } from "@/components/scroll-pages";
 import Link from "next/link";
 import { Bar, Blank, Head } from "@/components/blueprint";
 import { useSeen } from "@/components/home/reveal";
@@ -53,69 +54,69 @@ const SORTS: SortKey[] = ["level", "tasks", "name"];
 
 const copy = bilingual({
   en: {
-    label: "Activities",
-    lead: "One row per activity; open a row to see the updates behind its level.",
-    searchLabel: "Search activities",
-    searchPlaceholder: "an activity or a market…",
+    label: "Work",
+    lead: "One row per kind of work; open a row to see the updates behind its level.",
+    searchLabel: "Search kinds of work",
+    searchPlaceholder: "a kind of work or a market…",
     filterLabel: "Show",
     filterAll: "All",
-    filterRead: "Has readings",
+    filterRead: "Has evidence",
     filterUnread: "Nobody looked",
-    filterGated: "Held by a gate",
+    filterGated: "Held by a non-technical condition",
     sortLabel: "Sort by",
     sortLevel: "Level",
     sortTasks: "Tasks",
     sortName: "Name",
-    showing: "{shown} of {total} activities",
+    showing: "{shown} of {total} kinds of work",
     clear: "Clear filters",
     tasks: "tasks",
     open: "Open",
     close: "Close",
     market: "Market",
-    noReading: "no update in the collected window mentions this activity",
-    gated: "Gate",
-    gatedNote: "A gate does not lift when models improve; what it holds stays at L0.",
-    readingsHead: "Readings",
-    judged: "Judged",
+    noReading: "no update in the collected window mentions this work",
+    gated: "Non-technical condition",
+    gatedNote: "A non-technical condition does not lift when models improve; what it holds stays at L0.",
+    readingsHead: "Evidence",
+    judged: "Claimed",
     capped: "Capped by {tier}",
     kept: "Kept",
     source: "Source",
     emptyTitle: "Nothing matches.",
-    emptyQuery: "No activity here contains “{q}”.",
-    emptyFilter: "No activity in this occupation is in that state.",
+    emptyQuery: "No work here contains “{q}”.",
+    emptyFilter: "No work in this occupation is in that state.",
     emptyWhy: "The filters describe what was collected, not what AI can do.",
   },
   "zh-CN": {
-    label: "活动",
-    lead: "一行一条活动；点开一行，看它的层级是哪几条更新给的。",
-    searchLabel: "搜索活动",
-    searchPlaceholder: "活动名或赛道名…",
+    label: "工作",
+    lead: "一行一项工作；点开一行，看它的层级是哪几条更新给的。",
+    searchLabel: "搜索工作",
+    searchPlaceholder: "工作名或赛道名…",
     filterLabel: "显示",
     filterAll: "全部",
-    filterRead: "有读数",
+    filterRead: "有证据",
     filterUnread: "没人看过",
-    filterGated: "被闸门挡住",
+    filterGated: "受非技术门槛限制",
     sortLabel: "排序",
     sortLevel: "层级",
     sortTasks: "任务数",
     sortName: "名称",
-    showing: "{total} 条活动中显示 {shown} 条",
+    showing: "{total} 项工作中显示 {shown} 条",
     clear: "清除筛选",
     tasks: "项任务",
     open: "展开",
     close: "收起",
     market: "赛道",
-    noReading: "采集窗口里没有一次更新谈到这条活动",
-    gated: "闸门",
-    gatedNote: "闸门不随模型变强而松动，被它按住的停在 L0。",
-    readingsHead: "读数",
+    noReading: "采集窗口里没有一次更新谈到这项工作",
+    gated: "非技术门槛",
+    gatedNote: "非技术门槛不随模型变强而解除；受限的工作记在 L0。",
+    readingsHead: "证据",
     judged: "判定",
     capped: "{tier} 封顶",
     kept: "采信",
     source: "来源",
     emptyTitle: "没有匹配的行。",
-    emptyQuery: "这里没有活动包含「{q}」。",
-    emptyFilter: "这个职业里没有处于该状态的活动。",
+    emptyQuery: "这里没有工作包含「{q}」。",
+    emptyFilter: "这个职业里没有处于该状态的工作。",
     emptyWhy: "筛选说的是采集到了什么，不是 AI 能做什么。",
   },
 });
@@ -150,6 +151,7 @@ export function ActivityExplorer({
   const [open, setOpen] = useState<string | null>(null);
 
   const needle = query.trim().toLowerCase();
+  const { frame, sentinel, count: visible } = useScrollPages(`${query}|${filter}|${sort}`);
   const touched = needle !== "" || filter !== "all";
 
   const shown = useMemo(() => {
@@ -259,8 +261,9 @@ export function ActivityExplorer({
           <p className={s.emptyWhy}>{c.emptyWhy}</p>
         </div>
       ) : (
+        <div ref={frame} className="oaw-scroll">
         <ul className={s.rows}>
-          {shown.map((row) => {
+          {shown.slice(0, visible).map((row) => {
             const expanded = open === row.id;
             const word = levelText(row.level, levels);
             return (
@@ -361,6 +364,8 @@ export function ActivityExplorer({
             );
           })}
         </ul>
+        {shown.length > visible ? <div ref={sentinel} className="oaw-scroll-end" /> : null}
+        </div>
       )}
     </div>
   );

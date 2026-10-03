@@ -77,13 +77,3 @@ test("the root layout resolves metadata per reader rather than statically", () =
   // The confirmed English headline stays the default title in both languages.
   assert.ok(source.includes('default: "Will AI Kill Your Idea?"'));
 });
-
-test("run status is mapped to words, and failure does not read as in progress", () => {
-  const found = pages().filter((path) => read(path).includes("RUN_STATUS_NAMES"));
-  assert.equal(found.length, 1, "exactly one page should map run status");
-  const source = read(found[0]);
-  assert.match(source, /RUN_STATUS_NAMES\[language\]\[run\.status\]/);
-  assert.match(source, /failed: "Failed"/);
-  assert.match(source, /failed: "失败"/);
-  assert.match(source, /failed: "attention"/);
-});

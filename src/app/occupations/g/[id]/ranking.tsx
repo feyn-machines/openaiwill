@@ -42,7 +42,7 @@ const copy = bilingual({
     bottom: "Narrowest",
     spread: "{n} points apart",
     flat: "Both ends read the same.",
-    unread: "{n} more have no reading at all.",
+    unread: "{n} more have no evidence at all.",
     blank: "no update in the collected window mentions this occupation",
   },
   "zh-CN": {
@@ -56,8 +56,8 @@ const copy = bilingual({
     top: "最高",
     bottom: "最低",
     spread: "相差 {n} 个百分点",
-    flat: "两端读数一样。",
-    unread: "另有 {n} 个职业一条读数都没有。",
+    flat: "两端的证据一样。",
+    unread: "另有 {n} 个职业一条证据都没有。",
     blank: "采集窗口里没有一次更新谈到这个职业",
   },
 });
@@ -155,7 +155,9 @@ export function MemberRanking({
       {/* No `mark` here. Marking two rows dims the other thirty-four, and a
           ranking nobody can read is a worse trade than the highlight is worth;
           the two ends are named in full above. */}
-      <ProgressCompare rows={ordered} language={language} order="given" />
+      <div className="oaw-scroll" style={{ padding: "0 20px" }}>
+        <ProgressCompare rows={ordered} language={language} order="given" />
+      </div>
     </div>
   );
 }

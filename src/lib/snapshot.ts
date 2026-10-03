@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import { LEVEL_NAMES } from "@/lib/level-names";
 import { join } from "node:path";
 import { activityAnchor } from "./anchors";
 
@@ -153,6 +154,8 @@ export type EventRow = {
   source_count: number;
   /** The original posts, so a reader can go to the source instead of to us. */
   source_urls: string[] | null;
+  /** Reach of the source posts when the snapshot was taken. Never an input to a level. */
+  attention?: { views: number | null; likes: number | null; provisional?: boolean } | null;
 };
 
 /**
@@ -329,7 +332,17 @@ export const marketEdges = read<MarketEdge[]>("markets", []);
 export const taskEdges = read<TaskEdge[]>("tasks", []);
 export const events = read<EventRow[]>("events", []);
 export const coverage = read<Coverage | null>("coverage", null);
-export const progress = read<Progress | null>("progress", null);
+const publishedProgress = read<Progress | null>("progress", null);
+/**
+ * The snapshot still carries the earlier wording of the level names. Pages read
+ * the names from here, so the ruler is replaced once, on the way in, with v4.
+ */
+export const progress: Progress | null = publishedProgress && {
+  ...publishedProgress,
+  levels: Object.fromEntries(
+    LEVEL_NAMES.en.map((en, level) => [String(level), { en, "zh-CN": LEVEL_NAMES["zh-CN"][level] }]),
+  ),
+};
 
 /**
  * Where the middle occupation sits, so one occupation's share can be judged.

@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { Picker } from "@/components/picker";
+import { useScrollPages } from "@/components/scroll-pages";
 import Link from "next/link";
 import { Bar, Blank, Head } from "@/components/blueprint";
 import { useSeen } from "@/components/home/reveal";
@@ -84,7 +86,7 @@ const copy = bilingual({
     sortName: "Name",
     readLabel: "Evidence",
     readAll: "All",
-    readRead: "Has readings",
+    readRead: "Has evidence",
     readUnread: "Nobody looked",
     showing: "{shown} of {total} occupations",
     filtered: "filtered",
@@ -122,7 +124,7 @@ const copy = bilingual({
     sortName: "名称",
     readLabel: "证据",
     readAll: "全部",
-    readRead: "有读数",
+    readRead: "有证据",
     readUnread: "没人看过",
     showing: "{total} 个职业中显示 {shown} 个",
     filtered: "已筛选",
@@ -160,17 +162,19 @@ export function OccupationDirectory({
 }) {
   const c = copy[language];
   const searchId = useId();
-  const groupId = useId();
   const { ref, seen } = useSeen<HTMLDivElement>();
 
   const [query, setQuery] = useState("");
-  const [group, setGroup] = useState("");
+  // One group at a time: the page opens on the group furthest along, and a search looks through all of them.
+  const first = useMemo(() => [...groups].sort((a, b) => b.share - a.share)[0]?.id ?? "", [groups]);
+  const [group, setGroup] = useState(first);
   const [sort, setSort] = useState<SortKey>("share");
   const [read, setRead] = useState<ReadKey>("all");
   const [band, setBand] = useState<number | null>(null);
 
   const needle = query.trim().toLowerCase();
-  const touched = needle !== "" || group !== "" || read !== "all" || band !== null;
+  // A group is always chosen, so only the groups with rows to show are drawn.
+  const touched = true;
 
   // The distribution is of the whole catalogue, always. A histogram that moved
   // with the filter would stop being the thing the reader compares against.
@@ -183,7 +187,7 @@ export function OccupationDirectory({
 
   const shown = useMemo(() => {
     const kept = rows.filter((row) => {
-      if (group && row.groupId !== group) return false;
+      if (!needle && group && row.groupId !== group) return false;
       if (read === "read" && row.assessed === 0) return false;
       if (read === "unread" && row.assessed > 0) return false;
       if (band !== null && bandOf(row.share) !== band) return false;
@@ -223,10 +227,21 @@ export function OccupationDirectory({
 
   const clear = () => {
     setQuery("");
-    setGroup("");
+    setGroup(first);
     setRead("all");
     setBand(null);
   };
+
+  // The frame shows the list a page at a time; a group whose turn has not come is not drawn at all.
+  const { frame, sentinel, count: visible } = useScrollPages(`${query}|${group}|${sort}|${read}|${band}`, 60);
+  let budget = visible;
+  const paged: { group: (typeof sections)[number]["group"]; members: (typeof sections)[number]["members"]; total: number }[] = [];
+  for (const section of sections) {
+    if (budget <= 0) break;
+    paged.push({ group: section.group, members: section.members.slice(0, budget), total: section.members.length });
+    budget -= Math.max(1, section.members.length);
+  }
+  const more = sections.reduce((n, section) => n + Math.max(1, section.members.length), 0) > visible;
 
   return (
     <div ref={ref} data-seen={seen ? "true" : undefined}>
@@ -279,22 +294,12 @@ export function OccupationDirectory({
         </div>
 
         <div className={s.selectField}>
-          <label className={s.controlLabel} htmlFor={groupId}>
-            {c.groupLabel}
-          </label>
-          <select
-            id={groupId}
-            className={s.select}
+          <Picker
+            label={c.groupLabel}
             value={group}
-            onChange={(event) => setGroup(event.target.value)}
-          >
-            <option value="">{c.groupAll}</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
-          </select>
+            options={groups.map((g) => ({ value: g.id, label: g.label, note: `${g.share}%` }))}
+            onChange={setGroup}
+          />
         </div>
 
         <fieldset className={s.chipField}>
@@ -338,7 +343,7 @@ export function OccupationDirectory({
             .replace("{shown}", String(shown.length))
             .replace("{total}", String(rows.length))}
         </span>
-        {touched ? (
+        {needle !== "" || group !== first || read !== "all" || band !== null ? (
           <button type="button" className={s.clear} onClick={clear}>
             {c.clear}
           </button>
@@ -358,7 +363,8 @@ export function OccupationDirectory({
           <p className={s.emptyWhy}>{c.emptyWhy}</p>
         </div>
       ) : (
-        sections.map(({ group: g, members }) => (
+        <div ref={frame} className={`oaw-scroll ${s.frame}`}>
+        {paged.map(({ group: g, members, total }) => (
           <section key={g.id} className={s.group} id={`g${g.slug}`}>
             <Link
               className={s.groupLink}
@@ -367,11 +373,11 @@ export function OccupationDirectory({
             >
               <Head
                 label={g.label}
-                tag={`${members.length} · ${g.share}%`}
+                tag={`${total} · ${g.share}%`}
                 tone={g.share > 0 ? "signal" : "plain"}
               />
             </Link>
-            {members.length === 0 ? (
+            {total === 0 ? (
               <p className={s.groupEmpty}>{c.groupEmpty}</p>
             ) : (
             <ul className={s.list}>
@@ -402,7 +408,9 @@ export function OccupationDirectory({
             </ul>
             )}
           </section>
-        ))
+        ))}
+        {more ? <div ref={sentinel} className="oaw-scroll-end" /> : null}
+        </div>
       )}
 
       <p className={s.footnote}>{c.shareNote.replace("{l2}", l2Word)}</p>

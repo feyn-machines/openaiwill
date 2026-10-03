@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
-import { Bar, Blank, Block } from "@/components/blueprint";
-import { useSeen } from "@/components/home/reveal";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { updateHref } from "@/lib/routes";
+import { Bar, Blank } from "@/components/blueprint";
+import { useScrollPages } from "@/components/scroll-pages";
 import s from "./updates.module.css";
 
 /**
@@ -43,6 +45,9 @@ export type UpdateRow = {
   level: string | null;
   readings: ReadingRow[];
 };
+
+/** Rows shown at first, and added by each further request. */
+const PAGE = 30;
 
 export type BrowserCopy = {
   fromEyebrow: string;
@@ -96,15 +101,11 @@ export function UpdatesBrowser({
   maxActivities: number;
 }) {
   const [query, setQuery] = useState("");
-  const [landed, setLanded] = useState<Landed>("all");
+  const [landed, setLanded] = useState<Landed>("landed");
   const [org, setOrg] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>("time");
   const [open, setOpen] = useState<string | null>(null);
 
-  const { ref: chartRef, seen: chartSeen } = useSeen<HTMLDivElement>();
-  const topOrg = orgs[0]?.events ?? 1;
-
-  const landedCount = useMemo(() => rows.filter((r) => r.activities > 0).length, [rows]);
 
   // Search is over the title and the publisher, which is what a reader has in
   // mind when they come looking for one update they remember.
@@ -134,48 +135,13 @@ export function UpdatesBrowser({
   // Re-mounting the body on a filter change is what gives the rows their
   // transition; typing narrows the list fast, so the cost stays small.
   const signature = `${query}|${landed}|${org ?? ""}|${sort}`;
-  const filtered = query !== "" || landed !== "all" || org !== null;
+  const filtered = query !== "" || landed !== "landed" || org !== null;
+  // A page at a time. The count belongs to one filter state, so changing the filter starts again from the first page.
+  const { frame, sentinel, count: visible } = useScrollPages(signature, PAGE);
 
   return (
     <>
-      <Block
-        eyebrow={copy.fromEyebrow}
-        title={copy.fromTitle}
-        lead={copy.fromLead}
-        id="from"
-      >
-        <div className={s.chart} ref={chartRef} data-seen={chartSeen ? "true" : undefined}>
-          <ol className={s.orgs}>
-            {orgs.map((row, i) => {
-              const current = org === row.org;
-              return (
-                <li key={row.org}>
-                  <button
-                    type="button"
-                    className={`${s.orgButton} ${current ? s.orgCurrent : ""}`}
-                    style={{ "--i": i } as CSSProperties}
-                    aria-pressed={current}
-                    onClick={() => setOrg(current ? null : row.org)}
-                  >
-                    <span className={s.orgName}>{row.label}</span>
-                    <span className={s.track}>
-                      <Bar share={row.events / topOrg} label={`${row.label} ${row.events}`} />
-                    </span>
-                    <span className={s.orgCount}>{numbers.format(row.events)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      </Block>
-
-      <Block
-        eyebrow={copy.tableEyebrow}
-        title={copy.tableTitle}
-        lead={copy.tableLead}
-        id="all"
-      >
+      <div id="all">
         <div className={s.controls}>
           <div className={s.search}>
             <label className={s.fieldLabel} htmlFor="updates-search">
@@ -192,25 +158,17 @@ export function UpdatesBrowser({
           </div>
 
           <div className={s.row}>
-            <span className={s.fieldLabel}>{copy.filterLabel}</span>
+            <span className={s.fieldLabel}>{copy.fromEyebrow}</span>
             <div className={s.chips}>
-              {(
-                [
-                  ["all", copy.filterAll, rows.length],
-                  ["landed", copy.filterLanded, landedCount],
-                  ["silent", copy.filterSilent, rows.length - landedCount],
-                ] as [Landed, string, number][]
-              ).map(([key, label, count]) => (
+              {orgs.map((row) => (
                 <button
-                  key={key}
+                  key={row.org}
                   type="button"
-                  className={`${s.chip} ${landed === key ? s.chipCurrent : ""}`}
-                  aria-pressed={landed === key}
-                  onClick={() => setLanded(key)}
+                  className={`${s.chip} ${org === row.org ? s.chipCurrent : ""}`}
+                  aria-pressed={org === row.org}
+                  onClick={() => setOrg(org === row.org ? null : row.org)}
                 >
-                  <span className={s.chipMark} aria-hidden="true" />
-                  {label}
-                  <span className={s.chipCount}>{numbers.format(count)}</span>
+                  {row.label}
                 </button>
               ))}
             </div>
@@ -243,7 +201,7 @@ export function UpdatesBrowser({
                 className={s.chip}
                 onClick={() => {
                   setQuery("");
-                  setLanded("all");
+                  setLanded("landed");
                   setOrg(null);
                 }}
               >
@@ -254,8 +212,8 @@ export function UpdatesBrowser({
 
           <p className={s.result} aria-live="polite">
             {copy.showing
-              .replace("{n}", numbers.format(shown.length))
-              .replace("{total}", numbers.format(rows.length))}
+              .replace("{n}", numbers.format(Math.min(visible, shown.length)))
+              .replace("{total}", numbers.format(shown.length))}
             {org ? ` · ${orgs.find((o) => o.org === org)?.label ?? org}` : ""}
           </p>
         </div>
@@ -264,7 +222,8 @@ export function UpdatesBrowser({
           <p className={s.empty}>{copy.empty}</p>
         ) : (
           <div
-            className={`oaw-table-wrap ${s.tableWrap}`}
+            ref={frame}
+            className={`oaw-table-wrap oaw-scroll ${s.tableWrap}`}
             role="region"
             aria-label={copy.tableLabel}
             tabIndex={0}
@@ -280,13 +239,17 @@ export function UpdatesBrowser({
                 </tr>
               </thead>
               <tbody key={signature} className={s.rows}>
-                {shown.map((row) => {
+                {shown.slice(0, visible).map((row) => {
                   const isOpen = open === row.id;
                   return [
                     <tr key={row.id}>
                       <td className={s.cellWhen}>{row.date ?? <Blank reason={copy.noDate} />}</td>
                       <th scope="row">
-                        {row.url ? (
+                        {row.readings.length > 0 ? (
+                          <Link className={s.title} href={updateHref(row.id)}>
+                            {row.title} <span aria-hidden="true">→</span>
+                          </Link>
+                        ) : row.url ? (
                           <a
                             className={s.title}
                             href={row.url}
@@ -377,9 +340,10 @@ export function UpdatesBrowser({
                 })}
               </tbody>
             </table>
+            {shown.length > visible ? <div ref={sentinel} className="oaw-scroll-end" /> : null}
           </div>
         )}
-      </Block>
+      </div>
     </>
   );
 }

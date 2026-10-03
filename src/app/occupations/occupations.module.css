@@ -331,3 +331,5 @@
   font-size: var(--ah-text-label);
   line-height: 1.7;
 }
+
+.frame{padding:0 20px 16px}

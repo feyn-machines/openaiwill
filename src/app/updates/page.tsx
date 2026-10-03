@@ -10,21 +10,13 @@ import {
   snapshotExists,
 } from "@/lib/snapshot";
 import {
-  Caveats,
   DataPageLinks,
-  Missing,
   NoSnapshot,
   PageHeader,
-  Provenance,
-  Status,
-  TableScroll,
   bilingual,
   dataStyles as d,
-  formatNumber,
   isoDate,
 } from "@/components/data-page";
-import { Bar, Block, Head, Stat, blueprint as b } from "@/components/blueprint";
-import { Screen } from "@/components/home/reveal";
 import { UpdatesBrowser, type UpdateRow } from "./updates-browser";
 import s from "./updates.module.css";
 
@@ -51,13 +43,14 @@ const copy = bilingual({
   en: {
     eyebrow: "Updates",
     title: "AI updates",
-    lead: "581 updates read; 256 of them bore on any work at all.",
+    lead: "AI updates that bear on specific work. Newest first.",
+    more: "Show {n} more",
     windowLabel: "Collection window",
     statRead: "Updates read",
     statLanded: "Landed on work",
     statSilent: "Landed on nothing",
     legendLanded: "{n} landed on work",
-    legendRest: "{n} bore on no activity",
+    legendRest: "{n} bore on no work",
     fromEyebrow: "Where they came from",
     fromTitle: "The feed is not even",
     fromLead: "Pick a publisher to hold the table to it.",
@@ -80,7 +73,7 @@ const copy = bilingual({
     colWhen: "When",
     colUpdate: "Update",
     colFrom: "From",
-    colLanded: "Landed on (activities / markets)",
+    colLanded: "Bears on (work / markets)",
     colTop: "Highest",
     runsEyebrow: "Provenance",
     runsTitle: "The runs that produced these rows",
@@ -91,8 +84,8 @@ const copy = bilingual({
     colStarted: "Started",
     noDecided: "This run recorded no decision count.",
     openSource: "opens the original post",
-    readingsOpen: "{n} readings",
-    readingsClose: "Hide readings",
+    readingsOpen: "{n} pieces of evidence",
+    readingsClose: "Hide evidence",
     noDate: "No publication time was recorded for this update.",
     noOrg: "No publisher was resolved for this update.",
     noSource: "No source URL was retained for this update.",
@@ -103,26 +96,27 @@ const copy = bilingual({
   "zh-CN": {
     eyebrow: "更新",
     title: "AI 更新",
-    lead: "读了 581 条更新，其中 256 条真的落到了某件工作上。",
+    lead: "涉及具体工作的 AI 更新，最新在前。",
+    more: "再显示 {n} 条",
     windowLabel: "采集窗口",
-    statRead: "读过的更新",
-    statLanded: "落到工作上",
-    statSilent: "没落到",
-    legendLanded: "{n} 条落到工作",
-    legendRest: "{n} 条没落到任何活动",
+    statRead: "收录的更新",
+    statLanded: "涉及工作",
+    statSilent: "未涉及工作",
+    legendLanded: "{n} 条涉及工作",
+    legendRest: "{n} 条未涉及任何工作",
     fromEyebrow: "来自哪里",
     fromTitle: "来源严重偏斜",
     fromLead: "点一个发布方，下面的表就只看它。",
     tableEyebrow: "全部更新",
     tableTitle: "581 条，最新在前",
-    tableLead: "没落到工作上的也列在里面。",
+    tableLead: "未涉及工作的更新也在列表里。",
     tableLabel: "更新表",
     searchLabel: "搜标题和发布方",
     searchPlaceholder: "智能体、机器人、Gemini…",
     filterLabel: "只看",
     filterAll: "全部",
-    filterLanded: "落到工作",
-    filterSilent: "没落到",
+    filterLanded: "涉及工作",
+    filterSilent: "未涉及工作",
     sortLabel: "排序",
     sortTime: "最新",
     sortReach: "打到的工作最多",
@@ -132,7 +126,7 @@ const copy = bilingual({
     colWhen: "时间",
     colUpdate: "更新",
     colFrom: "来自",
-    colLanded: "落到（活动 / 赛道）",
+    colLanded: "涉及（工作 / 赛道）",
     colTop: "最高",
     runsEyebrow: "溯源",
     runsTitle: "产出这些行的运行",
@@ -143,8 +137,8 @@ const copy = bilingual({
     colStarted: "开始",
     noDecided: "这次运行没有记录判定数。",
     openSource: "打开原帖",
-    readingsOpen: "{n} 条读数",
-    readingsClose: "收起读数",
+    readingsOpen: "{n} 条证据",
+    readingsClose: "收起证据",
     noDate: "这条更新没有记录发布时间。",
     noOrg: "这条更新没有解析出发布方。",
     noSource: "这条更新没有保留源头链接。",
@@ -159,25 +153,6 @@ export async function generateMetadata(): Promise<Metadata> {
   const c = copy[language];
   return { title: c.title, description: c.lead };
 }
-
-/** Run status as words. A failed run must not read as one still in progress. */
-const RUN_STATUS_NAMES: Record<string, Record<string, string>> = {
-  en: { completed: "Completed", running: "Running", failed: "Failed" },
-  "zh-CN": { completed: "已完成", running: "进行中", failed: "失败" },
-};
-
-/**
- * The marker shape per status, as a table rather than as a condition.
- *
- * `failed` gets `attention` and `running` gets `pending`: a broken pass and a
- * pass still writing are different facts, and drawing them the same turns a
- * broken pipeline into a wait nobody investigates.
- */
-const RUN_STATUS_SHAPES: Record<string, "solid" | "pending" | "attention"> = {
-  completed: "solid",
-  running: "pending",
-  failed: "attention",
-};
 
 export default async function UpdatesPage() {
   const { language } = await getLocale();
@@ -229,7 +204,9 @@ export default async function UpdatesPage() {
     readingsByEvent.set(row.event_id, list);
   }
 
+  // Only updates that bear on some work are listed; the rest say nothing this page can show.
   const rows: UpdateRow[] = [...events]
+    .filter((row) => landed.has(row.event_id))
     .sort((a, b) => (b.occurred_at ?? "").localeCompare(a.occurred_at ?? ""))
     .map((row) => {
       const hit = landed.get(row.event_id);
@@ -246,19 +223,6 @@ export default async function UpdatesPage() {
         readings: readingsByEvent.get(row.event_id) ?? [],
       };
     });
-
-  // A snapshot exported while a run is still writing can arrive without these.
-  // An absent array is an empty state with a reason, never a zero.
-  const runs = coverage?.judgment_runs ?? [];
-  const routed = coverage?.events_routed ?? rows.length;
-  const bearing = coverage?.events_bearing_on_activity ?? landed.size;
-  const silent = Math.max(routed - bearing, 0);
-  const window = coverage?.collection_window;
-  const windowTag =
-    window?.first && window?.last
-      ? `${isoDate(window.first)} → ${isoDate(window.last)}`
-      : undefined;
-  const share = (n: number) => (routed > 0 ? `${Math.round((n / routed) * 100)}%` : undefined);
 
   // coverage names publishers in the registry's English; the table shows the
   // reader's language. The chart keeps the key and shows the label.
@@ -278,40 +242,6 @@ export default async function UpdatesPage() {
   return (
     <div className={s.page}>
       <PageHeader eyebrow={c.eyebrow} title={c.title} lead={c.lead} />
-
-      {/* The claim, as three numbers on one baseline. */}
-      <Screen className={`${s.readout} ${b.canvas}`}>
-        <Head label={c.windowLabel} tag={windowTag} tone="plain" />
-        <div className={s.stats}>
-          <Stat label={c.statRead} value={formatNumber(routed)} tone="plain" />
-          <Stat
-            label={c.statLanded}
-            tag={share(bearing)}
-            value={formatNumber(bearing)}
-            tone="signal"
-          />
-          <Stat
-            label={c.statSilent}
-            tag={share(silent)}
-            value={formatNumber(silent)}
-            tone="correction"
-          />
-        </div>
-        <div className={s.split}>
-          <span className={s.track}>
-            <Bar
-              share={routed > 0 ? bearing / routed : 0}
-              label={c.legendLanded.replace("{n}", formatNumber(bearing))}
-            />
-          </span>
-          <p className={s.legend}>
-            <span>{c.legendLanded.replace("{n}", formatNumber(bearing))}</span>
-            <span className={s.legendRest}>
-              {c.legendRest.replace("{n}", formatNumber(silent))}
-            </span>
-          </p>
-        </div>
-      </Screen>
 
       {rows.length === 0 ? (
         <p className={d.note}>{c.empty0}</p>
@@ -357,49 +287,6 @@ export default async function UpdatesPage() {
         />
       )}
 
-      {/* The extraction runs that produced these updates.
-          This lived on /about, which the user removed; the runs are the
-          provenance of THIS page's rows, so they belong here rather than
-          nowhere. The status is mapped to words because "failed" and
-          "running" must never render as the same neutral token - a failed run
-          that reads as in-progress turns a broken pipeline into a wait. */}
-      {runs.length > 0 ? (
-        <Block eyebrow={c.runsEyebrow} title={c.runsTitle} lead={c.runsLead}>
-          <TableScroll label={c.runsTitle}>
-            <thead>
-              <tr>
-                <th scope="col">{c.colRun}</th>
-                <th scope="col">{c.colStatus}</th>
-                <th scope="col" className="oaw-num">{c.colDecided}</th>
-                <th scope="col">{c.colStarted}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.run_id}>
-                  <th scope="row" className={d.mono}>{run.method_version}</th>
-                  <td>
-                    <Status shape={RUN_STATUS_SHAPES[run.status] ?? "solid"}>
-                      {RUN_STATUS_NAMES[language][run.status] ?? run.status}
-                    </Status>
-                  </td>
-                  <td className="oaw-num">
-                    {run.decided_count === null ? (
-                      <Missing reason={c.noDecided} language={language} inline />
-                    ) : (
-                      formatNumber(run.decided_count)
-                    )}
-                  </td>
-                  <td className={d.mono}>{isoDate(run.started_at) ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </TableScroll>
-        </Block>
-      ) : null}
-
-      <Provenance language={language} />
-      <Caveats language={language} />
       <DataPageLinks language={language} current="updates" />
     </div>
   );

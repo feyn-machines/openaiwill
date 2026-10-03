@@ -19,7 +19,6 @@ import {
   progressFor,
 } from "@/lib/snapshot";
 import {
-  Caveats,
   DataPageLinks,
   NoSnapshot,
   bilingual,
@@ -48,20 +47,20 @@ const copy = bilingual({
     statReachLabel: "AI finishes",
     statReachNote: "tasks at L2 or above. The median occupation is at {median}%.",
     statLookedLabel: "Looked at",
-    statLookedNote: "tasks carry a level at all; the other {rest} have no reading either way.",
+    statLookedNote: "tasks carry a level at all; the other {rest} have no evidence either way.",
     ofTotal: "/ {total}",
     gridTitle: "This occupation's tasks",
-    gridLead: "One square, one task, filled to the lowest level of the activities covering it.",
-    gridNone: "No activity with evidence behind it covers any task in this occupation.",
+    gridLead: "One square, one task, filled to the lowest level of the kinds of work covering it.",
+    gridNone: "No work with evidence behind it covers any task in this occupation.",
     gridNoneWhy: "The updates read so far are vendor and lab announcements, which rarely speak to this kind of work.",
     marketsTitle: "Markets this occupation serves",
     marketsLead: "A market is a kind of work a business sells; a job usually serves several.",
     marketsNone: "No market has been linked to this occupation yet.",
-    marketActivities: "activities",
+    marketActivities: "kinds of work",
     activitiesTitle: "What AI has been shown to do here",
-    gatesTitle: "Gates on these activities",
+    gatesTitle: "Non-technical conditions on these kinds of work",
     gatesLead: "A condition that does not lift because a model improved.",
-    gatesNone: "No gate has been recorded against the activities reaching this occupation.",
+    gatesNone: "No non-technical condition has been recorded against the kinds of work reaching this occupation.",
     tasksTag: "{n} tasks",
   },
   "zh-CN": {
@@ -71,20 +70,20 @@ const copy = bilingual({
     statReachLabel: "AI 能做完",
     statReachNote: "项任务到 L2 及以上。中位职业是 {median}%。",
     statLookedLabel: "被看过",
-    statLookedNote: "项任务有层级；其余 {rest} 项没有任何方向的读数。",
+    statLookedNote: "项任务有层级；其余 {rest} 项没有任何证据。",
     ofTotal: "/ {total}",
     gridTitle: "这个职业的任务",
-    gridLead: "一格一条任务，填到覆盖它的活动里最低的那一级。",
-    gridNone: "这个职业里没有任何一条任务被有证据支撑的活动覆盖。",
+    gridLead: "一格一条任务，填到覆盖它的工作里最低的那一级。",
+    gridNone: "这个职业里没有任何一条任务被有证据支撑的工作覆盖。",
     gridNoneWhy: "目前读到的更新是厂商与实验室公告，很少谈到这类工作。",
     marketsTitle: "这个职业服务的赛道",
     marketsLead: "赛道是企业对外出售的一类工作，一份工作通常服务好几个。",
     marketsNone: "还没有赛道与这个职业建立关联。",
-    marketActivities: "条活动",
+    marketActivities: "项工作",
     activitiesTitle: "AI 在这里被证明能做什么",
-    gatesTitle: "这些活动上的闸门",
+    gatesTitle: "这些工作的非技术门槛",
     gatesLead: "不随模型变强而松动的条件。",
-    gatesNone: "触及这个职业的活动上没有记录到任何闸门。",
+    gatesNone: "触及这个职业的工作上没有记录到非技术门槛。",
     tasksTag: "{n} 项任务",
   },
 });
@@ -302,7 +301,6 @@ export default async function OccupationPage({ params }: Props) {
       </Block>
 
       <Provenance language={language} />
-      <Caveats language={language} />
       <DataPageLinks language={language} current="occupations" />
     </div>
   );

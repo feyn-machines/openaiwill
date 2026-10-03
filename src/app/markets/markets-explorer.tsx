@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useScrollPages } from "@/components/scroll-pages";
 import Link from "next/link";
 import { Bar, Blank, Block } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
@@ -74,6 +75,8 @@ export function MarketsExplorer({
 
   const withReading = rows.length - distribution.blank;
 
+  const { frame, sentinel, count: visible } = useScrollPages(`${query}|${coverage}|${rung}|${sort}`);
+
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = rows.filter((row) => {
@@ -85,7 +88,7 @@ export function MarketsExplorer({
     });
     const key = (row: MarketRow) =>
       sort === "top" ? (row.top ?? -1) : sort === "total" ? row.total : sort === "scored" ? row.scored : row.occupations;
-    return [...filtered].sort((a, b) => key(b) - key(a) || b.scored - a.scored || a.name.localeCompare(b.name));
+    return [...filtered].sort((a, b) => key(b) - key(a) || b.scored - a.scored || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   }, [rows, query, coverage, rung, sort]);
 
   const filtersOn = query !== "" || coverage !== "all" || rung !== "any";
@@ -230,7 +233,8 @@ export function MarketsExplorer({
         ) : (
           <Screen>
           <div
-            className="oaw-table-wrap"
+            ref={frame}
+            className="oaw-table-wrap oaw-scroll"
             role="region"
             aria-label={c.tableLabel}
             tabIndex={0}
@@ -254,7 +258,7 @@ export function MarketsExplorer({
               {/* Keyed on the query so a filter or a sort re-enters the rows
                   instead of swapping them in place. */}
               <tbody className={x.rows} key={`${query}|${coverage}|${rung}|${sort}`}>
-                {shown.map((row) => (
+                {shown.slice(0, visible).map((row) => (
                   <tr key={row.id}>
                     <th scope="row" className={x.nameCell}>
                       <Link href={`/markets/${row.slug}`}>{row.name}</Link>
@@ -279,6 +283,7 @@ export function MarketsExplorer({
                 ))}
               </tbody>
             </table>
+            {shown.length > visible ? <div ref={sentinel} className="oaw-scroll-end" /> : null}
           </div>
           </Screen>
         )}

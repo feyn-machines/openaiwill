@@ -1,0 +1,4 @@
+/* The overview is fixed behind the page; the spacer is the first screen it fills. */
+.home{--home-header:100px}
+
+@media(max-width:760px){.home{--home-header:80px}}
