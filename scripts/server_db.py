@@ -41,12 +41,17 @@ def parse_env(text: str) -> dict[str, str]:
     return values
 
 
-def writer_password(env_text: str) -> str:
-    """The data writer's password from db.env. A malformed file is refused without echoing any value."""
-    value = parse_env(env_text).get("OAW_KG_WRITER_PASSWORD", "")
+def checked_password(value: str) -> str:
+    """A password read from the server. A malformed one is refused without echoing any value."""
+    value = value.strip()
     if not PASSWORD_PATTERN.fullmatch(value):
         raise ReleaseError("db.env on the server has no usable OAW_KG_WRITER_PASSWORD; run `pnpm db:setup` first")
     return value
+
+
+def writer_password(env_text: str) -> str:
+    """The data writer's password from the text of db.env."""
+    return checked_password(parse_env(env_text).get("OAW_KG_WRITER_PASSWORD", ""))
 
 
 def db_forward_argv(target: dict, local_port: int) -> list[str]:
@@ -67,7 +72,13 @@ def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: st
     """The one script `pnpm db:setup` runs on the server (sent on stdin). Repeatable.
 
     Passwords are generated here, only when db.env does not exist, written with umask 077, and
-    handed to psql through `docker exec --env-file` so they never appear on a command line."""
+    handed to psql through `docker exec --env-file` so they never appear on a command line.
+
+    Recovery from a lost db.env while the database volume exists: delete site.env too and run this again.
+    Everything here reaches PostgreSQL as the superuser through the container's local socket (trusted, no
+    password), and roles.sql then sets all three role passwords, the superuser's included, to the newly
+    generated ones. No step needs the old superuser password, and no data is touched.
+    Every command that could read the script from stdin has its own redirect."""
     root = site.rpath(target)
     db = site.rpath(target, "db")
     env_file = site.rpath(target, "db", "db.env")
@@ -77,11 +88,16 @@ def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: st
         return heredoc(site.rpath(target, "db", name), text, tag)
 
     psql = f"sudo docker exec -i --env-file {env_file} openaiwill-db psql -X -q -v ON_ERROR_STOP=1"
+    # The stock image trusts 127.0.0.1 and the socket, so the passwords are only enforced on the container's own
+    # network address: that is where the checks connect, with the password taken from the env file inside the
+    # container (never on a command line).
+    address = 'ip=$(hostname -i); ip=${{ip%% *}}; '  # doubled braces: str.format below
     check = ('sudo docker exec -i --env-file {env} openaiwill-db sh -c '
-             "'PGPASSWORD=\"$OAW_{who}_PASSWORD\" psql -X -h 127.0.0.1 -U {role} -d {db} -tAc \"{sql}\"' </dev/null")
+             "'" + address + 'PGPASSWORD="{password}" psql -X -h "$ip" -U {role} -d {db} -tAc "{sql}"\' </dev/null')
+    wrong = check.format(env="db.env", password="not-the-password", role=SITE_ROLE, db=DB_NAME, sql="SELECT 1")
     return f"""umask 077
-sudo install -d -m 755 -o "$(id -un)" -g "$(id -gn)" {root} {db}
-sudo docker network inspect openaiwill >/dev/null 2>&1 || sudo docker network create openaiwill >/dev/null
+sudo install -d -m 755 -o "$(id -un)" -g "$(id -gn)" {root} {db} </dev/null
+sudo docker network inspect openaiwill >/dev/null 2>&1 </dev/null || sudo docker network create openaiwill >/dev/null </dev/null
 newpw() {{ local p; p=$(openssl rand -hex 24); [ "${{#p}}" -eq 48 ] || {{ echo 'could not generate a password' >&2; exit 1; }}; echo "$p"; }}
 if [ ! -f {env_file} ]; then
   if [ -f {site_env} ]; then echo 'site.env exists but db/db.env does not; refusing to invent new passwords' >&2; exit 1; fi
@@ -98,13 +114,14 @@ if [ ! -f {site_env} ]; then
 fi
 chmod 600 {site_env}
 {put('compose.yml', compose_text, 'OPENAIWILL_COMPOSE_EOF')}{put('roles.sql', roles_sql, 'OPENAIWILL_ROLES_EOF')}{put('001_kg.sql', schema_sql, 'OPENAIWILL_SCHEMA_EOF')}{put('grants.sql', grants_sql, 'OPENAIWILL_GRANTS_EOF')}cd {db}
-sudo docker compose -p openaiwill-db --env-file db.env up -d --wait
+sudo docker compose -p openaiwill-db --env-file db.env up -d --wait --wait-timeout 180 </dev/null
 {psql} -U postgres -d postgres < roles.sql
 {psql} -U {WRITER} -d {DB_NAME} < 001_kg.sql
 {psql} -U {WRITER} -d {DB_NAME} < grants.sql
-{check.format(env='db.env', who='KG_WRITER', role=WRITER, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')} >/dev/null
-n=$({check.format(env='db.env', who='SITE', role=SITE_ROLE, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')})
-echo "both roles connect with their passwords; releases in kg: $n"
+{check.format(env='db.env', password='$OAW_KG_WRITER_PASSWORD', role=WRITER, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')} >/dev/null
+n=$({check.format(env='db.env', password='$OAW_SITE_PASSWORD', role=SITE_ROLE, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')})
+if {wrong} >/dev/null 2>&1; then echo 'password authentication is not being enforced on the container network' >&2; exit 1; fi
+echo "both roles authenticate with their passwords over the container network and a wrong password is refused; releases in kg: $n"
 echo 'database ready (127.0.0.1:{DB_PORT} on the server, network openaiwill)'
 """
 
@@ -128,11 +145,13 @@ def setup_db() -> None:
 
 def read_writer_password(target: dict) -> str:
     try:
-        text = site.remote(target, f"sudo cat {site.rpath(target, 'db', 'db.env')}", capture=True)
+        # Only the writer's value is fetched, and without sudo: the deploy user owns the file (mode 600).
+        value = site.remote(target, f"sed -n 's/^OAW_KG_WRITER_PASSWORD=//p' {site.rpath(target, 'db', 'db.env')}",
+                            capture=True)
     except subprocess.CalledProcessError as error:
         raise ReleaseError(f"could not read the database credentials on the server (status {error.returncode}); "
                            "has `pnpm db:setup` run?") from None
-    return writer_password(text)
+    return checked_password(value)
 
 
 def wait_for_listener(port: int, process: subprocess.Popen, seconds: float = 15) -> None:
@@ -194,6 +213,13 @@ def poll_release(read_body, expected: str, seconds: float = WATCH_SECONDS, inter
 def report_production(expected: str | None = None) -> None:
     """Say what the production site serves. With `expected`, wait up to 60 s for it to serve that release.
     Never fails the command: the database change has already been made."""
+    try:
+        _report_production(expected)
+    except (ReleaseError, subprocess.SubprocessError, OSError) as error:
+        print(f"could not check the production site ({' '.join(str(error).split())}); the database change is done")
+
+
+def _report_production(expected: str | None) -> None:
     target = site.load_target()
     probe = site.remote(target, port_probe_script(PRODUCTION["port"]), capture=True)
     if probe != "listening":

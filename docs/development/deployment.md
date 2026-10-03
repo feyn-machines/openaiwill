@@ -15,7 +15,7 @@
 | 版本号 | `<构建时间 UTC，YYYYMMDDTHHMMSSZ>-<git 短哈希>`；跟踪文件有未提交修改时加 `-dirty` | `<快照生成时间 UTC>-<内容哈希前 8 位>` |
 | 生效方式 | 候选容器通过检查后切换正式容器 | 写入数据库的生效指针；网站每 30 秒查一次，不需要重新发布代码 |
 
-网站启动时从数据库读取当前生效的数据版本，数据库里没有已生效的数据版本，网站不会启动（两个槽位都带 `SITE_REQUIRE_DATABASE=1`）。所以首次上线必须先发布数据，再发布代码。
+网站启动时从数据库读取当前生效的数据版本。两个槽位都带 `SITE_REQUIRE_DATABASE=1`：数据库连不上时网站启动即退出；数据库可连但还没有生效的数据版本时网站能启动，但 `/healthz` 返回 503，容器不会变健康，`docker compose up --wait` 最多等 180 秒后失败。所以首次上线必须先发布数据，再发布代码。
 
 ### 服务器上有什么、没有什么
 
@@ -25,7 +25,7 @@
 
 ### 服务器与槽位
 
-- 服务器：Ubuntu 24.04 x86_64，装有 Docker Compose v2；防火墙只放行 SSH，80/443 关闭；所有入站流量经现有的 Cloudflare Tunnel（`cloudflared`，令牌方式，路由在 Cloudflare 后台配置）。
+- 服务器：Ubuntu 24.04 x86_64，装有 Docker Compose v2（先用 `docker version` 看 Docker Engine 版本：低于 28 的版本里，发布在 `127.0.0.1` 的端口可能被同一二层网段的主机访问到；数据库仍要求 scram 口令，但建议升级）；防火墙只放行 SSH，80/443 关闭；所有入站流量经现有的 Cloudflare Tunnel（`cloudflared`，令牌方式，路由在 Cloudflare 后台配置）。
 - 服务器地址、用户、密钥文件只写在本机被忽略的 `.env.deploy`，不进任何受版本控制的文件。口令不在本机任何位置。
 - 服务器上每个代码版本一个目录：`<DEPLOY_ROOT>/releases/<id>/`（默认 `/opt/openaiwill`）。目录旁有状态文件 `current`、`previous`、`candidate`，各存一个版本号。
 - 网站容器和数据库容器在同一个 Docker 网络 `openaiwill` 里，网站用名字 `openaiwill-db` 访问数据库。
@@ -54,7 +54,7 @@ cp deploy/deploy.env.example .env.deploy
 
 - 部署用户能无密码执行 `sudo`（脚本用 `sudo` 调用 Docker）。
 - `docker compose` 为 v2，并装有 `curl` 和 `openssl`。
-- 端口 8320、8321、5434 空闲。
+- 端口 8320、8321、5434 空闲。5434 已被占用时 `pnpm db:setup` 在启动数据库一步失败（Docker 报端口已被占用），随后的步骤不会执行，输出里没有 `database ready`；释放端口后重新运行是安全的。
 - 磁盘：一个代码版本目录约几十 MB；服务器上最多同时有 7 个版本目录（最新 5 个，加 `current` 和 `previous`），Docker 镜像再占数倍；另有构建缓存，以及失败或未提升的版本目录（`promote` 只清理超出保留数的旧目录，不清理它们）。数据库占用见第 7 节。预留 5 GB。发布前检查：
 
 ```bash
@@ -63,10 +63,10 @@ ssh -i <密钥> <用户>@<地址> df -h /
 
 预期：剩余空间明显大于 5 GB。
 
-例行清理（每次发布后或磁盘紧张时）：
+只清理 openaiwill 自己的东西：服务器上还有别的项目，不要运行 `docker builder prune` 或 `docker system prune` 这类全局清理（会删掉所有项目的构建缓存和镜像）。旧版本的镜像在 `promote` 时已按保留数自动删除；要查看：
 
 ```bash
-ssh -i <密钥> <用户>@<地址> 'sudo docker builder prune -f'
+ssh -i <密钥> <用户>@<地址> 'sudo docker image ls openaiwill-web'
 ```
 
 没有被提升的版本目录（`release` 失败或候选被放弃）不会自动清理，确认它不是 `current`、`previous`、`candidate` 后手工删除，并删除对应镜像：
@@ -93,7 +93,7 @@ ssh -i <密钥> <用户>@<地址> 'rm -rf <DEPLOY_ROOT>/releases/<id>; sudo dock
 pnpm db:setup
 ```
 
-预期：在服务器上建目录 `<DEPLOY_ROOT>/db`，建 Docker 网络 `openaiwill`，首次生成三个口令并写入两个环境文件（输出 `generated the database passwords on the server` 和 `wrote site.env`，不显示口令），启动数据库，建两个角色、数据库 `openaiwill` 和 schema `kg`，最后以两个角色的口令各连一次，打印 `both roles connect with their passwords; releases in kg: 0` 和 `database ready`。可重复执行：环境文件已存在时不会重新生成口令。
+预期：在服务器上建目录 `<DEPLOY_ROOT>/db`，建 Docker 网络 `openaiwill`，首次生成三个口令并写入两个环境文件（输出 `generated the database passwords on the server` 和 `wrote site.env`，不显示口令），启动数据库（等待最多 180 秒），建两个角色、数据库 `openaiwill` 和 schema `kg`，最后在数据库容器自己的网络地址上（该地址上口令校验生效；回环地址和套接字在官方镜像里是免口令的，所以不用它们）用两个角色各自的口令连一次，并确认用错误口令连接 `oaw_site` 会被拒绝（若被接受，脚本以 `password authentication is not being enforced on the container network` 中止），打印 `both roles authenticate with their passwords over the container network and a wrong password is refused; releases in kg: 0`，最后一行是 `database ready (...)`。**必须看到 `database ready` 这一行才算完成**：只做了一半就中断（例如端口被占）时，随后的 `pnpm data:release` 也许能写入，但网站读不到数据，直到重新运行 `pnpm db:setup`。可重复执行：环境文件已存在时不会重新生成口令。
 
 ```bash
 pnpm data:publish:snapshot
@@ -107,7 +107,7 @@ pnpm data:promote
 pnpm site:release
 ```
 
-预期：见第 4 节；候选读到刚生效的数据版本并通过检查。然后按打印的命令预览（`ssh -N -L 8321:127.0.0.1:8321 ...`，打开 `http://localhost:8321`，英文和中文在桌面和手机宽度下各看一遍），再：
+预期：见第 4 节；候选读到刚生效的数据版本并通过检查。构建镜像和启动容器的输出会实时显示在终端里。然后按打印的命令预览（`ssh -N -L 8321:127.0.0.1:8321 ...`，打开 `http://localhost:8321`，英文和中文在桌面和手机宽度下各看一遍），再：
 
 ```bash
 pnpm site:promote
@@ -123,13 +123,13 @@ pnpm site:release
 
 预期，依次发生：运行 `pnpm check`（含构建）；组装 `.release/<id>/`（不含数据）；确认发布目录不含 `sharp`/`@img` 和禁止文件；在本机端口 8399 先以 `SITE_ENV=preview` 起服务跑冒烟检查并确认页面带 `X-Robots-Tag: noindex`——本机有快照目录（`datasets/published/latest/`）时服务以文件模式读它（`SNAPSHOT_DIR`，数据留在发布目录之外）并跑完整检查，没有快照时只跑不需要数据的子集（固定页面、跳转、404、`robots.txt`、`llms.txt`）——再以 `SITE_ENV=production` 起一次，确认 `/markets` 返回 200 且没有 `X-Robots-Tag`（上线前就证明正式环境可被索引）；这两次都不带数据库；清除服务器上旧的 `candidate`；rsync 上传；以候选槽位启动并等待健康；随后开一条 SSH 本地转发（本机空闲端口 → 服务器 `127.0.0.1:8321`），对候选跑完整冒烟检查，并要求 `/healthz` 报告 `data.source` 为 `database` 且有数据版本号、页面带 `noindex`，通过后写入 `candidate` 文件、关闭转发，打印候选正在使用的数据版本和预览命令。`release` 不碰正式服务。
 
-候选没有变健康：脚本取回候选的 `/healthz` 内容；如果显示没有加载任何数据版本，报 `publish data first: pnpm data:release && pnpm data:promote`——先发布数据，再重新运行 `pnpm site:release`。候选冒烟失败时，不写 `candidate`（`promote` 因而拒绝它），候选容器留在服务器上供检查，命令列出失败项。其他常见失败：`pnpm check` 失败、本机冒烟失败、发布目录含禁止文件或原生二进制。
+启动候选时 `docker compose up` 最多等 180 秒（正式切换和恢复同样）。候选没有变健康：脚本显示候选容器日志的最后 40 行和候选 `/healthz` 的内容（含 `candidate /healthz: ...`），并说明候选容器留在服务器上供检查。只有当 `/healthz` 的 `data.source` 是 `database` 且 `data.releaseId` 为空时才提示 `publish data first: pnpm data:release && pnpm data:promote`（先发布数据，再重新运行 `pnpm site:release`）；其他情况（构建失败、端口被占、缺少 `site.env`、缺少网络、容器反复崩溃）只提示 `the candidate did not become healthy; see the output above`，原因看上面的日志。候选冒烟失败时，不写 `candidate`（`promote` 因而拒绝它），候选容器留在服务器上供检查，命令列出失败项。其他常见失败：`pnpm check` 失败、本机冒烟失败、发布目录含禁止文件或原生二进制。
 
 ```bash
 pnpm site:promote
 ```
 
-预期：校验候选仍健康；把它启动为正式服务并确认健康；成功后记录 `previous` 和 `current`，打印 `production is now <id>`，关闭候选，清理超出保留数的旧版本（保留最新 5 个，`current` 与 `previous` 受保护）；随后对 `https://openaiwill.com` 做公开冒烟检查（请求带 `User-Agent: openaiwill-release/1.0`；`/healthz` 报告新版本号、语言跳转、客户端导航请求、IndexNow 密钥文件、404、sitemap 中各类页面各一页、正式环境不带 `X-Robots-Tag`），通过后向 IndexNow 提交 sitemap 中的地址并打印状态码。公开地址解析不到或连不上时，检查结果只列出一行 `<地址> is not reachable: <原因>`。
+预期：先在服务器上确认数据库可连（以 `oaw_site` 经容器网络地址）且有生效的数据版本，否则一行报错并停止，不动正式服务（`the database does not accept connections as oaw_site; production was not touched` 或 `the database has no active data release (pnpm data:promote); production was not touched`，`pnpm site:rollback` 同样先做这个检查）；校验候选仍健康；把它启动为正式服务并确认健康；成功后记录 `previous` 和 `current`，打印 `production is now <id>`，关闭候选，清理超出保留数的旧版本（保留最新 5 个，`current` 与 `previous` 受保护）；随后对 `https://openaiwill.com` 做公开冒烟检查（请求带 `User-Agent: openaiwill-release/1.0`；`/healthz` 报告新版本号、语言跳转、客户端导航请求、IndexNow 密钥文件、404、sitemap 中各类页面各一页、正式环境不带 `X-Robots-Tag`），通过后向 IndexNow 提交 sitemap 中的地址并打印状态码。公开地址解析不到或连不上时，检查结果只列出一行 `<地址> is not reachable: <原因>`。
 
 只想验证构建而不上传：
 
@@ -198,7 +198,7 @@ pnpm data:releases
 pnpm site:rollback
 ```
 
-预期：把 `previous` 记录的版本重新作为正式服务启动，打印 `production is back on <id>`。新版本没有变健康时同样会恢复回滚前的版本。没有 `previous` 时报 `there is no previous release to roll back to`。回滚代码不影响数据版本。
+预期：同样先检查数据库；把 `previous` 记录的版本重新作为正式服务启动，打印 `production is back on <id>`。新版本没有变健康时同样会恢复回滚前的版本。没有 `previous` 时报 `there is no previous release to roll back to`。回滚代码不影响数据版本。
 
 ### 数据
 
@@ -211,8 +211,8 @@ pnpm data:rollback
 ## 7. 数据库
 
 - **位置**：服务器上的 Compose 项目 `openaiwill-db`，镜像 `postgres:16-alpine`，数据在命名卷里，只绑定服务器的 `127.0.0.1:5434`，加入 Docker 网络 `openaiwill`（容器名 `openaiwill-db`），`restart: unless-stopped`。文件在 `<DEPLOY_ROOT>/db/`（`compose.yml`、`roles.sql`、`001_kg.sql`、`grants.sql`、`db.env`），由 `pnpm db:setup` 从仓库的 `deploy/db/` 和 `db/published/001_kg.sql` 写入。
-- **角色**：超级用户（容器默认的 `postgres`）只在 `pnpm db:setup` 里使用；`oaw_kg_writer` 是数据库 `openaiwill` 和 schema `kg` 的所有者，数据发布以它连接；`oaw_site` 只有 CONNECT、`kg` 的 USAGE 和 `kg` 内现有及以后新建的表与视图的 SELECT，没有别的权限。数据发布只写 `kg`。
-- **口令在哪**：三个口令（超级用户、`oaw_kg_writer`、`oaw_site`）在服务器上生成，存在 `<DEPLOY_ROOT>/db/db.env`（权限 600）；`<DEPLOY_ROOT>/site.env`（权限 600）只含 `DATABASE_URL`（`oaw_site`，主机 `openaiwill-db`）。口令不进 Git，不在本机任何文件里，不在脚本输出里。丢失 `db.env` 而数据卷还在时，口令无法恢复；因为知识数据可以从本机重新发布，处理办法是在服务器上 `cd <DEPLOY_ROOT>/db && sudo docker compose -p openaiwill-db --env-file db.env down -v`（删除数据卷），删除 `db.env` 和 `site.env`，重新 `pnpm db:setup` 和 `pnpm data:release`/`pnpm data:promote`；用户数据出现之后这条路不再可用，需要先有备份。
+- **角色**：超级用户（容器默认的 `postgres`）只在 `pnpm db:setup` 里使用；`oaw_kg_writer` 是数据库 `openaiwill` 和 schema `kg` 的所有者，数据发布以它连接；`oaw_site` 在数据库 `openaiwill` 里只有 CONNECT、`kg` 的 USAGE 和 `kg` 内现有及以后新建的表与视图的 SELECT（`public` schema 已对 PUBLIC 收回）。它还保留 PostgreSQL 对 PUBLIC 的默认权限，即能连接内置的 `postgres`、`template1` 数据库，但在那里没有任何对象权限；这里没有收回，以免影响超级用户自己的使用。数据发布只写 `kg`。
+- **口令在哪**：三个口令（超级用户、`oaw_kg_writer`、`oaw_site`）在服务器上生成，存在 `<DEPLOY_ROOT>/db/db.env`（权限 600）；`<DEPLOY_ROOT>/site.env`（权限 600）只含 `DATABASE_URL`（`oaw_site`，主机 `openaiwill-db`）。口令不进 Git，不在本机任何文件里，不在脚本输出里。丢失 `db.env`（数据卷还在）时不丢数据、也不需要旧口令：超级用户经容器内的本地套接字连接不需要口令。恢复办法：在服务器上删除 `site.env`（`db.env` 已丢），然后在本机重新运行 `pnpm db:setup`。脚本会生成三个新口令，写出新的 `db.env` 和 `site.env`，重新创建数据库容器（数据卷不变），并把三个角色（含超级用户）的口令同步成新值；之后检查两个角色的口令。已经运行的网站容器还带着旧的 `site.env`，要让它们重建才会用新口令：正式站运行 `pnpm site:rollback` 两次（第一次切到上一版，第二次切回，两次都会重建正式容器），候选站重新运行 `pnpm site:release`。`site.env` 在而 `db.env` 丢了时，`pnpm db:setup` 会拒绝执行，提示先删 `site.env`。
 - **备份**：知识数据可以从本机重新发布；用户数据出现之前不设定时备份。手动备份（超级用户经容器内的套接字连接，不需要口令；在本机运行，文件落在本机，注意它含全部已发布数据，不要提交）：
 
 ```bash
@@ -234,7 +234,8 @@ ssh -i <密钥> <用户>@<地址> 'sudo docker system df'
 ```
 
 预期：第一条打印数据库大小。各版本共享相同内容的行，所以每次发布只增加新增或变化的行。
-- **数据库不可用时**：网站启动时连不上数据库会启动失败，候选检查不通过，不会被切到正式；已经在运行的网站继续使用内存里已加载的版本。
+- **数据库不可用时**：网站启动时连不上数据库会启动失败，候选检查不通过，不会被切到正式；已经在运行的网站继续使用内存里已加载的版本。`pnpm site:promote` 和 `pnpm site:rollback` 在动正式服务之前先检查数据库，数据库不可用时停下，不动正式服务。
+- **销毁服务器上的全部已发布数据**（只在确实要从零开始时）：在服务器上 `cd <DEPLOY_ROOT>/db && sudo docker compose -p openaiwill-db --env-file db.env down -v`，再删除 `db.env` 和 `site.env`，重新 `pnpm db:setup`，然后 `pnpm data:release` 和 `pnpm data:promote`。用户数据出现之后不要这样做，先备份。
 
 ## 8. 上线后
 

@@ -264,23 +264,42 @@ class CandidateScriptTest(unittest.TestCase):
     target = {"DEPLOY_ROOT": "/opt/openaiwill", "DEPLOY_USER": "u"}
     new = "20261003T102912Z-aaaaaaa"
 
-    def test_the_script_starts_only_the_candidate_slot_with_the_site_env_file(self):
+    def test_the_script_starts_only_the_candidate_slot_with_the_site_env_file_and_a_bounded_wait(self):
         script = release.candidate_script(self.target, self.new)
-        self.assertIn("-p openaiwill-next up -d --build --wait", script)
+        self.assertIn("-p openaiwill-next up -d --build --wait --wait-timeout 180", script)
         self.assertIn("SITE_ENV_FILE=/opt/openaiwill/site.env", script)
         self.assertNotIn("-p openaiwill up", script)
-        self.assertIn("exit 3", script)
-        self.assertIn("BODY:", script)
 
-    def test_a_server_without_data_gets_the_publish_data_message(self):
-        for stdout in ("BODY:", 'BODY:{"data":{"releaseId":null,"source":"none"}}', ""):
-            self.assertIn("publish data first: pnpm data:release && pnpm data:promote",
-                          release.candidate_start_failure(stdout))
+    def test_every_wait_in_every_script_is_bounded(self):
+        scripts = [release.candidate_script(self.target, self.new),
+                   release.switch_script(self.target, self.new, "20261002T102912Z-bbbbbbb"),
+                   release.switch_script(self.target, self.new, self.new)]
+        for script in scripts:
+            ups = [line for line in script.splitlines() if " up -d" in line]
+            self.assertTrue(ups)
+            for line in ups:
+                for part in line.split("docker compose")[1:]:
+                    if " up -d" in part:
+                        self.assertIn("--wait-timeout 180", part)
 
-    def test_another_failure_is_not_blamed_on_missing_data(self):
-        body = json.dumps({"data": {"releaseId": "D1", "source": "database"}})
-        message = release.candidate_start_failure(f"BODY:{body}\n")
-        self.assertNotIn("publish data first", message)
+    def test_the_diagnosis_prints_the_body_and_40_log_lines(self):
+        script = release.candidate_diagnosis_script()
+        self.assertIn("curl -s --max-time 5 http://127.0.0.1:8321/healthz", script)
+        self.assertIn("docker logs --tail 40", script)
+        self.assertIn("label=com.docker.compose.project=openaiwill-next", script)
+        subprocess_check = __import__("subprocess").run(["bash", "-n"], input=script, text=True, capture_output=True)
+        self.assertEqual(subprocess_check.returncode, 0, subprocess_check.stderr)
+
+    def test_publish_data_first_only_for_database_mode_without_a_release(self):
+        publish = "publish data first: pnpm data:release && pnpm data:promote"
+        none_loaded = json.dumps({"ok": False, "release": "R", "data": {"releaseId": None, "source": "database"}})
+        loaded = json.dumps({"ok": True, "release": "R", "data": {"releaseId": "D1", "source": "database"}})
+        self.assertIn(publish, release.candidate_start_failure(none_loaded))
+        self.assertNotIn(publish, release.candidate_start_failure(loaded))
+        self.assertNotIn(publish, release.candidate_start_failure(""))
+        self.assertNotIn(publish, release.candidate_start_failure("<html>502</html>"))
+        self.assertNotIn(publish, release.candidate_start_failure(json.dumps({"data": {"source": "files", "releaseId": None}})))
+        self.assertEqual(release.candidate_start_failure(""), "the candidate did not become healthy; see the output above")
 
     def test_every_compose_call_names_the_env_file(self):
         command = release.compose(self.target, release.PRODUCTION, self.new, "up -d --wait")
@@ -296,6 +315,42 @@ class CandidateScriptTest(unittest.TestCase):
         self.assertEqual(script.count("SITE_ENV_FILE=/opt/openaiwill/site.env"), 2)
 
 
+class DatabasePrecheckTest(unittest.TestCase):
+    target = {"DEPLOY_ROOT": "/opt/openaiwill", "DEPLOY_USER": "u"}
+    new = "20261003T102912Z-aaaaaaa"
+    old = "20261002T102912Z-bbbbbbb"
+
+    def test_production_is_touched_only_after_the_database_and_an_active_release_are_confirmed(self):
+        for live in (self.old, "", self.new):
+            script = release.switch_script(self.target, self.new, live)
+            check = script.index("kg.active")
+            self.assertLess(check, script.index("docker compose"))
+            self.assertLess(script.index("production was not touched"), script.index("docker compose"))
+            self.assertLess(script.index("no active data release") if "no active data release" in script
+                            else script.index("has no active data release"), script.index("docker compose"))
+
+    def test_the_check_runs_as_the_site_role_over_the_container_address(self):
+        script = release.database_precheck(self.target)
+        self.assertIn("-U oaw_site", script)
+        self.assertIn('pg_isready -q -h "$ip"', script)
+        self.assertIn('PGPASSWORD="$OAW_SITE_PASSWORD"', script)
+        self.assertIn("SELECT release_id FROM kg.active", script)
+        self.assertIn("--env-file /opt/openaiwill/db/db.env", script)
+        self.assertNotIn("127.0.0.1", script)
+        self.assertIn("</dev/null", script)
+
+    def test_both_failures_stop_with_one_line_and_exit_1(self):
+        script = release.database_precheck(self.target)
+        self.assertIn("the database does not accept connections as oaw_site; production was not touched", script)
+        self.assertIn("the database has no active data release (pnpm data:promote); production was not touched", script)
+        self.assertEqual(script.count("exit 1"), 2)
+
+    def test_the_precheck_is_valid_shell(self):
+        done = __import__("subprocess").run(["bash", "-n"], input=release.switch_script(self.target, self.new, self.old),
+                                            text=True, capture_output=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+
+
 class SwitchScriptTest(unittest.TestCase):
     target = {"DEPLOY_ROOT": "/opt/openaiwill", "DEPLOY_USER": "u"}
     new = "20261003T102912Z-aaaaaaa"
@@ -304,14 +359,14 @@ class SwitchScriptTest(unittest.TestCase):
     def test_failure_restores_the_live_release_and_does_not_record_state_first(self):
         script = release.switch_script(self.target, self.new, self.old)
         self.assertIn(f"production restored to {self.old}", script)
-        self.assertLess(script.index("exit 1"), script.index("/previous"))
-        self.assertLess(script.index("exit 1"), script.rindex("/current"))
+        self.assertLess(script.index("production restored"), script.index("/previous"))
+        self.assertLess(script.index("production restored"), script.rindex("/current"))
 
     def test_a_first_promote_stops_the_failed_release(self):
         script = release.switch_script(self.target, self.new, "")
         self.assertIn("no earlier release to restore; production slot stopped", script)
         self.assertIn("-p openaiwill down", script)
-        self.assertLess(script.index("-p openaiwill down"), script.index("exit 1"))
+        self.assertLess(script.index("-p openaiwill down"), script.index("no earlier release to restore"))
         self.assertNotIn("production restored", script)
         self.assertNotIn("/previous", script)
 

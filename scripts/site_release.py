@@ -288,6 +288,17 @@ def git(*args) -> str:
     return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
 
 
+DEPLOY_ROOT_CHARS = re.compile(r"[A-Za-z0-9._/-]+")
+
+
+def valid_deploy_root(path: str) -> bool:
+    """An absolute path of at least two components made of safe characters only. It is passed to
+    `sudo install -d` on the server, so nothing else is accepted."""
+    parts = path.split("/")
+    return (bool(DEPLOY_ROOT_CHARS.fullmatch(path)) and path.startswith("/") and "//" not in path
+            and not path.endswith("/") and len(parts) >= 3 and ".." not in parts)
+
+
 def load_target() -> dict:
     path = ROOT / ".env.deploy"
     if not path.is_file():
@@ -297,7 +308,11 @@ def load_target() -> dict:
     for key in ("DEPLOY_HOST", "DEPLOY_USER", "DEPLOY_SSH_KEY", "DEPLOY_ROOT"):
         if not values.get(key, "").strip():
             raise ReleaseError(f".env.deploy lacks {key}")
-    return {key: value.strip() for key, value in values.items()}
+    target = {key: value.strip() for key, value in values.items()}
+    if not valid_deploy_root(target["DEPLOY_ROOT"]):
+        raise ReleaseError("DEPLOY_ROOT in .env.deploy must be an absolute path of at least two components "
+                           "using only letters, digits, . _ - and /")
+    return target
 
 
 def ssh_base(target: dict, extra: list[str] | None = None) -> list[str]:
@@ -384,6 +399,11 @@ def site_env_file(target: dict) -> str:
     return rpath(target, "site.env")
 
 
+# Every `up --wait` is bounded: a container that crash-loops never turns unhealthy, so without a
+# timeout a release could hang for ever.
+WAIT = "--wait --wait-timeout 180"
+
+
 def compose(target: dict, slot: dict, release: str, action: str) -> str:
     return (f"sudo RELEASE_ID={shlex.quote(checked_id(release))} HOST_PORT={slot['port']} SITE_ENV={slot['env']} "
             f"SITE_ENV_FILE={site_env_file(target)} docker compose -p {slot['project']} {action}")
@@ -462,38 +482,42 @@ def build() -> str:
 
 
 def candidate_script(target: dict, release: str) -> str:
-    """Start the candidate. When it does not become healthy, print its /healthz body (marked BODY:) and
-    the container log, and exit 3, so the caller can tell a server without data from any other failure."""
-    release_dir = rpath(target, "releases", release)
-    port = CANDIDATE["port"]
+    """Start the candidate and wait (bounded) for it to be healthy. Its output is shown as it comes."""
     return f"""
-cd {release_dir}
-if ! ( {compose(target, CANDIDATE, release, 'up -d --build --wait')} && {healthy(CANDIDATE, release)} ); then
-  body=$(curl -s --max-time 5 http://127.0.0.1:{port}/healthz | head -c 2000 | tr -d '\\n' || true)
-  echo "BODY:$body"
-  {compose(target, CANDIDATE, release, 'logs --tail 15 web')} >&2 || true
-  exit 3
-fi
+cd {rpath(target, "releases", release)}
+{compose(target, CANDIDATE, release, f'up -d --build {WAIT}')} && {healthy(CANDIDATE, release)}
 """
 
 
-def candidate_start_failure(stdout: str) -> str:
-    """What to tell the operator when the candidate did not become healthy."""
-    body = next((line[len("BODY:"):] for line in stdout.splitlines() if line.startswith("BODY:")), "")
-    if data_release_failures(body):
-        return (f"the candidate did not become healthy and loaded no data release: {PUBLISH_DATA_FIRST}\n"
-                "(then run `pnpm site:release` again; its /healthz and container log are above)")
-    return "the candidate did not become healthy although it reports a data release; its container log is above"
+def candidate_diagnosis_script() -> str:
+    """After a failed start: the candidate's /healthz body on stdout (empty if it does not answer) and the
+    last 40 lines of its container log on stderr."""
+    return (f"curl -s --max-time 5 http://127.0.0.1:{CANDIDATE['port']}/healthz | head -c 2000 || true\n"
+            f"for c in $(sudo docker ps -aq --filter label=com.docker.compose.project={CANDIDATE['project']}); do\n"
+            f"  sudo docker logs --tail 40 \"$c\" >&2 || true\n"
+            f"done\n")
+
+
+def candidate_start_failure(body: str) -> str:
+    """What to tell the operator. 'Publish data first' only when the site is in database mode and has no release."""
+    data = health_data(body)
+    if data.get("source") == "database" and "releaseId" in data and data["releaseId"] is None:
+        return f"the candidate is running but the database has no active data release: {PUBLISH_DATA_FIRST}"
+    return "the candidate did not become healthy; see the output above"
 
 
 def start_candidate(target: dict, release: str) -> None:
-    result = remote_result(target, candidate_script(target, release))
-    if result.stderr:
-        print(result.stderr, file=sys.stderr, end="")
-    if result.returncode == 3:
-        raise ReleaseError(candidate_start_failure(result.stdout))
-    if result.returncode != 0:
-        raise ReleaseError(f"starting the candidate failed with status {result.returncode}")
+    try:
+        remote(target, candidate_script(target, release))
+    except subprocess.CalledProcessError:
+        diagnosis = subprocess.run([*ssh_base(target), "bash", "-euo", "pipefail", "-c",
+                                    shlex.quote(candidate_diagnosis_script())],
+                                   text=True, stdout=subprocess.PIPE)
+        body = diagnosis.stdout.strip()
+        print(f"candidate /healthz: {body or '(no answer)'}", file=sys.stderr)
+        raise ReleaseError(f"{candidate_start_failure(body)}\n"
+                           f"The candidate container was left running on the server for inspection "
+                           f"(127.0.0.1:{CANDIDATE['port']}); the container log is above.") from None
 
 
 def release_command() -> None:
@@ -521,15 +545,31 @@ def release_command() -> None:
           f"go live:  pnpm site:promote")
 
 
+def database_precheck(target: dict) -> str:
+    """Shell run on the server before production is touched: the database must accept connections as the
+    site's role over the container's network address (where the password is enforced) and an active data
+    release must exist. Otherwise the script stops, and production is left exactly as it is."""
+    env_file = rpath(target, "db", "db.env")
+    inside = ('ip=$(hostname -i); ip=${ip%% *}; '
+              'pg_isready -q -h "$ip" -U oaw_site -d openaiwill && '
+              'PGPASSWORD="$OAW_SITE_PASSWORD" psql -X -h "$ip" -U oaw_site -d openaiwill -tAc '
+              '"SELECT release_id FROM kg.active"')
+    return (f"active=$(sudo docker exec -i --env-file {env_file} openaiwill-db sh -c '{inside}' </dev/null) "
+            f"|| {{ echo 'the database does not accept connections as oaw_site; production was not touched' >&2; exit 1; }}\n"
+            f"[ -n \"$active\" ] || {{ echo 'the database has no active data release (pnpm data:promote); "
+            f"production was not touched' >&2; exit 1; }}\n")
+
+
 def switch_script(target: dict, release: str, live: str) -> str:
-    """Start `release` as production. If it does not come up healthy, put `live` back."""
+    """Start `release` as production. If it does not come up healthy, put `live` back.
+    Nothing is touched unless the database is reachable and holds an active data release."""
     release_dir = rpath(target, "releases", release)
     if live:
         live_dir = rpath(target, "releases", live)
         done = (f"echo '{live} did not become healthy; it is still the current release' >&2" if live == release
                 else f"echo 'production restored to {live}' >&2")
         restore = (f"if [ -d {live_dir} ]; then\n"
-                   f"    cd {live_dir} && {compose(target, PRODUCTION, live, 'up -d --wait')} "
+                   f"    cd {live_dir} && {compose(target, PRODUCTION, live, f'up -d {WAIT}')} "
                    f"|| {{ echo 'RESTORE FAILED: production is down' >&2; exit 1; }}\n"
                    f"    {done}\n"
                    f"  else echo 'RESTORE FAILED: production is down; {live} is gone' >&2; exit 1; fi")
@@ -541,8 +581,8 @@ def switch_script(target: dict, release: str, live: str) -> str:
         remember = ":"
     return f"""
 test -d {release_dir}
-cd {release_dir}
-if ! ( {compose(target, PRODUCTION, release, 'up -d --build --wait')} && {healthy(PRODUCTION, release)} ); then
+{database_precheck(target)}cd {release_dir}
+if ! ( {compose(target, PRODUCTION, release, f'up -d --build {WAIT}')} && {healthy(PRODUCTION, release)} ); then
   echo 'release {release} did not become healthy' >&2
   {restore}
   exit 1

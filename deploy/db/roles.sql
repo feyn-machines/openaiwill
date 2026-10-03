@@ -4,6 +4,7 @@
 \set ON_ERROR_STOP on
 \getenv writer_password OAW_KG_WRITER_PASSWORD
 \getenv site_password OAW_SITE_PASSWORD
+\getenv superuser_password POSTGRES_PASSWORD
 
 SELECT format('CREATE ROLE oaw_kg_writer LOGIN PASSWORD %L', :'writer_password')
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'oaw_kg_writer') \gexec
@@ -11,6 +12,10 @@ SELECT format('CREATE ROLE oaw_site LOGIN PASSWORD %L', :'site_password')
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'oaw_site') \gexec
 SELECT format('ALTER ROLE oaw_kg_writer NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L', :'writer_password') \gexec
 SELECT format('ALTER ROLE oaw_site NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L', :'site_password') \gexec
+
+-- Also keeps the superuser's password equal to db.env after a regenerated db.env (the volume's original one is
+-- only used when the data directory is first created); setup itself connects through the socket.
+SELECT format('ALTER ROLE postgres PASSWORD %L', :'superuser_password') \gexec
 
 SELECT 'CREATE DATABASE openaiwill OWNER oaw_kg_writer'
  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'openaiwill') \gexec

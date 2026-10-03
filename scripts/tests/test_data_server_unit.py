@@ -3,6 +3,8 @@ the forward and the production poll. Nothing here contacts a server.
 
 Dependency-free (no psycopg): runs under `pnpm data:test:unit` with the system python.
 """
+import contextlib
+import io
 import re
 import subprocess
 import sys
@@ -104,7 +106,7 @@ class SetupScriptTest(unittest.TestCase):
         self.assertNotRegex(script, r"PGPASSWORD=[^\"]")
         self.assertNotIn("set -x", script)
         self.assertNotIn(" -e PGPASSWORD", script)
-        self.assertEqual(script.count("--env-file"), 6)
+        self.assertEqual(script.count("--env-file"), 7)
 
     def test_every_remote_value_is_quoted_from_the_deploy_root(self):
         script = build({**TARGET, "DEPLOY_ROOT": "/opt/my site"})
@@ -112,7 +114,7 @@ class SetupScriptTest(unittest.TestCase):
         self.assertNotRegex(script, r"(?<!')/opt/my site")
 
     def test_the_network_is_created_only_when_absent(self):
-        self.assertIn("docker network inspect openaiwill >/dev/null 2>&1 || sudo docker network create openaiwill",
+        self.assertIn("docker network inspect openaiwill >/dev/null 2>&1 </dev/null || sudo docker network create openaiwill",
                       build())
 
     def test_the_schema_is_applied_as_the_writer_and_grants_follow(self):
@@ -127,16 +129,129 @@ class SetupScriptTest(unittest.TestCase):
         for name in ("compose.yml", "roles.sql", "001_kg.sql", "grants.sql"):
             self.assertLess(script.index(f"cat > /opt/openaiwill/db/{name} <<"), script.index("up -d --wait"))
 
-    def test_both_roles_are_checked_with_their_passwords_at_the_end(self):
+    def test_the_password_checks_connect_over_the_container_address_where_scram_applies(self):
         script = build()
-        self.assertIn('PGPASSWORD="$OAW_KG_WRITER_PASSWORD" psql -X -h 127.0.0.1 -U oaw_kg_writer', script)
-        self.assertIn('PGPASSWORD="$OAW_SITE_PASSWORD" psql -X -h 127.0.0.1 -U oaw_site', script)
+        tail = script[script.index("up -d --wait"):]
+        for who, role in (("KG_WRITER", "oaw_kg_writer"), ("SITE", "oaw_site")):
+            self.assertIn(f'PGPASSWORD="$OAW_{who}_PASSWORD" psql -X -h "$ip" -U {role} -d openaiwill', tail)
+        self.assertIn("ip=$(hostname -i); ip=${ip%% *};", tail)
+        # Never the loopback address or the socket: the stock image trusts those.
+        for line in tail.splitlines():
+            if "PGPASSWORD" in line:
+                self.assertNotIn("127.0.0.1", line)
+                self.assertNotIn(" -h 127", line)
+        self.assertEqual(tail.count('-tAc "SELECT count(*) FROM kg.releases"'), 2)
 
-    def test_a_here_document_does_not_leave_the_script_without_its_stdin_commands(self):
-        # Every command that could read the script from stdin has its own redirect.
+    def test_a_wrong_password_must_be_refused_or_setup_aborts(self):
+        script = build()
+        negative = [line for line in script.splitlines() if "not-the-password" in line]
+        self.assertEqual(len(negative), 1)
+        self.assertIn("-U oaw_site", negative[0])
+        self.assertIn('-h "$ip"', negative[0])
+        self.assertTrue(negative[0].startswith("if sudo docker exec"))
+        self.assertIn("password authentication is not being enforced on the container network", negative[0])
+        self.assertIn("exit 1", negative[0])
+
+    def test_the_final_messages_say_only_what_is_proven(self):
+        script = build()
+        self.assertIn("both roles authenticate with their passwords over the container network and a wrong "
+                      "password is refused", script)
+        self.assertNotIn("connect with their passwords", script)
+        self.assertTrue(script.rstrip().splitlines()[-1].startswith("echo 'database ready"))
+
+    def test_the_database_wait_is_bounded(self):
+        self.assertIn("up -d --wait --wait-timeout 180", build())
+
+    def test_every_sudo_command_has_its_own_stdin(self):
+        # `bash -s` reads this script from stdin; a command that does too would swallow the rest of it.
+        in_heredoc = None
+        checked = 0
         for line in build().splitlines():
-            if "docker exec" in line or "docker compose" in line and "up" in line:
-                self.assertTrue("<" in line or "docker compose" in line, line)
+            if in_heredoc:
+                in_heredoc = None if line == in_heredoc else in_heredoc
+                continue
+            heredoc = re.search(r"<<'([A-Z_]+)'", line)
+            if heredoc:
+                in_heredoc = heredoc.group(1)
+                continue
+            if "sudo " in line:
+                checked += 1
+                redirects = len(re.findall(r"</dev/null|< [\w./]+\.sql", line))
+                self.assertGreaterEqual(redirects, line.count("sudo "), line)
+        self.assertGreaterEqual(checked, 9)
+
+    def test_a_lost_db_env_is_recovered_without_the_old_superuser_password(self):
+        script = build()
+        # Setup reaches PostgreSQL only through the local socket (no -h) as the superuser, and roles.sql resyncs all
+        # three passwords from the regenerated file.
+        for line in script.splitlines():
+            if "-U postgres" in line:
+                self.assertNotIn(" -h ", line)
+        roles = (server_db.DEPLOY_DB / "roles.sql").read_text()
+        self.assertIn("ALTER ROLE postgres PASSWORD", roles)
+        self.assertIn("\\getenv superuser_password POSTGRES_PASSWORD", roles)
+        self.assertNotIn("down -v", script)
+
+
+class DeployRootTest(unittest.TestCase):
+    def test_safe_roots_pass(self):
+        for value in ("/opt/openaiwill", "/srv/a-b_c.d/x", "/opt/openaiwill/deep/er"):
+            self.assertTrue(site_release.valid_deploy_root(value), value)
+
+    def test_everything_else_is_refused(self):
+        for value in ("/opt", "opt/x", "/opt/open aiwill", "/", "", "/opt/../etc", "/opt//x", "/opt/x/", "/opt/x;y",
+                      "/opt/$(id)", "/opt/'x", "~/x"):
+            self.assertFalse(site_release.valid_deploy_root(value), value)
+
+    def test_loading_a_target_with_a_bad_root_fails_before_anything_runs(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            env = Path(tmp) / ".env.deploy"
+            env.write_text("DEPLOY_HOST=h\nDEPLOY_USER=u\nDEPLOY_SSH_KEY=/k\nDEPLOY_ROOT=/opt\n")
+            original = site_release.ROOT
+            try:
+                site_release.ROOT = Path(tmp)
+                with self.assertRaisesRegex(site_release.ReleaseError, "DEPLOY_ROOT"):
+                    site_release.load_target()
+                env.write_text(env.read_text().replace("/opt\n", "/opt/openaiwill\n"))
+                self.assertEqual(site_release.load_target()["DEPLOY_ROOT"], "/opt/openaiwill")
+            finally:
+                site_release.ROOT = original
+
+
+class WriterPasswordFetchTest(unittest.TestCase):
+    def test_a_fetched_value_is_checked_and_a_bad_one_is_not_echoed(self):
+        self.assertEqual(server_db.checked_password(GOOD + "\n"), GOOD)
+        for value in ("", "short-secret", "a b" * 20):
+            with self.assertRaises(site_release.ReleaseError) as raised:
+                server_db.checked_password(value)
+            self.assertNotIn("short-secret", str(raised.exception))
+
+    def test_only_the_writer_value_is_fetched_without_sudo(self):
+        seen = []
+        original = site_release.remote
+        site_release.remote = lambda target, script, capture=False: seen.append(script) or GOOD
+        try:
+            self.assertEqual(server_db.read_writer_password(TARGET), GOOD)
+        finally:
+            site_release.remote = original
+        self.assertEqual(seen, ["sed -n 's/^OAW_KG_WRITER_PASSWORD=//p' /opt/openaiwill/db/db.env"])
+        self.assertNotIn("sudo", seen[0])
+
+
+class ReportNeverFailsTest(unittest.TestCase):
+    def test_every_probe_failure_is_a_note_not_an_error(self):
+        original = server_db._report_production
+        try:
+            for error in (site_release.ReleaseError("no .env.deploy"), subprocess.CalledProcessError(255, "ssh"),
+                          OSError("ssh missing")):
+                def boom(expected, error=error):
+                    raise error
+                server_db._report_production = boom
+                with contextlib.redirect_stdout(io.StringIO()):
+                    server_db.report_production("D1")  # must not raise
+        finally:
+            server_db._report_production = original
 
 
 class DeployFilesTest(unittest.TestCase):
