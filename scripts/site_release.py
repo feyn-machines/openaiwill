@@ -375,7 +375,8 @@ def build() -> str:
     # `next build` copies the project's .env and .env.production into the standalone
     # directory whatever the tracing config says. They hold local keys and the server
     # reads none of them (the container gets SITE_ENV from compose), so they stay behind.
-    shutil.copytree(ROOT / ".next" / "standalone", app, symlinks=True, ignore=shutil.ignore_patterns(".env*"))
+    # The same goes for the links to `sharp`, whose package is excluded from tracing (next.config.ts).
+    shutil.copytree(ROOT / ".next" / "standalone", app, symlinks=True, ignore=shutil.ignore_patterns(".env*", "sharp", "@img"))
     shutil.copytree(ROOT / ".next" / "static", app / ".next" / "static")
     shutil.copytree(ROOT / "public", app / "public")
     shutil.copy(ROOT / "deploy" / "Dockerfile", staged / "Dockerfile")
