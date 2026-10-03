@@ -141,6 +141,13 @@ def squeeze(sql):
 # Checked in order; the first substring that matches names the query. Order
 # matters because several queries mention the same tables in subselects.
 ROUTES = (
+    # The sources export reads the collection tables too, so its queries are
+    # matched first, each on a phrase only it contains.
+    ("source_accounts", "FROM public.source_accounts a LEFT JOIN public.people"),
+    ("source_affiliations", "FROM public.person_affiliations f"),
+    ("source_totals", "FROM public.collected_sources GROUP BY account_external_id"),
+    ("source_latest", "PARTITION BY s.account_external_id"),
+    ("source_followers", "check_kind = 'profile'"),
     # The attention queries read the capture tables and the event-source links;
     # matched first so the events route below cannot swallow the link query.
     ("attention_captures", "JOIN public.collected_captures cc ON cc.source_id = cs.source_id"),
@@ -844,6 +851,49 @@ class WorkProgressTests(unittest.TestCase):
         # The minimum, not the maximum: a task needs all of its work done, and
         # taking the highest is what put baggage porters at 59%.
         self.assertIn("min(level)", sql)
+
+
+
+class SourcesTests(unittest.TestCase):
+    def account(self, **over):
+        return {"account_key": "x:examplelab", "handle": "ExampleLab", "platform": "x",
+                "owner_kind": "person", "panel_role": "executive", "identity_grade": "official_bio",
+                "identity_url": None, "language": "en", "focus": None,
+                "avatar_url": "https://img.example/a.jpg", "platform_account_id": "42",
+                "person_id": "person:1", "org_id": None, "name": "Example Person", "name_zh_cn": None, **over}
+
+    def test_account_carries_its_owner_and_its_own_latest_posts(self):
+        at = datetime(2026, 9, 1, tzinfo=timezone.utc)
+        _, snapshot = build(dataset(
+            source_accounts=[self.account()],
+            source_affiliations=[{"person_id": "person:1", "org_id": "org:example", "org_name": "Example",
+                                  "relation": "founder", "role_title": "CEO"}],
+            source_totals=[{"account_external_id": "42", "posts": 7, "latest_post_at": at}],
+            source_latest=[{"account_external_id": "42", "source_id": "src:1", "canonical_url": "https://x.com/e/1",
+                            "published_at": at, "excerpt": "hello", "language": "en",
+                            "metrics": {"likes": 3, "views": 90}, "captured_at": at, "n": 1}],
+            source_followers=[{"account_key": "x:examplelab", "followers": 1000, "checked_at": at}]))
+        source = snapshot["sources"][0]
+        self.assertNotIn("platform_account_id", source)
+        self.assertEqual(source["affiliations"], [{"org_id": "org:example", "org_name": "Example",
+                                                   "relation": "founder", "role_title": "CEO"}])
+        self.assertEqual((source["posts"], source["followers"], source["avatar_url"]),
+                         (7, 1000, "https://img.example/a.jpg"))
+        self.assertEqual(source["latest"][0]["excerpt"], "hello")
+        self.assertEqual(source["latest"][0]["views"], 90)
+        self.assertIn("NOT s.is_reply AND NOT s.is_repost", build()[0].sql["source_latest"])
+
+    def test_nothing_collected_is_null_not_zero(self):
+        _, snapshot = build(dataset(source_accounts=[self.account()]))
+        source = snapshot["sources"][0]
+        self.assertIsNone(source["posts"])
+        self.assertIsNone(source["latest_post_at"])
+        self.assertIsNone(source["followers"])
+        self.assertEqual(source["latest"], [])
+
+    def test_only_enabled_accounts_are_published(self):
+        conn, _ = build(dataset())
+        self.assertIn("a.panel_state = 'enabled' AND NOT a.excluded", conn.sql["source_accounts"])
 
 
 if __name__ == "__main__":

@@ -5,14 +5,14 @@ openaiwill 只有这一个本体。它分两部分：
 - **schema**：[schema/schema.json](schema/schema.json)，唯一的类型定义——类、属性、关系、受控词表、约束。SQL 的枚举约束、数据文件格式、抽取与判定的提示词、站点标签都由它生成或与它逐项核对。
 - **数据**：符合这份 schema 的实例。世界目录（赛道、工作、职业）、闸门、公司名单随版本封存；人物、账号、帖子、更新、模型、供应商每天在变，存在 PostgreSQL。
 
-当前版本为 **v2.0.0 本地草案**。版本号表示类型定义的结构，不表示内容已经穷尽或已生产发布。
+当前版本为 **v2.1.0 本地草案**。版本号表示类型定义的结构，不表示内容已经穷尽或已生产发布。
 
 ## 先看什么
 
 1. [schema/schema.json](schema/schema.json)：正在使用的类型定义，可编辑的源文件。
-2. [releases/v2.0.0/ontology.ttl](releases/v2.0.0/ontology.ttl)：同一份 schema 的标准格式导出（RDFS/OWL、SKOS、SHACL）。
-3. [releases/v2.0.0/data-format.json](releases/v2.0.0/data-format.json)：封存数据文件每一行的格式，由 schema 生成。
-4. [赛道与工作目录](releases/v2.0.0/market-catalog.md)、[职业与全部任务目录](releases/v2.0.0/occupation-catalog.md)。
+2. [releases/v2.1.0/ontology.ttl](releases/v2.1.0/ontology.ttl)：同一份 schema 的标准格式导出（RDFS/OWL、SKOS、SHACL）。
+3. [releases/v2.1.0/data-format.json](releases/v2.1.0/data-format.json)：封存数据文件每一行的格式，由 schema 生成。
+4. [赛道与工作目录](releases/v2.1.0/market-catalog.md)、[职业与全部任务目录](releases/v2.1.0/occupation-catalog.md)。
 5. [设计札记](../../docs/data/ontology-journal.md)：为什么这样定义。schema 里只有定义，没有札记。
 
 ## 目录
@@ -22,7 +22,7 @@ openaiwill 只有这一个本体。它分两部分：
 | `schema/schema.json` | 类型定义的源文件；`schema/CHANGELOG.md` 记录每个版本改了什么 |
 | `data/gates.json`、`data/organizations.json` | 闸门与公司名单的源文件，随版本封存 |
 | `data/model-catalog-map.json` | 外部模型目录的归属方、供应商对照，不封存 |
-| `releases/v2.0.0/` | 当前封存版本 |
+| `releases/v2.1.0/` | 当前封存版本 |
 | `releases/v1.0.0/` | 上一版。它早于 schema，自带 `model.json` 和旧的数据格式文件，按当时的合同原样保留 |
 
 `datasets/platform/` 是 1.0.0 的前身，作为历史保留，不是本体。

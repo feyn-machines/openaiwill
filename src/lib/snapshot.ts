@@ -295,6 +295,47 @@ function read<T>(name: string, fallback: T): T {
   }
 }
 
+/** One post an account wrote itself, in its original language. */
+export type SourcePost = {
+  source_id: string;
+  url: string;
+  published_at: string;
+  excerpt: string;
+  language: string | null;
+  likes: number | null;
+  views: number | null;
+  metrics_at: string;
+};
+
+/**
+ * One account we collect from, with its owner. `posts` and `latest_post_at`
+ * are null when nothing was collected from it - not the same as silence.
+ * `followers` is what the platform reported at `followers_at`; `avatar_url`
+ * is the platform's own image address and is display only.
+ */
+export type Source = {
+  account_key: string;
+  handle: string;
+  platform: string;
+  owner_kind: "person" | "organization";
+  panel_role: string;
+  identity_grade: string;
+  identity_url: string | null;
+  language: string | null;
+  focus: string | null;
+  avatar_url: string | null;
+  person_id: string | null;
+  org_id: string | null;
+  name: string;
+  name_zh_cn: string | null;
+  affiliations: { org_id: string | null; org_name: string; relation: string; role_title: string | null }[];
+  followers: number | null;
+  followers_at: string | null;
+  posts: number | null;
+  latest_post_at: string | null;
+  latest: SourcePost[];
+};
+
 export const snapshotExists = existsSync(join(SNAPSHOT_DIR, "manifest.json"));
 
 /**
@@ -519,3 +560,5 @@ export function occupationLabel(id: string): { en: string; zh_cn: string | null 
   if (!entry?.label_en) return undefined;
   return { en: entry.label_en, zh_cn: entry.label_zh_cn };
 }
+
+export const sources = read<Source[]>("sources", []);

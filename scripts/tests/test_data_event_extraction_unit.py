@@ -120,7 +120,7 @@ class AssembleTests(unittest.TestCase):
         doc = assemble_extraction([cand("1")], [{"events": [model_event()]}], meta())
         self.assertEqual(doc["kind_vocabulary"], EVENT_KIND_VOCABULARY)
         self.assertEqual(len(doc["rubric_sha256"]), 64)
-        self.assertEqual(doc["schema_version"], "2.0.0")
+        self.assertEqual(doc["schema_version"], "2.1.0")
 
 
 class KindTests(unittest.TestCase):

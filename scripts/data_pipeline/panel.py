@@ -520,6 +520,10 @@ def record_lookup(conn, doc):
         if new_id:
             conn.execute("UPDATE public.source_accounts SET platform_account_id = %s WHERE account_key = %s",
                          (new_id, key))
+        if record.get("status") == "found" and (record.get("avatar_url") or "").startswith("https://") \
+                and row["platform_account_id"] in (None, record.get("user_id")):
+            conn.execute("UPDATE public.source_accounts SET avatar_url = %s WHERE account_key = %s",
+                         (record["avatar_url"], key))
         for kind, outcome, detail in checks:
             _add_check(conn, key, kind, outcome, at, "crawler",
                        {**detail, "raw_sha256": record.get("raw_sha256")})

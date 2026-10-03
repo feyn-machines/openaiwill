@@ -67,6 +67,84 @@ def _clean(rows):
     return [{k: _plain(v) for k, v in row.items()} for row in rows]
 
 
+LATEST_POSTS_PER_SOURCE = 3
+
+
+def sources(conn) -> list[dict]:
+    """The accounts being collected, with who owns each and what it last wrote.
+
+    Only enabled, non-excluded accounts: a candidate has not had its identity
+    confirmed, and publishing it beside the others would say we follow it.
+    `latest` holds the account's own posts - replies and reposts are left out,
+    because a repost is someone else's words under this account's name. The text
+    is the stored public excerpt in its original language, never a translation.
+    `posts` and `latest_post_at` are null for an account nothing was collected
+    from, which is not the same as an account that wrote nothing.
+    """
+    accounts = _clean(_rows(conn, """
+        SELECT a.account_key, a.handle, a.platform, a.owner_kind, a.panel_role, a.identity_grade,
+               a.identity_url, a.language, a.focus, a.avatar_url, a.platform_account_id,
+               a.person_id, a.org_id,
+               COALESCE(p.name, o.canonical_name_en, a.org_name) AS name,
+               CASE WHEN a.owner_kind = 'organization' THEN o.canonical_name_zh_cn END AS name_zh_cn
+          FROM public.source_accounts a
+          LEFT JOIN public.people p ON p.person_id = a.person_id
+          LEFT JOIN public.org_registry o ON o.org_id = a.org_id
+         WHERE a.panel_state = 'enabled' AND NOT a.excluded
+         ORDER BY a.account_key"""))
+    affiliations = {}
+    for r in _rows(conn, """
+            SELECT f.person_id, f.org_id, COALESCE(o.canonical_name_en, f.org_name) AS org_name,
+                   f.relation, f.role_title
+              FROM public.person_affiliations f
+              LEFT JOIN public.org_registry o ON o.org_id = f.org_id
+             WHERE f.relation <> 'former' AND f.ended_on IS NULL
+             ORDER BY f.person_id, f.started_on DESC NULLS LAST, f.affiliation_id"""):
+        affiliations.setdefault(r["person_id"], []).append(
+            {k: r[k] for k in ("org_id", "org_name", "relation", "role_title")})
+    totals = {r["account_external_id"]: r for r in _clean(_rows(conn, """
+        SELECT account_external_id, count(*) AS posts, max(published_at) AS latest_post_at
+          FROM public.collected_sources GROUP BY account_external_id"""))}
+    latest = {}
+    for r in _clean(_rows(conn, """
+            SELECT * FROM (
+              SELECT s.account_external_id, s.source_id, s.canonical_url, s.published_at,
+                     c.public_excerpt AS excerpt, c.language, c.metrics, c.captured_at,
+                     row_number() OVER (PARTITION BY s.account_external_id
+                                        ORDER BY s.published_at DESC, s.source_id) AS n
+                FROM public.collected_sources s
+                JOIN LATERAL (SELECT public_excerpt, language, metrics, captured_at
+                                FROM public.collected_captures c
+                               WHERE c.source_id = s.source_id
+                               ORDER BY c.captured_at DESC LIMIT 1) c ON TRUE
+               WHERE NOT s.is_reply AND NOT s.is_repost AND c.public_excerpt IS NOT NULL
+            ) ranked WHERE n <= %s ORDER BY account_external_id, n""", (LATEST_POSTS_PER_SOURCE,))):
+        latest.setdefault(r.pop("account_external_id"), []).append(
+            {"source_id": r["source_id"], "url": r["canonical_url"], "published_at": r["published_at"],
+             "excerpt": r["excerpt"], "language": r["language"],
+             "likes": (r["metrics"] or {}).get("likes"), "views": (r["metrics"] or {}).get("views"),
+             "metrics_at": r["captured_at"]})
+    # Followers as the platform reported them at the account's last lookup: an
+    # observed audience size with its own date, not a measure of being right.
+    followers = {r["account_key"]: r for r in _clean(_rows(conn, """
+        SELECT DISTINCT ON (account_key) account_key,
+               (detail->>'followers')::bigint AS followers, checked_at
+          FROM public.source_account_checks
+         WHERE check_kind = 'profile' AND outcome = 'pass' AND detail->>'followers' IS NOT NULL
+         ORDER BY account_key, checked_at DESC"""))}
+    for account in accounts:
+        seen = followers.get(account["account_key"])
+        account["followers"] = seen["followers"] if seen else None
+        account["followers_at"] = seen["checked_at"] if seen else None
+        external = account.pop("platform_account_id")
+        total = totals.get(external)
+        account["affiliations"] = affiliations.get(account["person_id"], []) if account["person_id"] else []
+        account["posts"] = total["posts"] if total else None
+        account["latest_post_at"] = total["latest_post_at"] if total else None
+        account["latest"] = latest.get(external, [])
+    return accounts
+
+
 def build(conn, ontology_version: str | None = None) -> dict:
     if ontology_version is None:
         found = _rows(conn, "SELECT version FROM public.ontology_releases ORDER BY version DESC LIMIT 1")
@@ -665,7 +743,8 @@ def build(conn, ontology_version: str | None = None) -> dict:
 
     payload = {
         "chain": chain, "markets": markets, "tasks": tasks,
-        "events": events, "models": models, "coverage": coverage, "progress": progress,
+        "events": events, "models": models, "sources": sources(conn),
+        "coverage": coverage, "progress": progress,
     }
     manifest = {
         "snapshot_version": SNAPSHOT_VERSION,

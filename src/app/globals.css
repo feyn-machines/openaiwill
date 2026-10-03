@@ -49,7 +49,8 @@
 .oaw-back{display:inline-flex;align-items:center;gap:8px;min-height:var(--ah-control-height);color:var(--muted);font-size:13px}.oaw-back::before{content:"\2190";font-family:var(--ah-font-mono)}.oaw-back:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
 
 @media(max-width:760px){.header-end{gap:var(--ah-space-4)}.oaw-lang-option{padding:0 8px}}
-@media(max-width:420px){.header{height:auto;min-height:80px;flex-wrap:wrap;row-gap:var(--ah-space-2);padding-block:var(--ah-space-3)}.header-end{gap:var(--ah-space-2)}.header .oaw-lang{gap:0}.oaw-lang-option{padding:0 6px}}
+/* Five destinations do not fit beside the wordmark on a phone: the wordmark and the language switch take the first row, the links the second. */
+@media(max-width:600px){.header{height:auto;min-height:80px;flex-wrap:wrap;row-gap:var(--ah-space-2);padding-block:var(--ah-space-3)}.header-end{display:contents}.header nav:not(.oaw-lang){order:3;width:100%;justify-content:space-between;gap:8px;white-space:nowrap}.header .oaw-lang{gap:0}.oaw-lang-option{padding:0 6px;white-space:nowrap}}
 @media(max-width:600px){.oaw-definition{padding:var(--ah-space-5)}.oaw-definition dl{grid-template-columns:1fr;gap:4px}.oaw-definition dd{margin-bottom:var(--ah-space-3)}.oaw-gap{padding:var(--ah-space-5)}}
 .grid-finding{font-size:clamp(1.25rem,2.4vw,1.75rem);line-height:1.4;color:var(--ah-color-text);margin:0 0 var(--ah-space-4);max-width:34ch}
 /* The two kinds of blank, set quieter than the finding but on the page rather

@@ -1,5 +1,6 @@
 import { bilingual, getLocale } from "@/lib/i18n";
 import { buildHomeData } from "@/lib/home-data";
+import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
 import { Overview } from "@/components/home/overview/overview";
 import { GraphSection } from "@/components/home/sections/graph-section";
 import { CompaniesSection } from "@/components/home/sections/companies-section";
@@ -36,6 +37,7 @@ const copy = bilingual({
 export default async function Home() {
   const { language } = await getLocale();
   const c = copy[language];
+  const nav = siteNavCopy[language];
   const data = buildHomeData();
   const chapters = c.chapters.split("|");
   const index = (n: number) => `${String(n).padStart(2, "0")} / ${String(chapters.length).padStart(2, "0")}`;
@@ -52,7 +54,7 @@ export default async function Home() {
   return (
     <div className={s.home}>
       <Overview data={data} language={language} />
-      <Rail levels={[0, 1, 2, 3, 4, 5].map((l) => data.works.filter((w) => w.level === l).length)} from={2} />
+      <Rail levels={[0, 1, 2, 3, 4, 5].map((l) => data.works.filter((w) => w.level === l).length)} from={2} navLabel={nav.navLabel} links={SITE_NAV.map((item) => ({ href: item.href, label: nav[item.key] }))} />
       <div className={frame.page}>
         <Reveal tone="green" ghost="Readers" chapter={chapters[0]}><ReadersSection data={data} language={language} index={index(1)} /></Reveal>
         <Reveal tone="ink" ghost="Scale" chapter={chapters[1]} travel={200}><RulerSection data={data} language={language} index={index(2)} /></Reveal>
