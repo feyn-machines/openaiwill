@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
@@ -84,10 +85,11 @@ function share(counts: StageCounts, tasks: number) {
 }
 
 export function generateStaticParams() {
-  return Object.keys(progress?.groups ?? {}).map((id) => ({
-    id: id.replace(/^oaw:occupation-group:/, ""),
-  }));
+  return detailPages.occupationGroups().map((id) => ({ id }));
 }
+
+/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
+export const dynamicParams = false;
 
 export async function generateMetadata({
   params,

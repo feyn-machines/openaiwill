@@ -6,6 +6,7 @@ import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
 
@@ -57,8 +58,11 @@ type Props = { params: Promise<{ id: string }> };
 const find = (id: string) => chainEvents.find((e) => e.event_id === id);
 
 export function generateStaticParams() {
-  return chainEvents.map((e) => ({ id: e.event_id }));
+  return detailPages.updates().map(({ id }) => ({ id }));
 }
+
+/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
+export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();

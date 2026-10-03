@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import { WorkGrid } from "@/components/work-grid";
 import { Bar, Block, Head, Stat, blueprint as bp } from "@/components/blueprint";
@@ -97,8 +98,11 @@ function idForCode(code: string): string | undefined {
 }
 
 export function generateStaticParams() {
-  return occupations().map((row) => ({ code: occupationSlug(row.occupation_id) }));
+  return detailPages.occupations().map((code) => ({ code }));
 }
+
+/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
+export const dynamicParams = false;
 
 function label(id: string, language: Language) {
   const entry = progress?.occupations?.[id];

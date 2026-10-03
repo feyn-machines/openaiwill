@@ -5,6 +5,7 @@ import { Bar, Blank, Block, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { termNameOrRaw } from "@/components/ontology-labels";
 import { getLocale } from "@/lib/locale";
+import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
@@ -48,8 +49,11 @@ import { Activities, type ActivityView } from "./activities";
 type Props = { params: Promise<{ id: string }> };
 
 export function generateStaticParams() {
-  return markets().map((market) => ({ id: marketSlug(market.id) }));
+  return detailPages.markets().map((id) => ({ id }));
 }
+
+/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
+export const dynamicParams = false;
 
 function marketForSlug(slug: string) {
   return markets().find((market) => marketSlug(market.id) === slug);

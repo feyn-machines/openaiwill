@@ -5,6 +5,7 @@ import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
 import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest } from "@/lib/snapshot";
 
@@ -65,8 +66,11 @@ const reached = () => activities.filter((a) => a.evidence_rows && a.level);
 const find = (slug: string) => reached().find((a) => workSlug(a.activity_id) === slug);
 
 export function generateStaticParams() {
-  return reached().map((a) => ({ id: workSlug(a.activity_id) }));
+  return detailPages.work().map((id) => ({ id }));
 }
+
+/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
+export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
