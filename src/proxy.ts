@@ -12,11 +12,29 @@ function isNavigation(request: NextRequest) {
   return (destination === null || destination === "document") && !purpose.includes("prefetch");
 }
 
+const REWRITTEN = "x-openaiwill-rewritten";
+
+function withMarker(headers: Headers) {
+  const marked = new Headers(headers);
+  marked.set(REWRITTEN, "1");
+  return marked;
+}
+
+function passThrough() {
+  const response = NextResponse.next();
+  if (process.env.SITE_ENV !== "production") response.headers.set("X-Robots-Tag", "noindex");
+  return response;
+}
+
 /**
  * English is served at unprefixed addresses and Chinese under `/zh-CN`; the
  * pages themselves live under `/[lang]`. The rules are in `languageRoute`.
  */
 export function proxy(request: NextRequest) {
+  // The server runs this proxy again on the address a rewrite produced. That second
+  // pass is ours, not a reader asking for /en/..., so it must not be sent back.
+  if (request.headers.has(REWRITTEN)) return passThrough();
+
   const route = languageRoute({
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
@@ -42,7 +60,7 @@ export function proxy(request: NextRequest) {
   } else if (route.kind === "rewrite") {
     const url = request.nextUrl.clone();
     url.pathname = route.pathname;
-    response = NextResponse.rewrite(url);
+    response = NextResponse.rewrite(url, { request: { headers: withMarker(request.headers) } });
   } else {
     response = NextResponse.next();
   }

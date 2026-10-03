@@ -1,0 +1,15 @@
+# One release. The project name (-p) decides whether it is the candidate or production.
+services:
+  web:
+    build: .
+    image: openaiwill-web:${RELEASE_ID}
+    restart: unless-stopped
+    environment:
+      SITE_ENV: ${SITE_ENV:-preview}
+    ports:
+      - "127.0.0.1:${HOST_PORT}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

@@ -21,6 +21,17 @@ const nextConfig: NextConfig = {
 
   /** The 404 for addresses no route matches, which no layout can render around. */
   experimental: { globalNotFound: true },
+
+  /**
+   * A self-contained server for the release directory. The snapshot, local
+   * data and documents are read while building and must not be copied next to
+   * the server: the release carries rendered pages, never the files they came
+   * from. `scripts/site_release.py` checks the assembled directory as well.
+   */
+  output: "standalone",
+  outputFileTracingExcludes: {
+    "/**": ["./datasets/**", "./data/**", "./local/**", "./docs/**", "./design/**", "./output/**", "./db/**", "./scripts/**"],
+  },
 };
 
 export default nextConfig;

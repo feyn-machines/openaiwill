@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     ".claude/**",
     // Local-only crawler and X login module (ignored by Git, includes vendored JS).
     "local/**",
+    // Assembled releases hold the compiled server and its dependencies.
+    ".release/**",
   ]),
 ]);
 

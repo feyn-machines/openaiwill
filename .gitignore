@@ -104,3 +104,6 @@ docs/data/*
 
 # Local-only tools kept out of Git (X login module: AGPL code and X script snapshots).
 /local/
+
+# local release staging
+/.release/
