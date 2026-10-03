@@ -176,6 +176,7 @@ class DeployFilesTest(unittest.TestCase):
         compose = (site_release.ROOT / "deploy" / "compose.yml").read_text()
         self.assertIn('SITE_REQUIRE_DATABASE: "1"', compose)
         self.assertIn("env_file: ${SITE_ENV_FILE", compose)
+        self.assertIn("RELEASE_ID: ${RELEASE_ID}", compose)  # /healthz reports it at request time
         self.assertRegex(compose, r"networks:\n  openaiwill:\n    external: true")
 
 

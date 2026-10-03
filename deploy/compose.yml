@@ -10,6 +10,7 @@ services:
     environment:
       SITE_ENV: ${SITE_ENV:-preview}
       SITE_REQUIRE_DATABASE: "1"
+      RELEASE_ID: ${RELEASE_ID}
     networks:
       - openaiwill
     ports:

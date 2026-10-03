@@ -206,6 +206,12 @@ class LocalServerEnvTest(unittest.TestCase):
             self.assertNotIn(name, env)
         self.assertEqual((env["SITE_ENV"], env["PATH"], env["PORT"]), ("preview", "/bin", str(release.LOCAL_PORT)))
 
+    def test_the_release_id_reaches_healthz_and_is_validated(self):
+        self.assertEqual(release.local_server_env("preview", None, self.base, "20261003T102912Z-aaaaaaa")["RELEASE_ID"],
+                         "20261003T102912Z-aaaaaaa")
+        with self.assertRaises(release.ReleaseError):
+            release.local_server_env("preview", None, self.base, "x;y")
+
     def test_files_mode_points_at_the_snapshot_directory(self):
         env = release.local_server_env("production", Path("/snap"), self.base)
         self.assertEqual(env["SNAPSHOT_DIR"], "/snap")

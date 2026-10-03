@@ -253,7 +253,7 @@ def wait_until_answering(base: str, process: subprocess.Popen) -> None:
     raise ReleaseError(f"nothing answered at {base}")
 
 
-def local_server_env(site_env: str, snapshot_dir: Path | None, base: dict | None = None) -> dict:
+def local_server_env(site_env: str, snapshot_dir: Path | None, base: dict | None = None, release: str | None = None) -> dict:
     """Environment for the local smoke server: never a database (a developer's own DATABASE_URL must not
     leak in), files mode only when a snapshot directory is given, no SITE_REQUIRE_DATABASE."""
     env = {key: value for key, value in (os.environ if base is None else base).items()
@@ -261,12 +261,15 @@ def local_server_env(site_env: str, snapshot_dir: Path | None, base: dict | None
     env.update({"PORT": str(LOCAL_PORT), "HOSTNAME": "127.0.0.1", "SITE_ENV": site_env})
     if snapshot_dir is not None:
         env["SNAPSHOT_DIR"] = str(snapshot_dir)
+    if release:
+        # /healthz reports it at request time (the server container gets it from compose).
+        env["RELEASE_ID"] = checked_id(release)
     return env
 
 
-def with_local_server(app: Path, site_env: str, callback, snapshot_dir: Path | None = None):
+def with_local_server(app: Path, site_env: str, callback, snapshot_dir: Path | None = None, release: str | None = None):
     """Start the built server with SITE_ENV=site_env, wait for it, return callback(base_url), stop it."""
-    server = subprocess.Popen(["node", "server.js"], cwd=app, env=local_server_env(site_env, snapshot_dir))
+    server = subprocess.Popen(["node", "server.js"], cwd=app, env=local_server_env(site_env, snapshot_dir, release=release))
     try:
         base = f"http://127.0.0.1:{LOCAL_PORT}"
         wait_until_answering(base, server)
@@ -449,9 +452,9 @@ def build() -> str:
         print("no local snapshot: smoke-testing the no-data subset (run `pnpm data:publish:snapshot` for the full list)")
     # Files mode reads the snapshot from outside the release; the release itself contains no data.
     failures = with_local_server(app, "preview", lambda base: smoke(base, release, with_data=snapshot is not None)
-                                 + indexability(base, indexable=False), snapshot)
+                                 + indexability(base, indexable=False), snapshot, release)
     # What the server will run: production answers pages without an X-Robots-Tag.
-    failures += with_local_server(app, "production", lambda base: indexability(base, indexable=True), snapshot)
+    failures += with_local_server(app, "production", lambda base: indexability(base, indexable=True), snapshot, release)
     if failures:
         raise ReleaseError("smoke test failed:\n  " + "\n  ".join(failures))
     print(f"built {release} at {staged.relative_to(ROOT)}")
