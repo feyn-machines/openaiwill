@@ -13,10 +13,13 @@ function isNavigation(request: NextRequest) {
 }
 
 const REWRITTEN = "x-openaiwill-rewritten";
+// A value only this process knows. A fixed value would let any client send the header and skip
+// the language rules (duplicate /en/... pages, no redirects), so only our own rewrite can match.
+const MARKER = crypto.randomUUID();
 
 function withMarker(headers: Headers) {
   const marked = new Headers(headers);
-  marked.set(REWRITTEN, "1");
+  marked.set(REWRITTEN, MARKER);
   return marked;
 }
 
@@ -33,7 +36,7 @@ function passThrough() {
 export function proxy(request: NextRequest) {
   // The server runs this proxy again on the address a rewrite produced. That second
   // pass is ours, not a reader asking for /en/..., so it must not be sent back.
-  if (request.headers.has(REWRITTEN)) return passThrough();
+  if (request.headers.get(REWRITTEN) === MARKER) return passThrough();
 
   const route = languageRoute({
     pathname: request.nextUrl.pathname,

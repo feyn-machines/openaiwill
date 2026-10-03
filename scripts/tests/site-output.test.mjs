@@ -163,7 +163,8 @@ test("llms.txt is generated from the site, names real pages, and overstates noth
   const text = body("llms.txt");
   assert.match(text, /^# openaiwill\n/);
   assert.doesNotMatch(text, /\bplatform\b|verified|reviewed score|replacement rate/i);
-  assert.match(text, /machine-proposed/i);
+  if (HAS_SNAPSHOT) assert.match(text, /machine-proposed/i);
+  else assert.match(text, /No data snapshot is published in this build\./);
   assert.match(text, /https:\/\/x\.com\/openaiwill/);
   assert.match(text, /https:\/\/discord\.gg\/ArVHw2K9X/);
   assert.match(text, /https:\/\/github\.com\/feyn-machines\/openaiwill/);

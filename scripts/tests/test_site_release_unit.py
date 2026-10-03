@@ -104,5 +104,40 @@ class PruneTest(unittest.TestCase):
         self.assertEqual(release.to_prune(["a", "b"], keep=5, protected=set()), [])
 
 
+class CheckedIdTest(unittest.TestCase):
+    def test_valid_ids_pass(self):
+        for value in ["20261003T102912Z-e2d4005", "20261003T102912Z-e2d4005-dirty", " 20261003T102912Z-e2d4005\n"]:
+            self.assertEqual(release.checked_id(value), value.strip())
+
+    def test_anything_else_is_refused(self):
+        for value in ["", "   ", "*", "../x", "a b", "20261003T102912Z-e2d4005;rm -rf /", "20261003T102912Z-e2d4005 x"]:
+            with self.assertRaisesRegex(release.ReleaseError, "not a release id"):
+                release.checked_id(value)
+
+    def test_prune_never_returns_junk(self):
+        ids = [f"2026100{n}T000000Z-aaaaaaa" for n in range(1, 8)]
+        junk = ["*", "../x", "a b", "x;y", ".", ""]
+        found = release.to_prune(junk + ids, keep=5, protected=set())
+        self.assertEqual(found, ids[:2])
+        self.assertEqual(release.to_prune(junk, keep=0, protected=set()), [])
+
+
+class SwitchScriptTest(unittest.TestCase):
+    target = {"DEPLOY_ROOT": "/opt/openaiwill", "DEPLOY_USER": "u"}
+    new = "20261003T102912Z-aaaaaaa"
+    old = "20261002T102912Z-bbbbbbb"
+
+    def test_failure_restores_the_live_release_and_does_not_record_state_first(self):
+        script = release.switch_script(self.target, self.new, self.old)
+        self.assertIn(f"production restored to {self.old}", script)
+        self.assertLess(script.index("exit 1"), script.index("/previous"))
+        self.assertLess(script.index("exit 1"), script.rindex("/current"))
+
+    def test_a_first_promote_has_nothing_to_restore(self):
+        script = release.switch_script(self.target, self.new, "")
+        self.assertIn("no earlier release to restore", script)
+        self.assertNotIn("/previous", script)
+
+
 if __name__ == "__main__":
     unittest.main()

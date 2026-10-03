@@ -55,6 +55,7 @@ export default async function Home() {
   if (!data) {
     return (
       <section className={frame.sec}>
+        <JsonLd data={siteLd(language)} />
         <h1 className={frame.h2}>{c.headline}</h1>
         <p className={frame.empty}>{c.noData}</p>
       </section>
