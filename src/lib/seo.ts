@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LANGUAGES, bilingual, localizedPath, type Language } from "./i18n";
+import { manifest } from "./snapshot";
 
 /** The public address. Not a secret and not per-environment: a candidate build names the same canonical pages. */
 export const SITE_URL = "https://openaiwill.com";
@@ -79,5 +80,86 @@ export function pageMetadata(page: { language: Language; path: string; title?: s
       images: [{ url: image, width: 1200, height: 630, alt: site.title }],
     },
     twitter: { card: "summary_large_image", site: X_HANDLE, title: shareTitle, description, images: [image] },
+  };
+}
+
+const CONTEXT = "https://schema.org";
+
+const organization = {
+  "@type": "Organization",
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon.svg`,
+  sameAs: [X_URL, DISCORD_URL, GITHUB_URL],
+} as const;
+
+export function siteLd(language: Language): object[] {
+  return [
+    { "@context": CONTEXT, ...organization },
+    {
+      "@context": CONTEXT,
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: absoluteUrl(language, "/"),
+      inLanguage: language,
+      description: siteCopy[language].description,
+      publisher: organization,
+    },
+  ];
+}
+
+export function breadcrumbLd(language: Language, trail: { name: string; path: string }[]): object {
+  return {
+    "@context": CONTEXT,
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map((step, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: step.name,
+      item: absoluteUrl(language, step.path),
+    })),
+  };
+}
+
+/**
+ * Written for machines, so the interface does not have to carry the sentence:
+ * every reading in a snapshot is proposed by a model and no person has reviewed
+ * it. An engine that quotes a number takes the status with it.
+ */
+const DATA_STATUS: Record<Language, string> = {
+  en: "Machine-proposed, not reviewed by a person",
+  "zh-CN": "由机器提出，尚未经人审核",
+};
+
+export function datasetLd(language: Language, page: { name: string; description: string; path: string }): object | null {
+  if (!manifest) return null;
+  return {
+    "@context": CONTEXT,
+    "@type": "Dataset",
+    name: page.name,
+    description: page.description,
+    url: absoluteUrl(language, page.path),
+    inLanguage: language,
+    creator: organization,
+    version: `${manifest.method_version} / ontology ${manifest.schema_version}`,
+    dateModified: manifest.generated_at,
+    creativeWorkStatus: DATA_STATUS[language],
+  };
+}
+
+export function articleLd(
+  language: Language,
+  page: { headline: string; description?: string; path: string; datePublished?: string | null; basedOn?: string[] },
+): object {
+  return {
+    "@context": CONTEXT,
+    "@type": "Article",
+    headline: page.headline,
+    ...(page.description ? { description: page.description } : {}),
+    url: absoluteUrl(language, page.path),
+    inLanguage: language,
+    publisher: organization,
+    ...(page.datePublished ? { datePublished: page.datePublished } : {}),
+    ...(page.basedOn?.length ? { isBasedOn: page.basedOn } : {}),
   };
 }

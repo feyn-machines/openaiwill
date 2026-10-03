@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import { WorkGrid } from "@/components/work-grid";
@@ -14,6 +16,7 @@ import {
   atOrAboveL2,
   evidenceForActivity,
   gates as allGates,
+  groupSlug,
   marketSlug,
   marketsOfOccupation,
   occupationMedianShare,
@@ -222,8 +225,19 @@ export default async function OccupationPage({ params }: Props) {
   const levelWords: Record<string, string> = {};
   for (const [key, text] of Object.entries(progress?.levels ?? {})) levelWords[key] = text[language];
 
+  const groupId = entry?.group_id ?? null;
+  const group = groupId ? progress?.groups?.[groupId] : undefined;
+  const trail = [
+    { name: siteNavCopy[language].occupations, path: "/occupations" },
+    ...(groupId && group
+      ? [{ name: ((language === "zh-CN" ? group.label_zh_cn : group.label_en) ?? group.label_en) ?? groupId, path: `/occupations/g/${groupSlug(groupId)}` }]
+      : []),
+    { name, path: `/occupations/${code}` },
+  ];
+
   return (
     <div className={`${s.page} ${bp.canvas}`}>
+      <JsonLd data={breadcrumbLd(language, trail)} />
       <Link className="oaw-back" href={href(language, "/occupations")}>
         {c.back}
       </Link>

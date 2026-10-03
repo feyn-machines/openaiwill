@@ -1,6 +1,7 @@
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { pageMetadata, siteLd } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 import type { Metadata } from "next";
 import { href } from "@/lib/routes";
 import { buildHomeData } from "@/lib/home-data";
@@ -62,6 +63,7 @@ export default async function Home() {
 
   return (
     <div className={s.home}>
+      <JsonLd data={siteLd(language)} />
       <Overview data={data} language={language} />
       <Rail levels={[0, 1, 2, 3, 4, 5].map((l) => data.works.filter((w) => w.level === l).length)} from={2} navLabel={nav.navLabel} links={SITE_NAV.map((item) => ({ href: href(language, item.href), label: nav[item.key] }))} />
       <div className={frame.page}>

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Blank, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { datasetLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 import {
   activitiesOfMarket,
   markets,
@@ -89,6 +90,7 @@ export default async function MarketsPage() {
 
   return (
     <div className={s.page}>
+      <JsonLd data={datasetLd(language, { name: c.title, description: c.lead, path: "/markets" })} />
       <PageHeader eyebrow={c.eyebrow} title={c.title} lead={c.lead} />
 
       <Screen className={x.stats}>

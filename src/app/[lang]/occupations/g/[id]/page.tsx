@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
@@ -207,6 +209,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
 
   return (
     <div className={`${s.page} ${bp.canvas}`}>
+      <JsonLd data={breadcrumbLd(language, [{ name: siteNavCopy[language].occupations, path: "/occupations" }, { name: label, path: `/occupations/g/${id}` }])} />
       <Link className="oaw-back" href={href(language, "/")}>
         {c.back}
       </Link>

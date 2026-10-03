@@ -5,10 +5,12 @@ import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
-import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest } from "@/lib/snapshot";
+import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest, marketSlug } from "@/lib/snapshot";
 
 /**
  * One kind of work: the level it stands at, and every update that put it
@@ -101,8 +103,16 @@ export default async function WorkPage({ params }: Props) {
   const siblings = activitiesOfMarket(work.market_id).filter((a) => a.activity_id !== work.activity_id && a.evidence_rows && a.level);
   const levelText = `L${level} ${LEVEL_NAMES[language][level]}`;
 
+  const slug = (await params).id;
+  const trail = [
+    { name: siteNavCopy[language].markets, path: "/markets" },
+    { name: market, path: `/markets/${marketSlug(work.market_id)}` },
+    { name, path: `/work/${slug}` },
+  ];
+
   return (
     <div className={s.page}>
+      <JsonLd data={breadcrumbLd(language, trail)} />
       <Link className={s.back} href={marketHref(language, work.market_id)}>{c.back.replace("{market}", market)}</Link>
       <div className={s.eyebrow}>{c.eyebrow} · <Link href={marketHref(language, work.market_id)}>{market}</Link></div>
       <h1 className={s.title}>{name}</h1>

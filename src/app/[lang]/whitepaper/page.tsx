@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { articleLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 import { whitepaperBlocks, whitepaperExists, type Block, type Inline } from "@/lib/whitepaper";
 import { Head, blueprint as b } from "@/components/blueprint";
 import { WhitepaperToc } from "./whitepaper-toc";
@@ -136,6 +137,7 @@ export default async function Whitepaper() {
 
   return (
     <div className={s.page}>
+      <JsonLd data={articleLd(language, { headline: c.metaTitle, description: c.metaDescription, path: "/whitepaper" })} />
       <header className={`${s.masthead} ${b.canvas}`}>
         <Head
           label={c.eyebrow}

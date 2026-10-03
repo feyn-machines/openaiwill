@@ -5,7 +5,9 @@ import { Bar, Blank, Block, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { termNameOrRaw } from "@/components/ontology-labels";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
@@ -171,6 +173,7 @@ export default async function MarketPage({ params }: Props) {
 
   return (
     <div className={s.page}>
+      <JsonLd data={breadcrumbLd(language, [{ name: siteNavCopy[language].markets, path: "/markets" }, { name, path: `/markets/${(await params).id}` }])} />
       <Link className="oaw-back" href={href(language, "/markets")}>
         {c.back}
       </Link>

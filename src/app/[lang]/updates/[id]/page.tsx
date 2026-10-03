@@ -6,7 +6,9 @@ import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { articleLd, breadcrumbLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
+import { siteNavCopy } from "@/lib/site-nav";
 import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
@@ -96,8 +98,21 @@ export default async function UpdatePage({ params }: Props) {
   const levelText = `L${top} ${LEVEL_NAMES[language][top]}`;
   const say = c.say.replace("{n}", String(rows.length)).replace("{m}", String(markets.size)).split("{level}");
 
+  const path = `/updates/${update.event_id}`;
+  const ld = [
+    breadcrumbLd(language, [{ name: siteNavCopy[language].updates, path: "/updates" }, { name: update.title, path }]),
+    articleLd(language, {
+      headline: update.title,
+      description: update.summary,
+      path,
+      datePublished: update.occurred_at,
+      basedOn: update.source_urls ?? more?.source_urls ?? [],
+    }),
+  ];
+
   return (
     <div className={s.page}>
+      <JsonLd data={ld} />
       <Link className={s.back} href={href(language, "/updates")}>{c.back}</Link>
       <div className={s.eyebrow}>{update.org_name} · {update.occurred_at ? update.occurred_at.slice(0, 10) : c.undated}{kind ? ` · ${zh ? kind["zh-CN"] ?? kind.en : kind.en}` : ""}</div>
       <h1 className={s.title}>{update.title}{zh && <em>{c.original}</em>}</h1>

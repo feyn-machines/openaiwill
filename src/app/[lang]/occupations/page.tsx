@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { pageMetadata } from "@/lib/seo";
+import { datasetLd, pageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/json-ld";
 import {
   assessedCount,
   atOrAboveL2,
@@ -103,6 +104,7 @@ export default async function Occupations() {
 
   return (
     <div className={`${s.page} ${bp.canvas}`}>
+      <JsonLd data={datasetLd(language, { name: c.title, description: c.lead, path: "/occupations" })} />
       <h1 className={s.title}>{c.title}</h1>
       <p className={s.pageLead}>{c.lead}</p>
 

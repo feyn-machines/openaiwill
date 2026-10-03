@@ -73,7 +73,9 @@ test("the root layout resolves metadata per reader rather than statically", () =
     "a static `metadata` object cannot see the reader's language",
   );
   assert.ok(!/export const metadata/.test(source), "static metadata is still exported");
-  assert.ok(source.includes("每一次 AI 更新"), "no Chinese description");
-  // The confirmed English headline stays the default title in both languages.
-  assert.ok(source.includes('default: "Will AI Kill Your Idea?"'));
+  // The words themselves live in `siteCopy`; the layout must take them from there.
+  assert.ok(source.includes("siteCopy[language]"), "the layout does not use the shared site copy");
+  assert.ok(read("src/lib/seo.ts").includes("每一次 AI 更新"), "no Chinese description");
+  // The confirmed headline stays the default title in both languages.
+  assert.ok(!source.includes("Will AI Kill Your Idea?"), "the retired title is back");
 });

@@ -123,3 +123,38 @@ test("every sitemap address is a prerendered page, with its counterpart", () => 
   assert.match(xml, /hreflang="zh-CN"/);
   assert.match(xml, /hreflang="x-default"/);
 });
+
+const ld = (page) =>
+  [...page.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].flatMap((m) => {
+    const value = JSON.parse(m[1]);
+    return Array.isArray(value) ? value : [value];
+  });
+const types = (page) => ld(page).map((item) => item["@type"]);
+
+test("structured data names the organisation, the datasets and their status", () => {
+  for (const language of ["en", "zh-CN"]) {
+    assert.deepEqual(types(html(language, "")).sort(), ["Organization", "WebSite"]);
+    assert.ok(types(html(language, "/whitepaper")).includes("Article"));
+    const org = ld(html(language, "")).find((item) => item["@type"] === "Organization");
+    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]);
+  }
+});
+
+test("a dataset states that it is machine-proposed and when it was produced", { skip: !HAS_SNAPSHOT }, () => {
+  for (const path of ["/markets", "/occupations"]) {
+    const dataset = ld(html("en", path)).find((item) => item["@type"] === "Dataset");
+    assert.ok(dataset, path);
+    assert.match(dataset.creativeWorkStatus, /machine-proposed/i);
+    assert.ok(dataset.dateModified && dataset.version);
+  }
+});
+
+test("structured data never claims a review or a rating", () => {
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      for (const type of types(html(language, path))) {
+        assert.ok(!["ClaimReview", "Rating", "AggregateRating", "Review"].includes(type), `${language}${path}: ${type}`);
+      }
+    }
+  }
+});
