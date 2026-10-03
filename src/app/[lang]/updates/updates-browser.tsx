@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import type { Language } from "@/lib/i18n";
 import { updateHref } from "@/lib/routes";
 import { Bar, Blank } from "@/components/blueprint";
 import { useScrollPages } from "@/components/scroll-pages";
@@ -94,11 +95,13 @@ export function UpdatesBrowser({
   orgs,
   copy,
   maxActivities,
+  language,
 }: {
   rows: UpdateRow[];
   orgs: { org: string; label: string; events: number }[];
   copy: BrowserCopy;
   maxActivities: number;
+  language: Language;
 }) {
   const [query, setQuery] = useState("");
   const [landed, setLanded] = useState<Landed>("landed");
@@ -246,7 +249,7 @@ export function UpdatesBrowser({
                       <td className={s.cellWhen}>{row.date ?? <Blank reason={copy.noDate} />}</td>
                       <th scope="row">
                         {row.readings.length > 0 ? (
-                          <Link className={s.title} href={updateHref(row.id)}>
+                          <Link className={s.title} href={updateHref(language, row.id)}>
                             {row.title} <span aria-hidden="true">→</span>
                           </Link>
                         ) : row.url ? (

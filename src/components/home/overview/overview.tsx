@@ -377,7 +377,7 @@ export function Overview({ data, language }: { data: HomeData; language: Languag
                     {panel.work.claimed > panel.work.level ? <span className={s.warn}>{`${c.claimed} L${panel.work.claimed}`}</span> : null}
                   </div>
                   {panel.work.claimed > panel.work.level ? <p className={s.note}>{c.publisherOnly}</p> : null}
-                  <p className={s.source}><Link href={workHref(panel.id)}>{c.openWork}</Link></p>
+                  <p className={s.source}><Link href={workHref(language, panel.id)}>{c.openWork}</Link></p>
                 </>
               ) : null}
               {panel.update ? (
@@ -385,7 +385,7 @@ export function Overview({ data, language }: { data: HomeData; language: Languag
                   <div className={s.mono}>{`${panel.update.date ?? c.undated} · ${panel.update.org}`}</div>
                   {panel.update.url ? (
                     <p className={s.source}>
-                      <Link href={updateHref(panel.id)}>{c.openUpdate}</Link>{" · "}
+                      <Link href={updateHref(language, panel.id)}>{c.openUpdate}</Link>{" · "}
                       <a href={panel.update.url} target="_blank" rel="noopener noreferrer">{c.source}</a>
                     </p>
                   ) : null}

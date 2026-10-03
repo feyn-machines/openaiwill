@@ -5,7 +5,7 @@ import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
+import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
 import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest } from "@/lib/snapshot";
 
 /**
@@ -97,8 +97,8 @@ export default async function WorkPage({ params }: Props) {
 
   return (
     <div className={s.page}>
-      <Link className={s.back} href={marketHref(work.market_id)}>{c.back.replace("{market}", market)}</Link>
-      <div className={s.eyebrow}>{c.eyebrow} · <Link href={marketHref(work.market_id)}>{market}</Link></div>
+      <Link className={s.back} href={marketHref(language, work.market_id)}>{c.back.replace("{market}", market)}</Link>
+      <div className={s.eyebrow}>{c.eyebrow} · <Link href={marketHref(language, work.market_id)}>{market}</Link></div>
       <h1 className={s.title}>{name}</h1>
       <p className={s.say}>
         {c.say.replace("{date}", manifest?.generated_at.slice(0, 10) ?? "").replace("{n}", String(rows.length)).replace("{tier}", TIER_NAMES[language][tier] ?? tier).split("{level}")[0]}
@@ -130,7 +130,7 @@ export default async function WorkPage({ params }: Props) {
           <li key={r.event_id} className={s.row}>
             <div className={s.when}><b>{r.occurred_at ? r.occurred_at.slice(0, 10) : c.undated}</b>{r.org_name}</div>
             <div className={s.what}>
-              <Link className={s.name} href={updateHref(r.event_id)}>{r.title}</Link>
+              <Link className={s.name} href={updateHref(language, r.event_id)}>{r.title}</Link>
               <p>{r.summary}</p>
             </div>
             <div className={s.how}>
@@ -148,7 +148,7 @@ export default async function WorkPage({ params }: Props) {
           <h2 className={s.h2}>{c.more.replace("{market}", market)}</h2>
           <div className={s.links} style={{ marginTop: 18 }}>
             {siblings.map((a) => (
-              <Link key={a.activity_id} className={s.chip} href={workHref(a.activity_id)}>
+              <Link key={a.activity_id} className={s.chip} href={workHref(language, a.activity_id)}>
                 {(zh ? a.label_zh_cn : a.label_en) ?? a.label_en}<small>L{Math.round(a.level ?? 0)}</small>
               </Link>
             ))}
@@ -157,8 +157,8 @@ export default async function WorkPage({ params }: Props) {
       )}
 
       <div className={s.cta}>
-        <Link href={marketHref(work.market_id)}>{c.market}</Link>
-        <Link href="/updates">{c.all}</Link>
+        <Link href={marketHref(language, work.market_id)}>{c.market}</Link>
+        <Link href={href(language, "/updates")}>{c.all}</Link>
       </div>
     </div>
   );

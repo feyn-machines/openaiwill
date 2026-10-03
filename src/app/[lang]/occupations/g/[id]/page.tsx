@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
   assessedCount,
@@ -130,7 +131,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
       tasks: entry.tasks,
       counts: entry.by_stage,
       assessed: assessedCount(entry.by_stage),
-      href: `/occupations/${occupationSlug(occupationId)}` as const,
+      href: href(language, `/occupations/${occupationSlug(occupationId)}`),
     }));
 
   // Both ends of the spread are occupations something was read about. An
@@ -193,7 +194,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
 
   return (
     <div className={`${s.page} ${bp.canvas}`}>
-      <Link className="oaw-back" href="/">
+      <Link className="oaw-back" href={href(language, "/")}>
         {c.back}
       </Link>
 
@@ -250,7 +251,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
                 <li key={activity.activity_id}>
                   <Link
                     className={s.driveRow}
-                    href={`/markets/${marketSlug(activity.market_id)}`}
+                    href={href(language, `/markets/${marketSlug(activity.market_id)}`)}
                   >
                     <span className={s.driveName}>
                       {(language === "zh-CN" ? activity.label_zh_cn : activity.label_en) ??

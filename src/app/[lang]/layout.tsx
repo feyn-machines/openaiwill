@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
 import "../globals.css";
+import { href } from "@/lib/routes";
 
 const copy = bilingual({
   en: {
@@ -82,9 +83,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={language} className={`${interTight.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
       <body>
         <header className="header wrap">
-          <Link href="/" className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
+          <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
           <div className="header-end">
-            <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={item.href}>{nav[item.key]}</Link>)}</nav>
+            <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={href(language, item.href)}>{nav[item.key]}</Link>)}</nav>
             <LanguageSwitch />
           </div>
         </header>

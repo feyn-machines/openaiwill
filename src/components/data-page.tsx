@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { bilingual, type Language } from "@/lib/i18n";
+import { href } from "@/lib/routes";
 import { manifest, snapshotExists } from "@/lib/snapshot";
 import { termName } from "./ontology-labels";
 import styles from "./data-page.module.css";
@@ -396,9 +397,9 @@ export function DataPageLinks({
 }) {
   const c = shared[language];
   const all = [
-    { key: "markets" as const, href: "/markets", label: c.markets },
-    { key: "occupations" as const, href: "/occupations", label: c.occupations },
-    { key: "updates" as const, href: "/updates", label: c.updates },
+    { key: "markets" as const, href: href(language, "/markets"), label: c.markets },
+    { key: "occupations" as const, href: href(language, "/occupations"), label: c.occupations },
+    { key: "updates" as const, href: href(language, "/updates"), label: c.updates },
   ] satisfies { key: typeof current; href: Route; label: string }[];
   return (
     <nav className={styles.links} aria-label={c.moreTitle}>

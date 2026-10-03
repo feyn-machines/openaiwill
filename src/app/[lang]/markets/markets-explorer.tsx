@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Bar, Blank, Block } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import type { Language } from "@/lib/i18n";
+import { href } from "@/lib/routes";
 import { count, fill, indexCopy } from "./copy";
 import x from "./markets.module.css";
 
@@ -261,7 +262,7 @@ export function MarketsExplorer({
                 {shown.slice(0, visible).map((row) => (
                   <tr key={row.id}>
                     <th scope="row" className={x.nameCell}>
-                      <Link href={`/markets/${row.slug}`}>{row.name}</Link>
+                      <Link href={href(language, `/markets/${row.slug}`)}>{row.name}</Link>
                     </th>
                     <td className="oaw-num">{count(row.total)}</td>
                     <td className="oaw-num">{count(row.scored)}</td>

@@ -4,6 +4,7 @@ import type { HomeData } from "@/lib/home-data";
 import { LEVEL_NAMES } from "./levels";
 import frame from "./section.module.css";
 import s from "./text-sections.module.css";
+import { href } from "@/lib/routes";
 
 /**
  * The homepage's text modules: a statement that stays in place on the left while
@@ -147,8 +148,8 @@ export function ClosingSection({ language }: { language: Language }) {
         <p className={frame.lead}>{c.endBody}</p>
       </div>
       <div className={`${s.ctas} ${frame.rise}`}>
-        <Link className={s.cta} href="/updates">{c.endMore}</Link>
-        <Link className={s.cta} href="/whitepaper">{c.endLink}</Link>
+        <Link className={s.cta} href={href(language, "/updates")}>{c.endMore}</Link>
+        <Link className={s.cta} href={href(language, "/whitepaper")}>{c.endLink}</Link>
       </div>
     </section>
   );

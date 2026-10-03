@@ -130,7 +130,7 @@ export function Activities({
 
           <div className={x.actBody}>
             {activity.readings.length > 0 && activity.rung ? (
-              <p className={x.gateNote}><Link href={workHref(activity.id)}>{c.openWork} →</Link></p>
+              <p className={x.gateNote}><Link href={workHref(language, activity.id)}>{c.openWork} →</Link></p>
             ) : null}
             {activity.gates.map((gate) => (
               <p key={gate.id} className={x.gateNote}>

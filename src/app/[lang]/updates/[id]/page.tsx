@@ -6,7 +6,7 @@ import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
-import { marketHref, workHref } from "@/lib/routes";
+import { href, marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
 
 /**
@@ -90,7 +90,7 @@ export default async function UpdatePage({ params }: Props) {
 
   return (
     <div className={s.page}>
-      <Link className={s.back} href="/updates">{c.back}</Link>
+      <Link className={s.back} href={href(language, "/updates")}>{c.back}</Link>
       <div className={s.eyebrow}>{update.org_name} · {update.occurred_at ? update.occurred_at.slice(0, 10) : c.undated}{kind ? ` · ${zh ? kind["zh-CN"] ?? kind.en : kind.en}` : ""}</div>
       <h1 className={s.title}>{update.title}{zh && <em>{c.original}</em>}</h1>
       <p className={s.say}>{update.summary}</p>
@@ -115,8 +115,8 @@ export default async function UpdatePage({ params }: Props) {
             <li key={r.activity_id} className={s.row}>
               <div className={s.when}><b>L{r.level}</b>{LEVEL_NAMES[language][r.level ?? 0]}</div>
               <div className={s.what}>
-                {linked ? <Link className={s.name} href={workHref(r.activity_id)}>{name}</Link> : <span className={s.name}>{name}</span>}
-                {work && <small><Link href={marketHref(work.market_id)}>{market}</Link></small>}
+                {linked ? <Link className={s.name} href={workHref(language, r.activity_id)}>{name}</Link> : <span className={s.name}>{name}</span>}
+                {work && <small><Link href={marketHref(language, work.market_id)}>{market}</Link></small>}
               </div>
               <div className={s.how}>
                 <span className={`${s.tag} ${s[levelClass(r.level ?? 0)]}`}>L{r.level} {LEVEL_NAMES[language][r.level ?? 0]}</span>
@@ -140,8 +140,8 @@ export default async function UpdatePage({ params }: Props) {
       )}
 
       <div className={s.cta}>
-        <Link href="/updates">{c.all}</Link>
-        <Link href="/">{c.home}</Link>
+        <Link href={href(language, "/updates")}>{c.all}</Link>
+        <Link href={href(language, "/")}>{c.home}</Link>
       </div>
     </div>
   );

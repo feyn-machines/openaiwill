@@ -11,11 +11,13 @@ const nextConfig: NextConfig = {
    * With this on, `typecheck` rejects an href that no route serves, so the
    * check that catches it is the one that already runs.
    *
-   * Off while the pages sit under `/[lang]`: the route tree now only knows
-   * `/en/...` addresses, so every unprefixed href is rejected. The language-aware
-   * link helper restores the guarantee.
+   * The pages sit under `/[lang]`, so the generated route tree only knows
+   * `/en/...` and `/zh-CN/...` addresses and a bare `href="/markets"` is
+   * rejected. Links go through `href()` in `src/lib/routes.ts`, which checks the
+   * path as it would be under `/en` and adds the reader's language prefix, so
+   * the guarantee above holds for every link built that way.
    */
-  typedRoutes: false,
+  typedRoutes: true,
 
   /** The 404 for addresses no route matches, which no layout can render around. */
   experimental: { globalNotFound: true },

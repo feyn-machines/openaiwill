@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { href } from "@/lib/routes";
 import { WorkGrid } from "@/components/work-grid";
 import { Bar, Block, Head, Stat, blueprint as bp } from "@/components/blueprint";
 import {
@@ -127,7 +128,7 @@ export default async function OccupationPage({ params }: Props) {
     if (hasSnapshot) notFound();
     return (
       <div className={`${s.page} ${bp.canvas}`}>
-        <Link className="oaw-back" href="/occupations">
+        <Link className="oaw-back" href={href(language, "/occupations")}>
           {c.back}
         </Link>
         <h1 className={s.title}>{c.metaSuffix}</h1>
@@ -205,7 +206,7 @@ export default async function OccupationPage({ params }: Props) {
 
   return (
     <div className={`${s.page} ${bp.canvas}`}>
-      <Link className="oaw-back" href="/occupations">
+      <Link className="oaw-back" href={href(language, "/occupations")}>
         {c.back}
       </Link>
       <h1 className={s.title}>{name}</h1>
@@ -262,7 +263,7 @@ export default async function OccupationPage({ params }: Props) {
           <ul className={s.markets}>
             {marketRows.map((row) => (
               <li key={row.id}>
-                <Link className={s.marketRow} href={`/markets/${row.slug}`}>
+                <Link className={s.marketRow} href={href(language, `/markets/${row.slug}`)}>
                   <span className={s.marketName}>{row.label}</span>
                   <span className={s.marketMeter}>
                     <Bar share={row.activities / widest} label={row.label} />

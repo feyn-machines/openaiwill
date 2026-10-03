@@ -250,6 +250,7 @@ export default async function UpdatesPage() {
           rows={rows}
           orgs={orgs}
           maxActivities={maxActivities}
+          language={language}
           copy={{
             fromEyebrow: c.fromEyebrow,
             fromTitle: c.fromTitle,

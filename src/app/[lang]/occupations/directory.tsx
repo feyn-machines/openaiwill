@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Bar, Blank, Head } from "@/components/blueprint";
 import { useSeen } from "@/components/home/reveal";
 import { bilingual, type Language } from "@/lib/i18n";
+import { href } from "@/lib/routes";
 import { byText } from "@/lib/order";
 import s from "./occupations.module.css";
 
@@ -368,7 +369,7 @@ export function OccupationDirectory({
           <section key={g.id} className={s.group} id={`g${g.slug}`}>
             <Link
               className={s.groupLink}
-              href={`/occupations/g/${g.slug}`}
+              href={href(language, `/occupations/g/${g.slug}`)}
               aria-label={`${c.openGroup}: ${g.label}`}
             >
               <Head
@@ -383,7 +384,7 @@ export function OccupationDirectory({
             <ul className={s.list}>
               {members.map((member) => (
                 <li key={member.id} className={s.item}>
-                  <Link className={s.row} href={`/occupations/${member.slug}`}>
+                  <Link className={s.row} href={href(language, `/occupations/${member.slug}`)}>
                     <span className={s.name}>{member.label}</span>
                     <span className={s.tasks}>
                       {member.tasks}

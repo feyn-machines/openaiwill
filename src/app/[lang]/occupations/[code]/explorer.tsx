@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Bar, Blank, Head } from "@/components/blueprint";
 import { useSeen } from "@/components/home/reveal";
 import { bilingual, type Language } from "@/lib/i18n";
+import { href } from "@/lib/routes";
 import { byText } from "@/lib/order";
 import s from "./detail.module.css";
 
@@ -303,7 +304,7 @@ export function ActivityExplorer({
                   hidden={!expanded}
                 >
                   <p className={s.panelMeta}>
-                    <Link className={s.panelLink} href={`/markets/${row.marketSlug}`}>
+                    <Link className={s.panelLink} href={href(language, `/markets/${row.marketSlug}`)}>
                       {c.market}: {row.marketLabel}
                     </Link>
                     {row.gated ? <span className={s.gateMark}>{c.gated}</span> : null}

@@ -5,6 +5,7 @@ import { Bar, Blank, Block, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
 import { termNameOrRaw } from "@/components/ontology-labels";
 import { getLocale } from "@/lib/locale";
+import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
   activityAnchor,
@@ -75,7 +76,7 @@ export default async function MarketPage({ params }: Props) {
     if (hasSnapshot) notFound();
     return (
       <div className={s.page}>
-        <Link className="oaw-back" href="/markets">
+        <Link className="oaw-back" href={href(language, "/markets")}>
           {c.back}
         </Link>
         <PageHeader eyebrow={c.eyebrow} title={c.metaSuffix} lead={c.lead} />
@@ -159,7 +160,7 @@ export default async function MarketPage({ params }: Props) {
 
   return (
     <div className={s.page}>
-      <Link className="oaw-back" href="/markets">
+      <Link className="oaw-back" href={href(language, "/markets")}>
         {c.back}
       </Link>
       <PageHeader eyebrow={c.eyebrow} title={name} lead={c.lead} />
@@ -220,7 +221,7 @@ export default async function MarketPage({ params }: Props) {
               {served.map((edge) => (
                 <tr key={edge.occupation_id}>
                   <th scope="row" className={x.plain}>
-                    <Link href={`/occupations/${occupationSlug(edge.occupation_id)}`}>
+                    <Link href={href(language, `/occupations/${occupationSlug(edge.occupation_id)}`)}>
                       {(language === "zh-CN" ? edge.occupation_zh_cn : edge.occupation_en) ??
                         edge.occupation_en}
                     </Link>

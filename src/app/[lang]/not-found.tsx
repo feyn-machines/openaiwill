@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
+import { href } from "@/lib/routes";
 
 const copy = bilingual({
   en: {
@@ -42,10 +43,10 @@ export default async function NotFound() {
         {c.lead}
       </p>
       <div className="actions">
-        <Link className="text-link" href="/">
+        <Link className="text-link" href={href(language, "/")}>
           {c.home}
         </Link>
-        <Link className="text-link" href="/occupations">
+        <Link className="text-link" href={href(language, "/occupations")}>
           {c.occupations}
         </Link>
       </div>
