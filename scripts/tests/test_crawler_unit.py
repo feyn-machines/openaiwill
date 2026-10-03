@@ -68,6 +68,12 @@ class RelationTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
+    def test_an_unavailable_account_refuses_its_job_not_the_batch(self):
+        page = {"data": {"user": {"result": {"__typename": "UserUnavailable"}}}}
+        with self.assertRaises(ValueError) as caught:
+            parser.parse_user_timeline_page(page)
+        self.assertNotIsInstance(caught.exception, parser.SchemaChanged)
+
     def test_parses_posts_and_cursor(self):
         posts, cursor = parser.parse_user_timeline_page(timeline([tweet_entry("1")]))
         self.assertEqual(cursor, "CURSOR")

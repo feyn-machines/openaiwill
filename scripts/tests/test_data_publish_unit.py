@@ -166,6 +166,9 @@ ROUTES = (
     ("gate_edges", "FROM public.activity_gate_edges ge"),
     # by_org joins the same two tables as events, so it has to be matched first
     # on its own literal or it disappears into the events route.
+    ("models", "FROM public.models m"),
+    ("model_checks", "FROM public.event_model_checks"),
+    ("event_models", "FROM public.event_models ORDER BY"),
     ("by_org", "'unattributed'"),
     ("events", "FROM public.extracted_events e LEFT JOIN public.org_registry"),
     # Both of these also read extracted_events; neither joins org_registry, so
@@ -304,6 +307,15 @@ def dataset(**overrides):
              "org_name": "Example Lab", "org_name_zh_cn": "示例实验室",
              "source_urls": ["https://example.invalid/1"]},
         ],
+        "models": [
+            {"model_id": "model:example:ex-2", "org_id": "org:example", "owner": "Example Lab",
+             "owner_zh_cn": "示例实验室", "level": "release",
+             "parent_model_id": "model:example:ex", "name": "Ex 2", "version": "2",
+             "variant": None, "released_at": datetime(2026, 9, 1, tzinfo=timezone.utc),
+             "status": "confirmed", "events": 1},
+        ],
+        "model_checks": [{"event_id": "evt:1"}],
+        "event_models": [{"event_id": "evt:1", "model_id": "model:example:ex-2", "role": "subject"}],
         "generations": [
             {"vocabulary": "event_kind-2.0.0", "events": 1, "source_posts": 1},
         ],
@@ -607,6 +619,20 @@ class BuildPayloadTests(unittest.TestCase):
         self.assertEqual(len(running), 1)
         self.assertEqual(running[0]["run_id"], "run-2")
         self.assertEqual(running[0]["started_at"], "2026-09-22T00:00:00+00:00")
+
+
+class EventModelTests(unittest.TestCase):
+    def test_an_update_carries_the_models_it_names(self):
+        _, snapshot = build()
+        self.assertEqual(snapshot["events"][0]["models"],
+                         [{"model_id": "model:example:ex-2", "role": "subject", "status": "confirmed"}])
+        self.assertEqual(snapshot["models"][0]["released_at"], "2026-09-01T00:00:00+00:00")
+
+    def test_read_and_naming_none_is_empty_and_unread_is_null(self):
+        _, snapshot = build(dataset(event_models=[]))
+        self.assertEqual(snapshot["events"][0]["models"], [])
+        _, snapshot = build(dataset(event_models=[], model_checks=[]))
+        self.assertIsNone(snapshot["events"][0]["models"])
 
 
 class OntologyVersionTests(unittest.TestCase):

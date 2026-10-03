@@ -89,6 +89,10 @@ def parse_user_timeline_page(data, observed_at=None):
         raise ValueError("X user timeline returned errors")
     try:
         user = data["data"]["user"]["result"]
+        if user.get("__typename") == "UserUnavailable":
+            # A fact about this account (suspended, deactivated, withheld), not about
+            # the endpoint: that job stops and the rest of the batch goes on.
+            raise ValueError("X user is unavailable")
         timeline = (user.get("timeline_v2") or user.get("timeline"))["timeline"]
         instructions = timeline["instructions"]
     except (KeyError, TypeError, AttributeError) as exc:

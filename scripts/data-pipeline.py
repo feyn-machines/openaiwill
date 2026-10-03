@@ -149,6 +149,11 @@ def main():
     ver.add_argument('--plan-only', action='store_true',
                      help='List the triggered updates; no judge calls')
     ver.add_argument('--limit-events', type=int)
+    idm = sub.add_parser('identify-models',
+                         help='Which models each update names, and in what role (judge calls)')
+    idm.add_argument('--limit', type=int)
+    idm.add_argument('--batch-size', type=int, default=8)
+    idm.add_argument('--report', action='store_true', help='Print the counts; no judge calls')
     sub.add_parser('panel-refresh',
                    help='Re-derive every panel account\'s use and state from its checks')
     state = sub.add_parser('activity-state',
@@ -223,6 +228,13 @@ def main():
                      'held_down_readings': len(rs)} for e, rs in picked]}
             else:
                 result = verification.run(conn, limit_events=args.limit_events)
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
+        elif args.command == 'identify-models':
+            from data_pipeline import model_identification
+            migrate(conn)
+            result = (model_identification.report(conn) if args.report else
+                      model_identification.run(conn, batch_size=args.batch_size, limit=args.limit,
+                                               progress=lambda line: print(line, file=sys.stderr)))
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
         elif args.command == 'migrate':
             print(json.dumps({'applied':migrate(conn)}))

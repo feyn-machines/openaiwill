@@ -56,7 +56,8 @@
     "crawl:lookup": "data/runtime/crawler-venv/bin/python scripts/crawler lookup",
     "data:panel:lookup-import": "data/runtime/venv/bin/python scripts/data-pipeline.py panel-lookup-import",
     "data:relations:backfill": "data/runtime/venv/bin/python scripts/data-pipeline.py relations-backfill",
-    "data:post-events": "data/runtime/venv/bin/python scripts/data-pipeline.py post-events"
+    "data:post-events": "data/runtime/venv/bin/python scripts/data-pipeline.py post-events",
+    "data:identify:models": "data/runtime/venv/bin/python scripts/data-pipeline.py identify-models"
   },
   "dependencies": {
     "next": "16.3.4",

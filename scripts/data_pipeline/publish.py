@@ -642,9 +642,30 @@ def build(conn, ontology_version: str | None = None) -> dict:
 
     generated_at = datetime.now(timezone.utc)
 
+    # The model field of an update (migration 032). An update that was read and
+    # names no model carries an empty list; one not read yet carries null.
+    models = _clean(_rows(conn, """
+        SELECT m.model_id, m.org_id, coalesce(o.canonical_name_en, m.owner_name) AS owner,
+               o.canonical_name_zh_cn AS owner_zh_cn, m.level, m.parent_model_id, m.name,
+               m.version, m.variant, m.released_at, m.status,
+               (SELECT count(DISTINCT em.event_id) FROM public.event_models em
+                 WHERE em.model_id = m.model_id) AS events
+          FROM public.models m
+          LEFT JOIN public.org_registry o ON o.org_id = m.org_id
+         ORDER BY m.model_id"""))
+    model_status = {m["model_id"]: m["status"] for m in models}
+    read = {r["event_id"] for r in _rows(conn, "SELECT event_id FROM public.event_model_checks")}
+    named = {}
+    for r in _rows(conn, """SELECT event_id, model_id, role FROM public.event_models
+                             ORDER BY event_id, model_id, role"""):
+        named.setdefault(r["event_id"], []).append(
+            {"model_id": r["model_id"], "role": r["role"], "status": model_status[r["model_id"]]})
+    for event in events:
+        event["models"] = named.get(event["event_id"], []) if event["event_id"] in read else None
+
     payload = {
         "chain": chain, "markets": markets, "tasks": tasks,
-        "events": events, "coverage": coverage, "progress": progress,
+        "events": events, "models": models, "coverage": coverage, "progress": progress,
     }
     manifest = {
         "snapshot_version": SNAPSHOT_VERSION,
