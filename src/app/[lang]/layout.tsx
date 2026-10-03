@@ -14,13 +14,13 @@ const copy = bilingual({
     brandLabel: "openaiwill home",
     footerBrand: "openaiwill · Before you build.",
     footerNote: "Evidence first. Opinions that can change.",
-    footerLinks: "openaiwill elsewhere",
+    socialLinks: "openaiwill elsewhere",
   },
   "zh-CN": {
     brandLabel: "openaiwill 首页",
     footerBrand: "openaiwill · 在动手之前。",
     footerNote: "以证据为先，判断随事实更新。",
-    footerLinks: "openaiwill 的其他地址",
+    socialLinks: "openaiwill 的其他地址",
   },
 });
 
@@ -82,7 +82,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
           <div className="header-end">
             <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={href(language, item.href)}>{nav[item.key]}</Link>)}</nav>
-            <nav className="header-social" aria-label={c.footerLinks}>
+            <nav className="header-social" aria-label={c.socialLinks}>
               {SOCIAL_LINKS.map((link) => (
                 <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
               ))}
@@ -94,11 +94,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <footer className="footer wrap">
           <span>{c.footerBrand}</span>
           <span>{c.footerNote}</span>
-          <nav className="footer-links" aria-label={c.footerLinks}>
+          <div className="footer-links">
             {SOCIAL_LINKS.map((link) => (
               <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
             ))}
-          </nav>
+          </div>
         </footer>
       </body>
     </html>
