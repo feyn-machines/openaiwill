@@ -17,6 +17,9 @@ import { Stat, blueprint as bp } from "@/components/blueprint";
 import { OccupationDirectory, type DirectoryGroup, type DirectoryRow } from "./directory";
 import s from "./occupations.module.css";
 
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
+
 /**
  * Finding yourself, not comparing sectors.
  *
@@ -67,8 +70,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Occupations() {
   const { language } = await getLocale();
   const c = copy[language];
-  if (!snapshotExists || !progress) return <NoSnapshot language={language} />;
-  const data = progress;
+  const data = progress();
+  if (!snapshotExists() || !data) return <NoSnapshot language={language} />;
 
   const rows: DirectoryRow[] = Object.entries(data.occupations).map(([id, entry]) => {
     const en = entry.label_en ?? id;

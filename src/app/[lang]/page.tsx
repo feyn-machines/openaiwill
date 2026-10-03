@@ -18,6 +18,9 @@ import { Reveal } from "@/components/home/sections/reveal";
 import frame from "@/components/home/sections/section.module.css";
 import s from "./home.module.css";
 
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
+
 /**
  * The homepage is one story told in chapters, each answering the question the
  * one before it leaves: what is this (the overview), who is it for, what is it

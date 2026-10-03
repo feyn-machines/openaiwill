@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LANGUAGES, bilingual, localizedPath, type Language } from "./i18n";
-import { manifest } from "./snapshot";
+import { manifest as dataManifest } from "./snapshot";
 
 /** The public address. Not a secret and not per-environment: a candidate build names the same canonical pages. */
 export const SITE_URL = "https://openaiwill.com";
@@ -132,6 +132,7 @@ const DATA_STATUS: Record<Language, string> = {
 };
 
 export function datasetLd(language: Language, page: { name: string; description: string; path: string }): object | null {
+  const manifest = dataManifest();
   if (!manifest) return null;
   return {
     "@context": CONTEXT,

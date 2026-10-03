@@ -55,7 +55,7 @@ const jetBrainsMono = localFont({
   fallback: ["SFMono-Regular", "Consolas", "monospace"],
 });
 
-/** Both languages are built ahead of time; no other value of the segment is a page. */
+/** Both languages are the only values of the segment; any other one is a 404. */
 export function generateStaticParams() {
   return LANGUAGES.map((lang) => ({ lang }));
 }

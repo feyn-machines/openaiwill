@@ -19,6 +19,14 @@ import s from "./whitepaper.module.css";
  * docs/whitepaper.md is not edited from here. Nothing below changes a word of
  * it; the section ids are derived from the order of its own headings.
  */
+/**
+ * The one page that reads no data release: it is built from docs/whitepaper.md,
+ * which the server does not carry, so it is rendered at build time. Every other
+ * page under `[lang]` sets `dynamic = "force-dynamic"` itself, because a
+ * layout's setting would override this one.
+ */
+export const dynamic = "force-static";
+
 const copy = bilingual({
   en: {
     metaTitle: "Whitepaper",

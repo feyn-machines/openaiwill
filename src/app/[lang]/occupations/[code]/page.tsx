@@ -6,7 +6,6 @@ import { getLocale } from "@/lib/locale";
 import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { siteNavCopy } from "@/lib/site-nav";
-import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import { WorkGrid } from "@/components/work-grid";
 import { Bar, Block, Head, Stat, blueprint as bp } from "@/components/blueprint";
@@ -27,14 +26,15 @@ import {
 } from "@/lib/snapshot";
 import {
   DataPageLinks,
-  NoSnapshot,
   bilingual,
   formatNumber,
-  hasSnapshot,
   Provenance,
 } from "@/components/data-page";
 import { ActivityExplorer, type ExplorerActivity } from "./explorer";
 import s from "./detail.module.css";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * One occupation, read along the path the evidence actually travels:
@@ -103,15 +103,8 @@ function idForCode(code: string): string | undefined {
   return occupations().find((row) => occupationSlug(row.occupation_id) === code)?.occupation_id;
 }
 
-export function generateStaticParams() {
-  return detailPages.occupations().map((code) => ({ code }));
-}
-
-/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
-export const dynamicParams = false;
-
 function label(id: string, language: Language) {
-  const entry = progress?.occupations?.[id];
+  const entry = progress()?.occupations?.[id];
   const zh = entry?.label_zh_cn ?? null;
   const en = entry?.label_en ?? id;
   return language === "zh-CN" ? (zh ?? en) : en;
@@ -122,12 +115,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = copy[language];
   const code = (await params).code;
   const id = idForCode(code);
-  if (!id) {
-    if (!hasSnapshot) return { title: c.metaSuffix };
-    notFound();
-  }
+  if (!id) notFound();
   const name = label(id, language);
-  const entry = progress?.occupations?.[id];
+  const entry = progress()?.occupations?.[id];
   return pageMetadata({
     language,
     path: `/occupations/${code}`,
@@ -145,24 +135,11 @@ export default async function OccupationPage({ params }: Props) {
   const code = (await params).code;
   const id = idForCode(code);
 
-  if (!id) {
-    if (hasSnapshot) notFound();
-    return (
-      <div className={`${s.page} ${bp.canvas}`}>
-        <Link className="oaw-back" href={href(language, "/occupations")}>
-          {c.back}
-        </Link>
-        <h1 className={s.title}>{c.metaSuffix}</h1>
-        <p className={s.pageLead}>{c.lead}</p>
-        <NoSnapshot language={language} />
-        <DataPageLinks language={language} current="occupations" />
-      </div>
-    );
-  }
+  if (!id) notFound();
 
   const name = label(id, language);
   const counts = progressFor(id) ?? {};
-  const entry = progress?.occupations?.[id];
+  const entry = progress()?.occupations?.[id];
   const totalTasks = entry?.tasks ?? 0;
   const assessed = assessedCount(counts);
   const atL2 = atOrAboveL2(counts);
@@ -219,14 +196,14 @@ export default async function OccupationPage({ params }: Props) {
   const widest = Math.max(1, ...marketRows.map((row) => row.activities));
 
   const gatesHere = explorer.some((row) => row.gated)
-    ? allGates.filter((gate) => gate.candidate_activities + gate.reviewed_activities > 0)
+    ? allGates().filter((gate) => gate.candidate_activities + gate.reviewed_activities > 0)
     : [];
 
   const levelWords: Record<string, string> = {};
-  for (const [key, text] of Object.entries(progress?.levels ?? {})) levelWords[key] = text[language];
+  for (const [key, text] of Object.entries(progress()?.levels ?? {})) levelWords[key] = text[language];
 
   const groupId = entry?.group_id ?? null;
-  const group = groupId ? progress?.groups?.[groupId] : undefined;
+  const group = groupId ? progress()?.groups?.[groupId] : undefined;
   const trail = [
     { name: siteNavCopy[language].occupations, path: "/occupations" },
     ...(groupId && group
@@ -281,7 +258,7 @@ export default async function OccupationPage({ params }: Props) {
           activities={explorer}
           language={language}
           levels={levelWords}
-          tierCaps={progress?.tier_caps ?? {}}
+          tierCaps={progress()?.tier_caps ?? {}}
         />
       </Block>
 

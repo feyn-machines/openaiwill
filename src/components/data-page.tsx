@@ -3,7 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { bilingual, type Language } from "@/lib/i18n";
 import { href } from "@/lib/routes";
-import { manifest, snapshotExists } from "@/lib/snapshot";
+import { manifest as dataManifest } from "@/lib/snapshot";
 import { termName } from "./ontology-labels";
 import styles from "./data-page.module.css";
 
@@ -304,7 +304,7 @@ export function Gap({
  */
 export function Caveats({ language }: { language: Language }) {
   const c = shared[language];
-  const list = manifest?.caveats?.[language] ?? [];
+  const list = dataManifest()?.caveats?.[language] ?? [];
   if (list.length === 0) return null;
   return (
     <aside className={styles.caveats} aria-label={c.caveatsTitle}>
@@ -330,6 +330,7 @@ export function Caveats({ language }: { language: Language }) {
 /** The versions and the hash behind everything on the page. */
 export function Provenance({ language }: { language: Language }) {
   const c = shared[language];
+  const manifest = dataManifest();
   if (!manifest) return null;
   const counts = Object.entries(manifest.counts);
   return (
@@ -383,7 +384,6 @@ export function NoSnapshot({ language }: { language: Language }) {
   );
 }
 
-export const hasSnapshot = snapshotExists;
 
 /** Cross links between the five data pages, in the order of the header nav. */
 export function DataPageLinks({

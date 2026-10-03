@@ -9,9 +9,11 @@ import { getLocale } from "@/lib/locale";
 import { articleLd, breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { siteNavCopy } from "@/lib/site-nav";
-import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, workHref } from "@/lib/routes";
-import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
+import { activityById, chainEvents, events as allEvents, evidenceForEvent } from "@/lib/snapshot";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * One update: what it said, where it was published, and every kind of work it
@@ -58,14 +60,7 @@ const copy = bilingual({
 });
 
 type Props = { params: Promise<{ id: string }> };
-const find = (id: string) => chainEvents.find((e) => e.event_id === id);
-
-export function generateStaticParams() {
-  return detailPages.updates().map(({ id }) => ({ id }));
-}
-
-/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
-export const dynamicParams = false;
+const find = (id: string) => chainEvents().find((e) => e.event_id === id);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
@@ -89,7 +84,7 @@ export default async function UpdatePage({ params }: Props) {
   if (!update) notFound();
 
   const zh = language === "zh-CN";
-  const more = events.find((e) => e.event_id === update.event_id);
+  const more = allEvents().find((e) => e.event_id === update.event_id);
   const kind = vocabularyTerm("event_kind", more?.kind);
   const rows = evidenceForEvent(update.event_id).filter((r) => r.level !== null);
   const markets = new Set(rows.map((r) => r.market_id));

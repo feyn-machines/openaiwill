@@ -4,18 +4,21 @@ import { absoluteUrl } from "@/lib/seo";
 import { FIXED_PATHS, detailPages } from "@/lib/site-pages";
 import { manifest } from "@/lib/snapshot";
 
+export const dynamic = "force-dynamic";
+
 type Page = { path: string; lastModified?: string };
 
 /**
- * One entry per page per language, each naming its counterpart. The list is
- * the one the routes prerender from, so nothing here can be a 404.
+ * One entry per page per language, each naming its counterpart. The detail
+ * addresses come from the release the routes answer from, so nothing here can
+ * be a 404.
  *
  * `lastModified` is when the data behind a page was produced: the snapshot's
  * generation time, or for an update the time it happened. It is left out
  * rather than invented when there is no snapshot.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const built = manifest?.generated_at;
+  const built = manifest()?.generated_at;
   const pages: Page[] = [
     ...FIXED_PATHS.map((path) => ({ path, lastModified: built })),
     ...detailPages.markets().map((id) => ({ path: `/markets/${id}`, lastModified: built })),

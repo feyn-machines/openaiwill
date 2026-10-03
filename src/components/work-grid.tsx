@@ -72,7 +72,7 @@ const COPY = {
 
 function stageLabel(key: StageKey, language: Language) {
   if (key === "unknown" || key === "untouched") return COPY[language][key];
-  const word = progress?.levels?.[key]?.[language];
+  const word = progress()?.levels?.[key]?.[language];
   // A rung with no published label still has to draw: the number alone is the
   // honest fallback, never an invented name for it.
   return word ? `L${key} · ${word}` : `L${key}`;
@@ -82,7 +82,7 @@ function stageNote(key: StageKey, language: Language) {
   const c = COPY[language];
   if (key === "unknown") return c.unknownNote;
   if (key === "untouched") return c.untouchedNote;
-  return progress?.level_definitions?.[key]?.[language] ?? null;
+  return progress()?.level_definitions?.[key]?.[language] ?? null;
 }
 
 function formatNumber(n: number) {

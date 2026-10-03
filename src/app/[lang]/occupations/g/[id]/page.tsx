@@ -6,7 +6,6 @@ import { getLocale } from "@/lib/locale";
 import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { siteNavCopy } from "@/lib/site-nav";
-import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
@@ -26,6 +25,9 @@ import { EvidenceTimeline, type TimelineMark } from "@/components/evidence-timel
 import { Bar, Block, Stat, blueprint as bp } from "@/components/blueprint";
 import { MemberRanking, type MemberRow } from "./ranking";
 import s from "./group.module.css";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * One sector, and the question it exists to answer: how far apart are the jobs
@@ -89,13 +91,6 @@ function share(counts: StageCounts, tasks: number) {
   return Math.round((atOrAboveL2(counts) / tasks) * 100);
 }
 
-export function generateStaticParams() {
-  return detailPages.occupationGroups().map((id) => ({ id }));
-}
-
-/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
-export const dynamicParams = false;
-
 export async function generateMetadata({
   params,
 }: {
@@ -129,13 +124,13 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
     (language === "zh-CN" ? group.label_zh_cn : group.label_en) ?? group.label_en ?? id;
   const here = share(group.by_stage, group.tasks);
 
-  const allShares = Object.values(progress?.groups ?? {})
+  const allShares = Object.values(progress()?.groups ?? {})
     .map((g) => share(g.by_stage, g.tasks))
     .sort((a, b) => a - b);
   const median = allShares.length ? allShares[Math.floor(allShares.length / 2)] : 0;
 
   // The occupations that make up this sector, drawn the same way one level down.
-  const members: MemberRow[] = Object.entries(progress?.occupations ?? {})
+  const members: MemberRow[] = Object.entries(progress()?.occupations ?? {})
     .filter(([, entry]) => entry.group_id === group.id)
     .map(([occupationId, entry]) => ({
       id: occupationId,
@@ -179,7 +174,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
   );
 
   const eventUrl = new Map<string, string | null>(
-    events.map((row) => [row.event_id, row.source_urls?.[0] ?? null]),
+    events().map((row) => [row.event_id, row.source_urls?.[0] ?? null]),
   );
   const byEvent = new Map<string, TimelineMark>();
   // The chain stores positive readings only, so there is no sign to filter on.
@@ -262,7 +257,7 @@ export default async function OccupationGroup({ params }: { params: Promise<{ id
             {drives.map((activity) => {
               const level = activity.level;
               const key = level === null ? null : String(Math.floor(level));
-              const word = key ? progress?.levels?.[key]?.[language] : null;
+              const word = key ? progress()?.levels?.[key]?.[language] : null;
               return (
                 <li key={activity.activity_id}>
                   <Link

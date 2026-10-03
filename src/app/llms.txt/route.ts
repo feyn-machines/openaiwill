@@ -1,16 +1,17 @@
 import { LEVEL_NAMES } from "@/lib/level-names";
 import { DISCORD_URL, GITHUB_URL, SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
-import { manifest } from "@/lib/snapshot";
+import { manifest as dataManifest } from "@/lib/snapshot";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 /**
  * A short map of the site for language models, built from the same navigation,
- * level names and snapshot manifest the pages use, so it cannot drift from
+ * level names and the loaded release's manifest the pages use, so it cannot drift from
  * them. English, with the Chinese entry point named.
  */
 export function GET() {
+  const manifest = dataManifest();
   const nav = siteNavCopy.en;
   const lines = [
     `# ${SITE_NAME}`,

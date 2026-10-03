@@ -9,9 +9,11 @@ import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { fill } from "@/app/[lang]/markets/copy";
 import { siteNavCopy } from "@/lib/site-nav";
-import { detailPages } from "@/lib/site-pages";
 import { href, marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
 import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest, marketSlug } from "@/lib/snapshot";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * One kind of work: the level it stands at, and every update that put it
@@ -68,15 +70,8 @@ const copy = bilingual({
 
 type Props = { params: Promise<{ id: string }> };
 const TIER_RANK: Record<string, number> = { T1: 0, T2: 1, T3: 2, T4: 3 };
-const reached = () => activities.filter((a) => a.evidence_rows && a.level);
+const reached = () => activities().filter((a) => a.evidence_rows && a.level);
 const find = (slug: string) => reached().find((a) => workSlug(a.activity_id) === slug);
-
-export function generateStaticParams() {
-  return detailPages.work().map((id) => ({ id }));
-}
-
-/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
-export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { language } = await getLocale();
@@ -107,7 +102,7 @@ export default async function WorkPage({ params }: Props) {
   const rows = evidenceForActivity(work.activity_id).filter((r) => r.level !== null);
   const tier = rows.map((r) => r.evidence_tier).sort((a, b) => (TIER_RANK[a] ?? 9) - (TIER_RANK[b] ?? 9))[0] ?? "T3";
   const companies = new Set(rows.map((r) => r.org_name).filter(Boolean));
-  const gateById = new Map(allGates.map((g) => [g.gate_id, g]));
+  const gateById = new Map(allGates().map((g) => [g.gate_id, g]));
   const held = work.gated ? gatesOfActivity(work.activity_id).map((id) => gateById.get(id)).filter((g) => g !== undefined) : [];
   const siblings = activitiesOfMarket(work.market_id).filter((a) => a.activity_id !== work.activity_id && a.evidence_rows && a.level);
   const levelText = `L${level} ${LEVEL_NAMES[language][level]}`;
@@ -126,7 +121,7 @@ export default async function WorkPage({ params }: Props) {
       <div className={s.eyebrow}>{c.eyebrow} · <Link href={marketHref(language, work.market_id)}>{market}</Link></div>
       <h1 className={s.title}>{name}</h1>
       <p className={s.say}>
-        {c.say.replace("{date}", manifest?.generated_at.slice(0, 10) ?? "").replace("{n}", String(rows.length)).replace("{tier}", TIER_NAMES[language][tier] ?? tier).split("{level}")[0]}
+        {c.say.replace("{date}", manifest()?.generated_at.slice(0, 10) ?? "").replace("{n}", String(rows.length)).replace("{tier}", TIER_NAMES[language][tier] ?? tier).split("{level}")[0]}
         <b>{levelText}</b>
         {c.say.replace("{date}", "").replace("{n}", String(rows.length)).replace("{tier}", TIER_NAMES[language][tier] ?? tier).split("{level}")[1]}
       </p>

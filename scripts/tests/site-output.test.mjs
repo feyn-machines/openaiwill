@@ -1,23 +1,110 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+// These tests start the built server (`pnpm build` first) and read what it answers over HTTP.
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const APP = join(ROOT, ".next", "server", "app");
-const HAS_SNAPSHOT = existsSync(join(ROOT, "datasets", "published", "latest", "manifest.json"));
+const STANDALONE = join(ROOT, ".next", "standalone");
+const SNAPSHOT_DIR = join(ROOT, "datasets", "published", "latest");
+const HAS_SNAPSHOT = existsSync(join(SNAPSHOT_DIR, "manifest.json"));
 const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/whitepaper"];
 
-const html = (language, path) => readFileSync(join(APP, `${language}${path}.html`), "utf8");
+const freePort = () =>
+  new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+
+let workDir = null;
+let serverDir = null;
+const running = [];
+
+/** The built server, copied beside `public/` and `.next/static` the way a release is assembled. */
+function assemble() {
+  if (serverDir) return serverDir;
+  assert.ok(existsSync(join(STANDALONE, "server.js")), "run `pnpm build` first");
+  workDir = mkdtempSync(join(tmpdir(), "openaiwill-site-"));
+  const server = join(workDir, "server");
+  serverDir = server;
+  cpSync(STANDALONE, server, { recursive: true, verbatimSymlinks: true });
+  cpSync(join(ROOT, "public"), join(server, "public"), { recursive: true });
+  mkdirSync(join(server, ".next"), { recursive: true });
+  cpSync(join(ROOT, ".next", "static"), join(server, ".next", "static"), { recursive: true });
+  return server;
+}
+
+/** Start the server on a free port and wait until it answers; returns its address and its process. */
+async function startServer(env) {
+  const dir = assemble();
+  const port = await freePort();
+  const childEnv = { ...process.env, ...env, PORT: String(port), HOSTNAME: "127.0.0.1", SITE_ENV: "preview", NODE_ENV: "production" };
+  if (!env.DATABASE_URL) delete childEnv.DATABASE_URL;
+  const proc = spawn(process.execPath, ["server.js"], { cwd: dir, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+  let log = "";
+  proc.stdout.on("data", (chunk) => (log += chunk));
+  proc.stderr.on("data", (chunk) => (log += chunk));
+  running.push(proc);
+  const base = `http://127.0.0.1:${port}`;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (proc.exitCode !== null) assert.fail(`the server exited with ${proc.exitCode}:\n${log}`);
+    try {
+      if ((await fetch(`${base}/healthz`)).status === 200) return { base, proc };
+    } catch {
+      // not listening yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.fail(`the server did not answer:\n${log}`);
+}
+
+/** Stop a server this file started, by its PID, and wait for it to be gone. */
+async function stop(proc) {
+  if (proc.exitCode !== null || proc.signalCode !== null) return;
+  const exited = new Promise((resolve) => proc.once("exit", resolve));
+  proc.kill("SIGTERM");
+  await exited;
+}
+
+let site;
+const pages = new Map();
+const files = new Map();
+
+before(async () => {
+  site = await startServer({ SNAPSHOT_DIR });
+  for (const language of ["en", "zh-CN"]) {
+    for (const path of FIXED) {
+      const res = await fetch(`${site.base}${language === "en" ? "" : "/zh-CN"}${path || "/"}`);
+      assert.equal(res.status, 200, `${language}${path}`);
+      pages.set(`${language}${path}`, await res.text());
+    }
+  }
+  for (const name of ["robots.txt", "sitemap.xml", "llms.txt"]) {
+    const res = await fetch(`${site.base}/${name}`);
+    assert.equal(res.status, 200, name);
+    files.set(name, await res.text());
+  }
+});
+
+after(async () => {
+  for (const proc of running) await stop(proc);
+  if (workDir) rmSync(workDir, { recursive: true, force: true });
+});
+
+const html = (language, path) => pages.get(`${language}${path}`);
 const anchors = (page) => [...page.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)].map((m) => m[1]);
 const internal = (hrefs) => hrefs.filter((h) => h.startsWith("/") && !h.startsWith("//"));
 
-test("the build exists", () => {
-  assert.ok(existsSync(APP), "run `pnpm build` first");
-});
-
-test("every fixed page is prerendered in both languages", () => {
+test("every fixed page answers in both languages", () => {
   for (const language of ["en", "zh-CN"]) {
     for (const path of FIXED) {
       assert.match(html(language, path), new RegExp(`<html[^>]*lang="${language}"`), `${language}${path}`);
@@ -36,12 +123,60 @@ test("a Chinese page links only to Chinese pages, an English page only to unpref
   }
 });
 
-test("detail pages are prerendered when there is a snapshot", { skip: !HAS_SNAPSHOT }, () => {
-  for (const section of ["markets", "occupations", "updates", "work"]) {
-    for (const language of ["en", "zh-CN"]) {
-      const pages = readdirSync(join(APP, language, section)).filter((name) => name.endsWith(".html"));
-      assert.ok(pages.length > 0, `${language}/${section} has no prerendered pages`);
+test("an address outside the loaded release is a 404 in both languages", async () => {
+  for (const prefix of ["", "/zh-CN"]) {
+    for (const path of ["/markets/no-such-market", "/occupations/no-such-occupation", "/occupations/g/no-such-group",
+      "/updates/no-such-update", "/work/no-such-work"]) {
+      const res = await fetch(`${site.base}${prefix}${path}`);
+      assert.equal(res.status, 404, `${prefix}${path}`);
     }
+  }
+  assert.equal((await fetch(`${site.base}/fr/markets`)).status, 404);
+});
+
+test("with a snapshot, a detail page of each kind answers", { skip: !HAS_SNAPSHOT }, async () => {
+  const locs = [...files.get("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  for (const section of ["markets", "occupations/g", "occupations", "updates", "work"]) {
+    for (const prefix of ["https://openaiwill.com", "https://openaiwill.com/zh-CN"]) {
+      const loc = locs.find((l) => l.startsWith(`${prefix}/${section}/`));
+      assert.ok(loc, `${prefix}/${section} is not in the sitemap`);
+      assert.equal((await fetch(`${site.base}${new URL(loc).pathname}`)).status, 200, loc);
+    }
+  }
+});
+
+test("every data page asks to be rendered per request, so none is baked into the build", () => {
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(join(dir, entry.name)) : entry.name === "page.tsx" ? [join(dir, entry.name)] : []);
+  for (const file of walk(join(ROOT, "src", "app", "[lang]"))) {
+    const text = readFileSync(file, "utf8");
+    if (file.includes("whitepaper")) assert.match(text, /export const dynamic = "force-static"/, file);
+    else assert.match(text, /export const dynamic = "force-dynamic"/, file);
+  }
+});
+
+test("the market groups on the home page match the sealed ontology release", () => {
+  const dir = join(ROOT, "datasets", "ontology", "releases", "v1.0.0");
+  if (!existsSync(join(dir, "concepts.jsonl"))) return;
+  const lines = (name) => readFileSync(join(dir, name), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  const groups = Object.fromEntries(lines("concepts.jsonl").filter((c) => c.kind === "market_group")
+    .map((c) => [c.id, { en: c.label_en, zh: c.label_zh_cn ?? c.label_en }]));
+  const groupOfMarket = Object.fromEntries(lines("relations.jsonl").filter((r) => r.kind === "has_market").map((r) => [r.child_id, r.parent_id]));
+  const stored = JSON.parse(readFileSync(join(ROOT, "src", "content", "market-groups.json"), "utf8"));
+  assert.deepEqual(stored.groups, groups);
+  assert.deepEqual(stored.group_of_market, groupOfMarket);
+});
+
+test("/healthz names the data release and is not cached", async () => {
+  const res = await fetch(`${site.base}/healthz`);
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  const { ok, data } = await res.json();
+  assert.equal(ok, true);
+  if (HAS_SNAPSHOT) {
+    assert.equal(data.source, "files");
+    assert.match(data.releaseId, /^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
+  } else {
+    assert.deepEqual(data, { releaseId: null, source: "none", loadedAt: null });
   }
 });
 
@@ -110,7 +245,7 @@ test("no Dataset JSON-LD description claims a share", () => {
   }
 });
 
-const body = (name) => readFileSync(join(APP, `${name}.body`), "utf8");
+const body = (name) => files.get(name);
 
 test("robots.txt allows everything, names the AI crawlers, and points at the sitemap", () => {
   const robots = body("robots.txt");
@@ -122,19 +257,21 @@ test("robots.txt allows everything, names the AI crawlers, and points at the sit
   }
 });
 
-test("every sitemap address is a prerendered page, with its counterpart", () => {
+test("the sitemap lists each address once, with its counterpart, and the addresses answer", async () => {
   const xml = body("sitemap.xml");
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   assert.ok(locs.length >= FIXED.length * 2);
   assert.equal(new Set(locs).size, locs.length, "duplicate addresses");
-  for (const loc of locs) {
-    assert.ok(loc.startsWith(`${SITE}/`) || loc === SITE, loc);
-    const path = decodeURI(loc.slice(SITE.length)).replace(/\/$/, "");
-    const file = path.startsWith("/zh-CN") ? path.slice(1) : `en${path}`;
-    assert.ok(existsSync(join(APP, `${file}.html`)), `${loc} is not a prerendered page`);
-  }
+  for (const loc of locs) assert.ok(loc.startsWith(`${SITE}/`) || loc === SITE, loc);
   assert.match(xml, /hreflang="zh-CN"/);
   assert.match(xml, /hreflang="x-default"/);
+  // The first, the last and twenty evenly spaced addresses between them.
+  const sample = new Set([locs[0], locs[locs.length - 1]]);
+  for (let i = 0; i < 20; i += 1) sample.add(locs[Math.floor((i * (locs.length - 1)) / 19)]);
+  for (const loc of sample) {
+    const res = await fetch(`${site.base}${decodeURI(loc.slice(SITE.length)) || "/"}`);
+    assert.equal(res.status, 200, loc);
+  }
 });
 
 const ld = (page) =>
@@ -172,7 +309,7 @@ test("structured data never claims a review or a rating", () => {
   }
 });
 
-test("llms.txt is generated from the site, names real pages, and overstates nothing", () => {
+test("llms.txt is generated from the site, names real pages, and overstates nothing", async () => {
   const text = body("llms.txt");
   assert.match(text, /^# openaiwill\n/);
   assert.doesNotMatch(text, /\bplatform\b|verified|reviewed score|replacement rate/i);
@@ -184,8 +321,7 @@ test("llms.txt is generated from the site, names real pages, and overstates noth
   for (const [, url] of text.matchAll(/\]\((https:\/\/openaiwill\.com[^)]*)\)/g)) {
     const path = url.slice(SITE.length).replace(/\/$/, "");
     if (/\.(txt|xml)$/.test(path)) continue;
-    const file = path.startsWith("/zh-CN") ? path.slice(1) : `en${path}`;
-    assert.ok(existsSync(join(APP, `${file}.html`)), `${url} is not a page`);
+    assert.equal((await fetch(`${site.base}${path || "/"}`)).status, 200, `${url} is not a page`);
   }
 });
 
@@ -195,4 +331,54 @@ test("the figures on the home page are in its HTML, not only drawn by script", {
     assert.match(text, /\bL[0-5]\b/, `${language}: no level appears as text`);
     assert.ok((text.match(/\d{2,}/g) ?? []).length >= 5, `${language}: fewer than five numbers appear as text`);
   }
+});
+
+/** The local PostgreSQL of the data pipeline, when it is running and holds an active release; null otherwise. */
+async function localDatabase() {
+  const passwordFile = join(ROOT, "data", "postgres", "password");
+  if (!existsSync(passwordFile)) return null;
+  const password = readFileSync(passwordFile, "utf8").trim();
+  const url = `postgres://openaiwill:${encodeURIComponent(password)}@127.0.0.1:7543/openaiwill_local`;
+  const { Client } = createRequire(import.meta.url)("pg");
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 2000 });
+  try {
+    await client.connect();
+    const { rows } = await client.query("SELECT release_id FROM kg.active");
+    return rows[0] ? { url, releaseId: rows[0].release_id } : null;
+  } catch {
+    return null;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+test("with a database, the server serves the active release", async (t) => {
+  const database = await localDatabase();
+  if (!database) return t.skip("no local PostgreSQL with an active data release");
+  const { base, proc } = await startServer({ DATABASE_URL: database.url });
+  try {
+    const { data } = await (await fetch(`${base}/healthz`)).json();
+    assert.equal(data.source, "database");
+    assert.equal(data.releaseId, database.releaseId);
+    assert.equal((await fetch(`${base}/markets`)).status, 200);
+    assert.equal((await fetch(`${base}/markets/no-such-market`)).status, 404);
+  } finally {
+    await stop(proc);
+  }
+});
+
+test("a server that cannot reach its database does not stay up", async () => {
+  const dir = assemble();
+  const port = await freePort();
+  const proc = spawn(process.execPath, ["server.js"], {
+    cwd: dir,
+    env: { ...process.env, DATABASE_URL: "postgres://nobody:none@127.0.0.1:1/none", PORT: String(port), HOSTNAME: "127.0.0.1", NODE_ENV: "production" },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  running.push(proc);
+  let log = "";
+  proc.stderr.on("data", (chunk) => (log += chunk));
+  const code = await new Promise((resolve) => proc.once("exit", resolve));
+  assert.notEqual(code, 0);
+  assert.match(log, /cannot load the data release/);
 });

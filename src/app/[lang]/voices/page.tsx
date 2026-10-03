@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { type Language } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import { pageMetadata } from "@/lib/seo";
-import { manifest, snapshotExists, sources, type Source } from "@/lib/snapshot";
+import { manifest, snapshotExists, sources as allSources, type Source } from "@/lib/snapshot";
 import { NoSnapshot, PageHeader, Section, bilingual, dataStyles as d, formatNumber, isoDate } from "@/components/data-page";
 import { termName } from "@/components/ontology-labels";
 import { Avatar } from "./avatar";
 import s from "./voices.module.css";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * Who the record is collected from, and what they last said.
@@ -124,7 +127,7 @@ export default async function VoicesPage() {
   const { language } = await getLocale();
   const c = copy[language];
 
-  if (!snapshotExists || !manifest) {
+  if (!snapshotExists() || !manifest()) {
     return (
       <div className={s.page}>
         <PageHeader eyebrow={c.eyebrow} title={c.title} />
@@ -133,6 +136,7 @@ export default async function VoicesPage() {
     );
   }
 
+  const sources = allSources();
   const people = sources.filter((x) => x.owner_kind === "person");
   const orgs = sources.filter((x) => x.owner_kind === "organization").sort(byLatest);
   const top = people

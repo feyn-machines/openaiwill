@@ -21,6 +21,9 @@ import {
 import { UpdatesBrowser, type UpdateRow } from "./updates-browser";
 import s from "./updates.module.css";
 
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
+
 /**
  * What 581 updates turned out to be worth.
  *
@@ -158,7 +161,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function UpdatesPage() {
   const { language } = await getLocale();
   const c = copy[language];
-  if (!snapshotExists) {
+  if (!snapshotExists()) {
     return (
       <div className={s.page}>
         <PageHeader eyebrow={c.eyebrow} title={c.title} lead={c.lead} />
@@ -169,8 +172,8 @@ export default async function UpdatesPage() {
 
   // The ladder's own words, read from the snapshot. Nothing in src/ restates
   // them: pnpm ontology:check fails the build if anything does.
-  const words = progress?.levels ?? {};
-  const caps = progress?.tier_caps ?? null;
+  const words = progress()?.levels ?? {};
+  const caps = progress()?.tier_caps ?? null;
   const rung = (level: number | null | undefined): string | null => {
     if (level === null || level === undefined) return null;
     const step = String(Math.floor(level));
@@ -178,9 +181,9 @@ export default async function UpdatesPage() {
     return word ? `L${step} · ${word}` : `L${step}`;
   };
 
-  const landed = new Map(chainEvents.map((e) => [e.event_id, e]));
+  const landed = new Map(chainEvents().map((e) => [e.event_id, e]));
   const readingsByEvent = new Map<string, UpdateRow["readings"]>();
-  for (const row of evidence) {
+  for (const row of evidence()) {
     const activity = activityById(row.activity_id);
     const list = readingsByEvent.get(row.event_id) ?? [];
     const tier = row.evidence_tier as keyof NonNullable<typeof caps>;
@@ -206,7 +209,7 @@ export default async function UpdatesPage() {
   }
 
   // Only updates that bear on some work are listed; the rest say nothing this page can show.
-  const rows: UpdateRow[] = [...events]
+  const rows: UpdateRow[] = [...events()]
     .filter((row) => landed.has(row.event_id))
     .sort((a, b) => (b.occurred_at ?? "").localeCompare(a.occurred_at ?? ""))
     .map((row) => {
@@ -228,14 +231,14 @@ export default async function UpdatesPage() {
   // coverage names publishers in the registry's English; the table shows the
   // reader's language. The chart keeps the key and shows the label.
   const orgLabels = new Map<string, string>();
-  for (const row of events) {
+  for (const row of events()) {
     if (!row.org_name) continue;
     orgLabels.set(
       row.org_name,
       ((language === "zh-CN" ? row.org_name_zh_cn : row.org_name) ?? row.org_name) as string,
     );
   }
-  const orgs = (coverage?.events_by_organisation ?? [])
+  const orgs = (coverage()?.events_by_organisation ?? [])
     .filter((o) => o.events > 0)
     .map((o) => ({ ...o, label: orgLabels.get(o.org) ?? o.org }));
   const maxActivities = Math.max(1, ...rows.map((r) => r.activities));

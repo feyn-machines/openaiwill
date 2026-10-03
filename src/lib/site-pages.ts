@@ -14,15 +14,16 @@ import { workSlug } from "./routes";
 export const FIXED_PATHS = ["/", "/markets", "/occupations", "/updates", "/voices", "/whitepaper"] as const;
 
 /**
- * The detail pages this build contains. Each detail route prerenders exactly
- * this list and serves nothing else, and the sitemap lists exactly this list,
- * so the sitemap cannot name a page that does not exist.
+ * The detail pages of the loaded data release. Each detail route looks its
+ * entity up in the same release and answers 404 when it is absent, and the
+ * sitemap lists exactly this list, so the sitemap cannot name a page that does
+ * not exist.
  */
 export const detailPages = {
   markets: () => markets().map((market) => marketSlug(market.id)),
   occupations: () => occupations().map((row) => occupationSlug(row.occupation_id)),
-  occupationGroups: () => Object.keys(progress?.groups ?? {}).map(groupSlug),
+  occupationGroups: () => Object.keys(progress()?.groups ?? {}).map(groupSlug),
   /** Only work an update has reached has a page of its own. */
-  work: () => activities.filter((a) => a.evidence_rows && a.level).map((a) => workSlug(a.activity_id)),
-  updates: () => chainEvents.map((e) => ({ id: e.event_id, occurredAt: e.occurred_at ?? null })),
+  work: () => activities().filter((a) => a.evidence_rows && a.level).map((a) => workSlug(a.activity_id)),
+  updates: () => chainEvents().map((e) => ({ id: e.event_id, occurredAt: e.occurred_at ?? null })),
 };

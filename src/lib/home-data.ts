@@ -1,7 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { vocabularyTerm } from "@/components/ontology-labels";
-import { activities, chainEvents, coverage, events, evidence, manifest } from "@/lib/snapshot";
+import marketGroups from "@/content/market-groups.json";
+import * as snapshot from "@/lib/snapshot";
 
 /**
  * Everything the homepage draws, in one compact object the server builds once
@@ -65,16 +64,12 @@ export type HomeData = {
   rows: HomeRow[];
 };
 
-const ONTOLOGY_DIR = join(process.cwd(), "datasets", "ontology", "releases", "v1.0.0");
-
-type Concept = { id: string; kind: string; label_en: string; label_zh_cn: string | null };
-type Relation = { kind: string; parent_id: string; child_id: string };
-
-function jsonl<T>(name: string): T[] {
-  const path = join(ONTOLOGY_DIR, name);
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as T);
-}
+/**
+ * The sealed v1.0.0 ontology's market groups and which group each market sits in.
+ * A small file generated from the release, because the release itself stays out
+ * of the server's files; `site-output.test.mjs` checks the two agree.
+ */
+const GROUPS = marketGroups as { groups: Record<string, Both>; group_of_market: Record<string, string> };
 
 const DAY = 24 * 60 * 60 * 1000;
 const dayOf = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
@@ -84,23 +79,19 @@ const dayOf = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, 
  * then says so instead of drawing an empty figure.
  */
 export function buildHomeData(): HomeData | null {
+  const manifest = snapshot.manifest();
+  const coverage = snapshot.coverage();
   const first = coverage?.collection_window.first;
   const last = coverage?.collection_window.last;
   if (!manifest || !coverage || !first || !last) return null;
 
   // Domains are sealed ontology concepts, not a prefix cut from a market id.
-  const groups = new Map<string, Both>();
-  for (const c of jsonl<Concept>("concepts.jsonl")) {
-    if (c.kind === "market_group") groups.set(c.id, { en: c.label_en, zh: c.label_zh_cn ?? c.label_en });
-  }
-  const groupOfMarket = new Map<string, string>();
-  for (const r of jsonl<Relation>("relations.jsonl")) {
-    if (r.kind === "has_market") groupOfMarket.set(r.child_id, r.parent_id);
-  }
+  const groups = new Map(Object.entries(GROUPS.groups));
+  const groupOfMarket = new Map(Object.entries(GROUPS.group_of_market));
 
   const works: HomeWork[] = [];
   const domains: Record<string, Both> = {};
-  for (const a of activities) {
+  for (const a of snapshot.activities()) {
     const domainId = groupOfMarket.get(a.market_id);
     if (!a.evidence_rows || !a.level || !domainId) continue;
     const domain = groups.get(domainId);
@@ -119,7 +110,7 @@ export function buildHomeData(): HomeData | null {
 
   const rows: HomeRow[] = [];
   const used = new Set<string>();
-  for (const r of evidence) {
+  for (const r of snapshot.evidence()) {
     if (r.level == null || r.observed_level == null || !known.has(r.activity_id)) continue;
     used.add(r.event_id);
     rows.push({ update: r.event_id, work: r.activity_id, claimed: r.observed_level, accepted: r.level, tier: r.evidence_tier });
@@ -127,9 +118,9 @@ export function buildHomeData(): HomeData | null {
 
   const start = dayOf(first);
   const days = Math.round((dayOf(last) - start) / DAY) + 1;
-  const detail = new Map(events.map((e) => [e.event_id, e]));
+  const detail = new Map(snapshot.events().map((e) => [e.event_id, e]));
   const updates: HomeUpdate[] = [];
-  for (const e of chainEvents) {
+  for (const e of snapshot.chainEvents()) {
     if (!used.has(e.event_id)) continue;
     const more = detail.get(e.event_id);
     const term = vocabularyTerm("event_kind", more?.kind);

@@ -23,6 +23,9 @@ import { count, fill, indexCopy } from "./copy";
 import { MarketsExplorer, type MarketRow } from "./markets-explorer";
 import x from "./markets.module.css";
 
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
+
 /**
  * The market axis.
  *
@@ -46,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MarketsPage() {
   const { language } = await getLocale();
   const c = indexCopy[language];
-  if (!snapshotExists) {
+  if (!snapshotExists()) {
     return (
       <div className={s.page}>
         <PageHeader eyebrow={c.eyebrow} title={c.title} lead={c.lead} />
@@ -75,9 +78,9 @@ export default async function MarketsPage() {
   });
 
   const levels = Object.fromEntries(
-    Object.entries(progress?.levels ?? {}).map(([rung, words]) => [rung, words[language]]),
+    Object.entries(progress()?.levels ?? {}).map(([rung, words]) => [rung, words[language]]),
   );
-  const rungs = progress?.stages ?? [];
+  const rungs = progress()?.stages ?? [];
 
   const activitiesTotal = rows.reduce((sum, row) => sum + row.total, 0);
   const withReading = rows.filter((row) => row.rung !== null).length;

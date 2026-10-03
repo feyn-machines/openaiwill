@@ -23,12 +23,14 @@ const nextConfig: NextConfig = {
   experimental: { globalNotFound: true },
 
   /**
-   * A self-contained server for the release directory. The snapshot, local
-   * data and documents are read while building and must not be copied next to
-   * the server: the release carries rendered pages, never the files they came
-   * from. `scripts/site_release.py` checks the assembled directory as well.
+   * A self-contained server for the release directory. Pages render per request
+   * from the data release the server loads at start (see `src/instrumentation.ts`),
+   * so the snapshot, local data and documents are not copied next to the server.
+   * `scripts/site_release.py` checks the assembled directory as well.
    */
   output: "standalone",
+  /** The database client is loaded by Node at run time, not bundled; tracing still copies it into the standalone output. */
+  serverExternalPackages: ["pg"],
   // No page uses the image optimizer, and its native `sharp` binary would be built for this machine, not the server's architecture.
   images: { unoptimized: true },
   outputFileTracingExcludes: {

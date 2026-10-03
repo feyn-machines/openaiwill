@@ -8,7 +8,6 @@ import { getLocale } from "@/lib/locale";
 import { breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { siteNavCopy } from "@/lib/site-nav";
-import { detailPages } from "@/lib/site-pages";
 import { href } from "@/lib/routes";
 import {
   activitiesOfMarket,
@@ -26,17 +25,18 @@ import {
 import {
   DataPageLinks,
   Missing,
-  NoSnapshot,
   PageHeader,
   Provenance,
   TableScroll,
   dataStyles as s,
-  hasSnapshot,
   isoDate,
 } from "@/components/data-page";
 import { count, detailCopy, fill } from "../copy";
 import x from "../markets.module.css";
 import { Activities, type ActivityView } from "./activities";
+
+/** Rendered per request from the loaded data release, never at build time. */
+export const dynamic = "force-dynamic";
 
 /**
  * One market: its activities, the readings behind each one, and the
@@ -51,13 +51,6 @@ import { Activities, type ActivityView } from "./activities";
 
 type Props = { params: Promise<{ id: string }> };
 
-export function generateStaticParams() {
-  return detailPages.markets().map((id) => ({ id }));
-}
-
-/** The server holds no snapshot, so an address outside this build is a 404, not a page to render. */
-export const dynamicParams = false;
-
 function marketForSlug(slug: string) {
   return markets().find((market) => marketSlug(market.id) === slug);
 }
@@ -67,10 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = detailCopy[language];
   const id = (await params).id;
   const market = marketForSlug(id);
-  if (!market) {
-    if (!hasSnapshot) return { title: c.metaSuffix };
-    notFound();
-  }
+  if (!market) notFound();
   const name = (language === "zh-CN" ? market.zh_cn : market.en) ?? market.en;
   return pageMetadata({
     language,
@@ -85,28 +75,16 @@ export default async function MarketPage({ params }: Props) {
   const c = detailCopy[language];
   const market = marketForSlug((await params).id);
 
-  if (!market) {
-    if (hasSnapshot) notFound();
-    return (
-      <div className={s.page}>
-        <Link className="oaw-back" href={href(language, "/markets")}>
-          {c.back}
-        </Link>
-        <PageHeader eyebrow={c.eyebrow} title={c.metaSuffix} lead={c.lead} />
-        <NoSnapshot language={language} />
-        <DataPageLinks language={language} current="markets" />
-      </div>
-    );
-  }
+  if (!market) notFound();
 
   const name = (language === "zh-CN" ? market.zh_cn : market.en) ?? market.en;
-  const sourceUrl = new Map(events.map((event) => [event.event_id, event.source_urls?.[0] ?? null]));
-  const caps = progress?.tier_caps ?? {};
+  const sourceUrl = new Map(events().map((event) => [event.event_id, event.source_urls?.[0] ?? null]));
+  const caps = progress()?.tier_caps ?? {};
   const levels = Object.fromEntries(
-    Object.entries(progress?.levels ?? {}).map(([rung, words]) => [rung, words[language]]),
+    Object.entries(progress()?.levels ?? {}).map(([rung, words]) => [rung, words[language]]),
   );
 
-  const gateById = new Map(allGates.map((gate) => [gate.gate_id, gate]));
+  const gateById = new Map(allGates().map((gate) => [gate.gate_id, gate]));
 
   const activities: ActivityView[] = activitiesOfMarket(market.id).map((activity) => ({
     id: activity.activity_id,
@@ -169,7 +147,7 @@ export default async function MarketPage({ params }: Props) {
       heldHere.set(gate.id, (heldHere.get(gate.id) ?? 0) + 1);
     }
   }
-  const gatesHere = allGates.filter((gate) => heldHere.has(gate.gate_id));
+  const gatesHere = allGates().filter((gate) => heldHere.has(gate.gate_id));
 
   return (
     <div className={s.page}>
