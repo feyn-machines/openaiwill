@@ -21,7 +21,7 @@ const copy = bilingual({
   en: {
     back: "← {market}",
     eyebrow: "WORK",
-    metaDescription: "{name}: L{level} {levelName}, from {count} AI updates.",
+    metaDescription: "{name}: L{level} {levelName}. AI updates as evidence: {count}.",
     say: "As of {date}, AI does this work at {level}. {n} updates bear on it. Strongest evidence: {tier}.",
     level: "Level",
     updates: "Updates",
@@ -44,7 +44,7 @@ const copy = bilingual({
   "zh-CN": {
     back: "← {market}",
     eyebrow: "工作",
-    metaDescription: "{name}：L{level} {levelName}，依据 {count} 条 AI 更新。",
+    metaDescription: "{name}：L{level} {levelName}。作为依据的 AI 更新：{count} 条。",
     say: "截至 {date}，AI 把这项工作做到 {level}。{n} 条更新涉及它，最强的证据：{tier}。",
     level: "级别",
     updates: "更新",
