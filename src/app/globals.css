@@ -81,11 +81,3 @@ h1,h2{font-family:var(--ah-font-heading)}
 
 /* The site is dark; native controls, menus and scrollbars follow. */
 :root{color-scheme:dark}
-
-/* Public community destinations share the footer on every page. */
-.footer{align-items:center}
-.footer-copy{display:flex;flex-wrap:wrap;gap:8px 24px}
-.footer-social{display:flex;gap:24px;font-size:13px;flex-shrink:0}
-.footer-social a{display:inline-flex;align-items:center;min-height:var(--ah-control-height)}
-.footer-social a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
-@media(max-width:760px){.footer{align-items:flex-start}.footer-copy{flex-direction:column;gap:8px}}
