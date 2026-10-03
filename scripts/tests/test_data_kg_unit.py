@@ -81,6 +81,26 @@ class PackTest(unittest.TestCase):
         with self.assertRaises(kg.KgError):
             kg.pack(payload)
 
+    def test_duplicate_entity_id_is_refused_naming_collection_and_id(self):
+        payload = small_payload()
+        payload["models"] = [{"model_id": "x"}, {"model_id": "x", "n": 2}]
+        with self.assertRaises(kg.KgError) as raised:
+            kg.pack(payload)
+        self.assertIn("models", str(raised.exception))
+        self.assertIn("'x'", str(raised.exception))
+
+    def test_malformed_payload_shapes_are_one_line_errors(self):
+        for mutate in (lambda p: p.update(chain=[]), lambda p: p.update(markets={}),
+                       lambda p: p.update(coverage=[]), lambda p: p["chain"].update(events={}),
+                       lambda p: p.update(chain=None)):
+            payload = small_payload()
+            mutate(payload)
+            with self.assertRaises(kg.KgError) as raised:
+                kg.verify_payload(payload, {"counts": {}, "content_sha256": ""})
+            self.assertNotIn("\n", str(raised.exception))
+            with self.assertRaises(kg.KgError):
+                kg.pack(payload)
+
     def test_missing_entity_id_field_in_a_document_is_refused(self):
         payload = small_payload()
         payload["models"] = [{"name": "no id"}]
@@ -110,15 +130,28 @@ class DiffTest(unittest.TestCase):
         old, new = small_payload(), small_payload()
         new["chain"]["events"] = [{"event_id": "e1", "n": 99}, {"event_id": "e3", "n": 3}]
         result = kg.diff_rows(self.rows(new), self.rows(old))
-        self.assertEqual(result["chain.events"], {"added": 1, "changed": 1, "removed": 1})
-        self.assertEqual(result["models"], {"added": 0, "changed": 0, "removed": 0})
+        self.assertEqual(result["chain.events"], {"added": 1, "changed": 1, "removed": 1, "reordered": False})
+        self.assertEqual(result["models"], {"added": 0, "changed": 0, "removed": 0, "reordered": False})
 
     def test_without_ids_rows_compare_as_a_multiset(self):
         old, new = small_payload(), small_payload()
         new["markets"] = [{"market_id": "m", "occupation_id": "o1"}, {"market_id": "m", "occupation_id": "o9"},
                           {"market_id": "m", "occupation_id": "o9"}]
         result = kg.diff_rows(self.rows(new), self.rows(old))
-        self.assertEqual(result["markets"], {"added": 2, "changed": 0, "removed": 1})
+        self.assertEqual(result["markets"], {"added": 2, "changed": 0, "removed": 1, "reordered": False})
+
+    def test_pure_reordering_of_an_id_collection_is_reported(self):
+        old, new = small_payload(), small_payload()
+        new["chain"]["events"].reverse()
+        result = kg.diff_rows(self.rows(new), self.rows(old))
+        self.assertEqual(result["chain.events"], {"added": 0, "changed": 0, "removed": 0, "reordered": True})
+        self.assertFalse(result["models"]["reordered"])
+
+    def test_pure_reordering_of_an_id_less_collection_is_reported(self):
+        old, new = small_payload(), small_payload()
+        new["markets"].reverse()
+        result = kg.diff_rows(self.rows(new), self.rows(old))
+        self.assertEqual(result["markets"], {"added": 0, "changed": 0, "removed": 0, "reordered": True})
 
     def test_against_nothing_everything_is_added(self):
         result = kg.diff_rows(self.rows(small_payload()), [])

@@ -5,6 +5,10 @@
     promote   make the newest verified release live
     rollback  make the previously live release live again
     status    list releases and the live one
+    reset     drop and recreate the kg schema (destroys all releases; --target local only)
+
+`rollback` re-activates the previously active release, so running it twice
+returns to where you started.
 
 Only `--target local` exists until the deployment task adds the server tunnel.
 Errors are one `error: ...` line and exit status 1.
@@ -31,8 +35,10 @@ def open_target(target):
 def summarize(changes):
     lines = []
     for name, c in changes.items():
-        if any(c.values()):
-            lines.append(f"  {name}: +{c['added']} ~{c['changed']} -{c['removed']}")
+        if c["added"] or c["changed"] or c["removed"]:
+            lines.append(f"  {name}: +{c['added']} ~{c['changed']} -{c['removed']}" + (" order changed" if c["reordered"] else ""))
+        elif c["reordered"]:
+            lines.append(f"  {name}: order changed")
     return lines or ["  no rows differ from the active release"]
 
 
@@ -78,7 +84,13 @@ def cmd_status(conn, args):
         print("no releases")
 
 
-COMMANDS = {"release": cmd_release, "promote": cmd_promote, "rollback": cmd_rollback, "status": cmd_status}
+def cmd_reset(conn, args):
+    kg.reset(conn)
+    print("kg schema recreated empty")
+
+
+COMMANDS = {"release": cmd_release, "promote": cmd_promote, "rollback": cmd_rollback, "status": cmd_status,
+            "reset": cmd_reset}
 
 
 def main(argv=None):
@@ -88,6 +100,8 @@ def main(argv=None):
     parser.add_argument("--snapshot", type=Path, default=kg.SNAPSHOT_DIR)
     args = parser.parse_args(argv)
     try:
+        if args.command == "reset" and args.target != "local":
+            raise kg.KgError("reset works only with --target local")
         with open_target(args.target) as conn:
             COMMANDS[args.command](conn, args)
     except (kg.KgError, psycopg.Error, RuntimeError, OSError, ValueError) as error:

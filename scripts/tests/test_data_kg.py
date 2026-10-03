@@ -125,9 +125,9 @@ class ImportTest(KgBase):
         self.assertEqual(second.docs_written, 3)
         self.assertEqual(self.count("kg.docs"), docs_after_first + 3)
         changes = kg.diff(self.conn, second.seq, first.seq)
-        self.assertEqual(changes["chain.events"], {"added": 1, "changed": 0, "removed": 0})
-        self.assertEqual(changes["models"], {"added": 0, "changed": 1, "removed": 0})
-        self.assertEqual(changes["tasks"], {"added": 0, "changed": 0, "removed": 0})
+        self.assertEqual(changes["chain.events"], {"added": 1, "changed": 0, "removed": 0, "reordered": False})
+        self.assertEqual(changes["models"], {"added": 0, "changed": 1, "removed": 0, "reordered": False})
+        self.assertEqual(changes["tasks"], {"added": 0, "changed": 0, "removed": 0, "reordered": False})
         self.assertEqual(kg.diff(self.conn, first.seq, None)["models"]["added"], 3)
 
     def test_payload_that_does_not_hash_to_its_manifest_leaves_nothing(self):
@@ -165,6 +165,54 @@ class ImportTest(KgBase):
         self.assertEqual(row["first_release_seq"], first.seq)
         self.assertEqual(self.count("kg.release_rows", f"release_seq={second.seq} AND entity_id='e2'"), 0)
         self.assertEqual(self.count("kg.entities", "collection='chain.events'"), 5)
+
+
+class ExactJsonTest(KgBase):
+    def test_awkward_numbers_and_shapes_survive_byte_for_byte(self):
+        p = payload()
+        p["tasks"] = [
+            {"task_id": "n", "big": 1e22, "huge": 1.5e300, "negzero": -0.0, "wide": 12345678901234567890,
+             "tiny": 1e-7, "whole": 1.0, "nested": {"z": 1, "a": {"y": [1, {"b": 2, "a": 1}], "x": None}},
+             "text": "日本語 العربية 🙂 \u2028", "none": None, "empty_list": [], "empty_obj": {}},
+        ]
+        result = self.release(p)
+        back = kg.load_release(self.conn, result.seq)
+        self.assertEqual(digest(back), digest(p))
+        self.assertEqual(self.conn.execute("SELECT pg_typeof(doc)::text AS t FROM kg.docs LIMIT 1").fetchone()["t"], "json")
+        self.assertEqual(self.conn.execute("SELECT status FROM kg.releases WHERE seq=%s", (result.seq,)).fetchone()["status"],
+                         "verified")
+
+
+class SchemaGuardTest(KgBase):
+    def test_old_jsonb_schema_is_refused_with_the_fix_and_reset_repairs_it(self):
+        self.release()
+        self.conn.execute("ALTER TABLE kg.docs ALTER COLUMN doc TYPE jsonb")
+        with self.assertRaises(kg.KgError) as raised:
+            kg.ensure_schema(self.conn)
+        self.assertIn("reset --target local", str(raised.exception))
+        kg.reset(self.conn)
+        self.assertEqual(self.count("kg.releases"), 0)
+        self.assertEqual(self.release().created, True)
+
+    def test_reset_command_only_works_for_local(self):
+        done = subprocess.run([sys.executable, str(SCRIPTS / "data-release.py"), "reset", "--target", "server"],
+                              capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stderr), (1, "error: reset works only with --target local\n"))
+
+
+class ReorderTest(KgBase):
+    def test_a_release_that_only_reorders_is_not_summarised_as_no_change(self):
+        first = self.release()
+        p = payload()
+        p["chain"]["events"].reverse()
+        p["markets"].reverse()
+        second = self.release(p, "2026-10-04T10:00:00+00:00")
+        changes = kg.diff(self.conn, second.seq, first.seq)
+        self.assertTrue(changes["chain.events"]["reordered"])
+        self.assertTrue(changes["markets"]["reordered"])
+        lines = cli.summarize(changes)
+        self.assertIn("  chain.events: order changed", lines)
+        self.assertNotIn("  no rows differ from the active release", lines)
 
 
 class ActivationTest(KgBase):

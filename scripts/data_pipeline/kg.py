@@ -89,19 +89,44 @@ def read_snapshot(directory: Path = SNAPSHOT_DIR) -> tuple[dict, dict]:
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file():
         raise KgError(f"no manifest at {manifest_path}; run `pnpm data:publish:snapshot`")
-    manifest = json.loads(manifest_path.read_text())
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except ValueError as error:
+        raise KgError(f"manifest.json is not valid JSON: {error}") from error
     payload = {}
     for name in SNAPSHOT_FILES:
         path = directory / f"{name}.json"
         if not path.is_file():
             raise KgError(f"snapshot file missing: {name}.json")
-        payload[name] = json.loads(path.read_text())
+        try:
+            payload[name] = json.loads(path.read_text())
+        except ValueError as error:
+            raise KgError(f"{name}.json is not valid JSON: {error}") from error
     verify_payload(payload, manifest)
     return payload, manifest
 
 
+def check_shape(payload: Any) -> None:
+    """Every collection present with the right container type, or a one-line KgError.
+
+    A malformed snapshot must be reported, not crash `_counts` or `pack` with a
+    traceback halfway through.
+    """
+    expected = {name.split(".")[0] for name in COLLECTIONS}
+    if not isinstance(payload, dict) or set(payload) != expected or not isinstance(payload.get("chain"), dict):
+        raise KgError(f"payload collections differ from {sorted(expected)}")
+    if set(payload["chain"]) != {n.split(".")[1] for n in COLLECTIONS if n.startswith("chain.")}:
+        raise KgError(f"chain collections differ from the known ones: {sorted(payload['chain'])}")
+    for name in COLLECTIONS:
+        value = _collection(payload, name)
+        want = dict if name in SINGLE_DOCUMENTS else list
+        if not isinstance(value, want):
+            raise KgError(f"{name} must be a JSON {'object' if want is dict else 'array'}")
+
+
 def verify_payload(payload: dict, manifest: dict) -> None:
     """The payload must be exactly what the manifest says it is."""
+    check_shape(payload)
     if _counts(payload) != manifest.get("counts"):
         raise KgError("snapshot counts do not match its manifest")
     if digest(payload) != manifest.get("content_sha256"):
@@ -131,24 +156,24 @@ def pack(payload: dict) -> list[Row]:
     """One Row per list element; a single-object collection is one row at ord 0.
 
     A payload with a collection this module does not know is refused rather than
-    dropped: a release that silently lost part of the snapshot would still hash
-    wrong, but late, and with a confusing message.
+    dropped, and an entity id that repeats in its collection is refused: ids are
+    how releases are compared and how user data will point at an entity.
     """
-    expected = {name.split(".")[0] for name in COLLECTIONS}
-    if set(payload) != expected or not isinstance(payload.get("chain"), dict):
-        raise KgError(f"payload collections differ from {sorted(expected)}: {sorted(payload)}")
-    if set(payload["chain"]) != {n.split(".")[1] for n in COLLECTIONS if n.startswith("chain.")}:
-        raise KgError(f"chain collections differ from the known ones: {sorted(payload['chain'])}")
+    check_shape(payload)
     rows = []
     for name, id_field in COLLECTIONS.items():
         value = _collection(payload, name)
         docs = [value] if name in SINGLE_DOCUMENTS else value
+        seen = set()
         for ord_, doc in enumerate(docs):
             entity_id = None
             if id_field is not None:
                 entity_id = doc.get(id_field) if isinstance(doc, dict) else None
                 if not isinstance(entity_id, str) or not entity_id:
                     raise KgError(f"{name}[{ord_}] has no string {id_field}")
+                if entity_id in seen:
+                    raise KgError(f"{name} has the entity id {entity_id!r} more than once")
+                seen.add(entity_id)
             rows.append(Row(name, ord_, entity_id, digest(doc), doc))
     return rows
 
@@ -176,27 +201,35 @@ def unpack(rows: Iterable[tuple[str, int, Any]]) -> dict:
     return payload
 
 
-def diff_rows(new: Iterable[tuple[str, str | None, str]], old: Iterable[tuple[str, str | None, str]]) -> dict[str, dict[str, int]]:
-    """Per collection: rows added / changed / removed, from (collection, entity_id, sha256) triples.
+def diff_rows(new: Iterable[tuple[str, str | None, str]], old: Iterable[tuple[str, str | None, str]]) -> dict[str, dict]:
+    """Per collection: rows added / changed / removed, and whether the order changed.
 
-    With an entity id, a row is matched to its predecessor by id, so an edited row
-    is `changed`. Without one there is nothing to match on: rows compare as a
-    multiset of content, and an edit is one removal plus one addition.
+    Triples are (collection, entity_id, sha256) in row order. With an entity id, a
+    row is matched to its predecessor by id, so an edited row is `changed`.
+    Without one there is nothing to match on: rows compare as a multiset of
+    content, and an edit is one removal plus one addition. `reordered` is true when
+    the rows both sides share sit in a different order; the content hash covers
+    order, so a release that only reorders rows must not read as "no change".
     """
-    result = {name: {"added": 0, "changed": 0, "removed": 0} for name in COLLECTIONS}
+    result = {name: {"added": 0, "changed": 0, "removed": 0, "reordered": False} for name in COLLECTIONS}
     new, old = list(new), list(old)
     for name, id_field in COLLECTIONS.items():
         a = [(e, s) for c, e, s in new if c == name]
         b = [(e, s) for c, e, s in old if c == name]
+        out = result[name]
         if id_field is None:
             fresh, gone = Counter(s for _, s in a), Counter(s for _, s in b)
-            result[name]["added"] = sum((fresh - gone).values())
-            result[name]["removed"] = sum((gone - fresh).values())
+            out["added"] = sum((fresh - gone).values())
+            out["removed"] = sum((gone - fresh).values())
+            if not out["added"] and not out["removed"]:
+                out["reordered"] = [s for _, s in a] != [s for _, s in b]
         else:
             mine, theirs = dict(a), dict(b)
-            result[name]["added"] = len(mine.keys() - theirs.keys())
-            result[name]["removed"] = len(theirs.keys() - mine.keys())
-            result[name]["changed"] = sum(1 for k in mine.keys() & theirs.keys() if mine[k] != theirs[k])
+            shared = mine.keys() & theirs.keys()
+            out["added"] = len(mine.keys() - theirs.keys())
+            out["removed"] = len(theirs.keys() - mine.keys())
+            out["changed"] = sum(1 for k in shared if mine[k] != theirs[k])
+            out["reordered"] = [e for e, _ in a if e in shared] != [e for e, _ in b if e in shared]
     return result
 
 
@@ -210,9 +243,22 @@ def _tuples(conn):
 
 def ensure_schema(conn) -> None:
     """Create the kg schema if absent. Safe to repeat; never alters existing data."""
+    with conn.transaction(), _tuples(conn) as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_KEY,))
+        cur.execute("SELECT data_type FROM information_schema.columns "
+                    "WHERE table_schema = 'kg' AND table_name = 'docs' AND column_name = 'doc'")
+        found = cur.fetchone()
+        if found and found[0] != "json":
+            raise KgError("the local kg schema predates the json column; run: data-release.py reset --target local")
+        cur.execute(SCHEMA_FILE.read_text())
+
+
+def reset(conn) -> None:
+    """Drop the kg schema and recreate it empty. Destroys every release: local use only."""
     with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_KEY,))
-        conn.execute(SCHEMA_FILE.read_text())
+        conn.execute("DROP SCHEMA IF EXISTS kg CASCADE")
+    ensure_schema(conn)
 
 
 def _find(cur, **where) -> tuple | None:
@@ -267,13 +313,15 @@ def _write_documents(cur, rows: list[Row]) -> int:
     """Insert bodies not stored yet and return how many were new.
 
     COPY into a temporary table first: it is the fast path for ~20,000 rows, and
-    `INSERT … SELECT … ON CONFLICT DO NOTHING` gives an exact new-row count.
+    `INSERT … SELECT … ON CONFLICT DO NOTHING` gives an exact new-row count. The
+    column is `json`, not `jsonb`: json keeps the text as sent, so a number such
+    as 1e+22 or -0.0 reads back byte-for-byte and the hash holds by construction.
     """
     cur.execute("CREATE TEMP TABLE kg_incoming (sha256 text, doc text) ON COMMIT DROP")
     with cur.copy("COPY kg_incoming (sha256, doc) FROM STDIN") as copy:
         for row in rows:
             copy.write_row((row.sha256, canonical(row.doc)))
-    cur.execute("INSERT INTO kg.docs (sha256, doc) SELECT DISTINCT ON (sha256) sha256, doc::jsonb "
+    cur.execute("INSERT INTO kg.docs (sha256, doc) SELECT DISTINCT ON (sha256) sha256, doc::json "
                 "FROM kg_incoming ON CONFLICT (sha256) DO NOTHING")
     return cur.rowcount
 
@@ -293,11 +341,11 @@ def load_release(conn, seq: int) -> dict:
 
 
 def _membership(cur, seq: int) -> list[tuple]:
-    cur.execute("SELECT collection, entity_id, sha256 FROM kg.release_rows WHERE release_seq = %s", (seq,))
+    cur.execute("SELECT collection, entity_id, sha256 FROM kg.release_rows WHERE release_seq = %s ORDER BY collection, ord", (seq,))
     return cur.fetchall()
 
 
-def diff(conn, seq: int, against_seq: int | None) -> dict[str, dict[str, int]]:
+def diff(conn, seq: int, against_seq: int | None) -> dict[str, dict]:
     """Rows added / changed / removed per collection going from `against_seq` to `seq`."""
     with _tuples(conn) as cur:
         old = _membership(cur, against_seq) if against_seq is not None else []
@@ -315,32 +363,42 @@ def active_seq(conn) -> int | None:
         return _active_seq(cur)
 
 
+def _activate(cur, release_id: str, note: str) -> None:
+    """Activation under the caller's transaction and lock."""
+    found = _find(cur, release_id=release_id)
+    if not found:
+        raise KgError(f"unknown release: {release_id}")
+    if found[2] != "verified":
+        raise KgError(f"release {release_id} is {found[2]}, only a verified release can be activated")
+    if _active_seq(cur) == found[0]:
+        return
+    cur.execute("INSERT INTO kg.activations (release_seq, note) VALUES (%s, %s)", (found[0], note or None))
+
+
 def activate(conn, release_id: str, note: str = "") -> None:
     """Make a verified release the live one. A no-op if it already is."""
     with conn.transaction(), _tuples(conn) as cur:
         cur.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_KEY,))
-        found = _find(cur, release_id=release_id)
-        if not found:
-            raise KgError(f"unknown release: {release_id}")
-        if found[2] != "verified":
-            raise KgError(f"release {release_id} is {found[2]}, only a verified release can be activated")
-        if _active_seq(cur) == found[0]:
-            return
-        cur.execute("INSERT INTO kg.activations (release_seq, note) VALUES (%s, %s)", (found[0], note or None))
+        _activate(cur, release_id, note)
 
 
 def rollback(conn) -> str:
-    """Re-activate the release that was live before the current one; return its id."""
-    with _tuples(conn) as cur:
+    """Re-activate the release that was live before the current one; return its id.
+
+    The history is read under the same lock as the write, so two concurrent
+    rollbacks cannot both act on the same "current" release.
+    """
+    with conn.transaction(), _tuples(conn) as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_KEY,))
         cur.execute("SELECT r.release_id, a.release_seq FROM kg.activations a JOIN kg.releases r ON r.seq = a.release_seq "
                     "ORDER BY a.id DESC")
         history = cur.fetchall()
-    if not history:
-        raise KgError("nothing is active, nothing to roll back")
-    previous = next((rid for rid, seq in history if seq != history[0][1]), None)
-    if previous is None:
-        raise KgError("no earlier release was ever active")
-    activate(conn, previous, "rollback")
+        if not history:
+            raise KgError("nothing is active, nothing to roll back")
+        previous = next((rid for rid, seq in history if seq != history[0][1]), None)
+        if previous is None:
+            raise KgError("no earlier release was ever active")
+        _activate(cur, previous, "rollback")
     return previous
 
 

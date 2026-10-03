@@ -20,10 +20,11 @@ CREATE TABLE IF NOT EXISTS kg.releases (
 );
 
 -- Content-addressed row bodies, append-only: identical rows are stored once
--- across every release, which is what makes a release incremental.
+-- across every release, which is what makes a release incremental. `json`, not
+-- `jsonb`: the text is kept exactly, so the content hash survives any number form.
 CREATE TABLE IF NOT EXISTS kg.docs (
     sha256 text PRIMARY KEY,
-    doc    jsonb NOT NULL
+    doc    json NOT NULL
 );
 
 -- Membership: which document sits at which position of which collection.
