@@ -6,6 +6,7 @@
   promote   make the candidate the production service
   rollback  make the previous production release the production service again
   status    show what the server is running
+  indexnow  tell IndexNow-fed search engines which addresses exist (promote does this too)
 
 The snapshot never leaves this machine: pages are rendered here and only the
 rendered build is uploaded.
@@ -13,11 +14,13 @@ rendered build is uploaded.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -38,7 +41,8 @@ PRODUCTION = {"project": "openaiwill", "port": 8320, "env": "production"}
 CANDIDATE = {"project": "openaiwill-next", "port": 8321, "env": "preview"}
 LOCAL_PORT = 8399
 KEEP = 5
-RELEASE_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{7,40}(-dirty)?$")
+RELEASE_ID = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{7,40}(-dirty)?")
+USER_AGENT = "openaiwill-release/1.0 (+https://openaiwill.com)"
 
 
 class ReleaseError(Exception):
@@ -53,13 +57,13 @@ def release_id(generated_at: str, commit: str, dirty: bool) -> str:
 def checked_id(value: str) -> str:
     """Every id that comes from the server, or goes into a remote command, passes through here."""
     value = value.strip()
-    if not RELEASE_ID.match(value):
+    if not RELEASE_ID.fullmatch(value):
         raise ReleaseError(f"not a release id: {value!r}")
     return value
 
 
 def valid_ids(names: list[str]) -> list[str]:
-    return [name for name in names if RELEASE_ID.match(name)]
+    return [name for name in names if RELEASE_ID.fullmatch(name)]
 
 
 def verify_snapshot(directory: Path) -> dict:
@@ -105,6 +109,17 @@ def forbidden_entries(release_dir: Path) -> list[str]:
     return found
 
 
+def foreign_binaries(release_dir: Path) -> list[str]:
+    """Image-optimizer packages. Their native binaries are built for this machine, not the server's."""
+    found = []
+    for directory, names, _ in os.walk(release_dir):
+        for name in list(names):
+            if name in ("sharp", "@img") or name.startswith(("@img+", "sharp-")):
+                found.append(str((Path(directory) / name).relative_to(release_dir)))
+                names.remove(name)
+    return sorted(found)
+
+
 def to_prune(ids: list[str], keep: int, protected: set[str]) -> list[str]:
     ids = valid_ids(ids)
     old = sorted(ids)[:-keep] if len(ids) > keep else []
@@ -118,23 +133,43 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def fetch(url: str, cookie: str | None = None, headers: dict | None = None):
     opener = urllib.request.build_opener(NoRedirect)
-    sent = {**(headers or {}), **({"Cookie": cookie} if cookie else {})}
+    sent = {"User-Agent": USER_AGENT, **(headers or {}), **({"Cookie": cookie} if cookie else {})}
     request = urllib.request.Request(url, headers=sent)
     try:
         with opener.open(request, timeout=15) as response:
             return response.status, response.headers, response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as error:
         return error.code, error.headers, error.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, ConnectionError, TimeoutError) as error:
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as error:
         raise ReleaseError(f"{url}: no answer ({error})") from error
+
+
+def indexnow_key() -> str | None:
+    """The IndexNow key, discovered from the key file in public/ (a 32-hex name holding itself)."""
+    for path in sorted((ROOT / "public").glob("*.txt")):
+        if re.fullmatch(r"[0-9a-f]{32}", path.stem) and path.read_text().strip() == path.stem:
+            return path.stem
+    return None
+
+
+def is_reachability(failure: str) -> bool:
+    return "is not reachable" in failure or ": no answer (" in failure
 
 
 def smoke(base: str, release: str | None) -> list[str]:
     """Requests a reader or a crawler would make. Returns the failures."""
     failures = []
+    try:
+        fetch(base + "/healthz")
+    except ReleaseError as error:
+        return [f"{base} is not reachable: {error}"]
 
     def expect(path, status, location=None, contains=None, cookie=None, headers=None):
-        code, headers, body = fetch(base + path, cookie, headers)
+        try:
+            code, headers, body = fetch(base + path, cookie, headers)
+        except ReleaseError as error:
+            failures.append(f"{path}: {error}")
+            return ""
         where = headers.get("Location")
         if code != status:
             failures.append(f"{path}: status {code}, expected {status}")
@@ -154,6 +189,9 @@ def smoke(base: str, release: str | None) -> list[str]:
     expect("/robots.txt", 200, contains="Sitemap:")
     expect("/llms.txt", 200, contains="# openaiwill")
     expect("/og/en.png", 200)
+    key = indexnow_key()
+    if key and expect(f"/{key}.txt", 200).strip() != key:
+        failures.append(f"/{key}.txt: body is not the key")
     sitemap = expect("/sitemap.xml", 200, contains="<urlset")
     # Redirects are relative: the origin is behind a tunnel and must not name a scheme or host.
     expect("/markets?lang=zh-CN", 307, location="/zh-CN/markets")
@@ -161,6 +199,8 @@ def smoke(base: str, release: str | None) -> list[str]:
     expect("/en/markets", 308, location="/markets")
     expect("/ZH-cn/markets", 308, location="/zh-CN/markets")
     expect("/markets", 307, location="/zh-CN/markets", cookie="openaiwill_language=zh-CN")
+    # A client-side navigation asks for the page it is already on; a redirect there breaks the language switch.
+    expect("/markets", 200, cookie="openaiwill_language=zh-CN", headers={"RSC": "1", "Sec-Fetch-Dest": "empty"})
     # The proxy's internal marker must not be forgeable by a client.
     forged = {"x-openaiwill-rewritten": "1"}
     expect("/en/markets", 308, location="/markets", headers=forged)
@@ -187,6 +227,47 @@ def smoke(base: str, release: str | None) -> list[str]:
     return failures
 
 
+def indexability(base: str, indexable: bool) -> list[str]:
+    """Production must not send X-Robots-Tag; every other environment must send noindex."""
+    try:
+        code, headers, _ = fetch(base + "/markets")
+    except ReleaseError as error:
+        return [f"/markets: {error}"]
+    header = headers.get("X-Robots-Tag")
+    if code != 200:
+        return [f"/markets: status {code}, expected 200"]
+    if indexable and header:
+        return [f"/markets sends X-Robots-Tag: {header}; production must be indexable"]
+    if not indexable and header != "noindex":
+        return [f"/markets sends X-Robots-Tag {header!r}; a non-production server must send noindex"]
+    return []
+
+
+def wait_until_answering(base: str, process: subprocess.Popen) -> None:
+    for _ in range(30):
+        if process.poll() is not None:
+            raise ReleaseError(f"the process serving {base} exited with status {process.returncode}")
+        try:
+            fetch(base + "/healthz")
+            return
+        except ReleaseError:
+            time.sleep(0.5)
+    raise ReleaseError(f"nothing answered at {base}")
+
+
+def with_local_server(app: Path, site_env: str, callback):
+    """Start the built server with SITE_ENV=site_env, wait for it, return callback(base_url), stop it."""
+    server = subprocess.Popen(["node", "server.js"], cwd=app,
+                              env={**os.environ, "PORT": str(LOCAL_PORT), "HOSTNAME": "127.0.0.1", "SITE_ENV": site_env})
+    try:
+        base = f"http://127.0.0.1:{LOCAL_PORT}"
+        wait_until_answering(base, server)
+        return callback(base)
+    finally:
+        server.terminate()
+        server.wait()
+
+
 def run(command, **kwargs):
     print("$", command if isinstance(command, str) else " ".join(map(str, command)), flush=True)
     return subprocess.run(command, check=True, cwd=ROOT, **kwargs)
@@ -208,9 +289,34 @@ def load_target() -> dict:
     return {key: value.strip() for key, value in values.items()}
 
 
-def ssh_base(target: dict) -> list[str]:
+def ssh_base(target: dict, extra: list[str] | None = None) -> list[str]:
     return ["ssh", "-i", os.path.expanduser(target["DEPLOY_SSH_KEY"]), "-o", "IdentitiesOnly=yes",
-            "-o", "BatchMode=yes", f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}"]
+            "-o", "BatchMode=yes", *(extra or []), f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}"]
+
+
+def free_port() -> int:
+    """A port nothing is listening on right now: let the system pick one."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def forward_argv(target: dict, local_port: int) -> list[str]:
+    """ssh command that forwards a local port to the candidate slot, and fails if it cannot."""
+    return ssh_base(target, ["-o", "ExitOnForwardFailure=yes", "-N", "-L", f"{local_port}:127.0.0.1:{CANDIDATE['port']}"])
+
+
+def candidate_failures(target: dict, release: str) -> list[str]:
+    """Smoke-test the candidate on the server through an SSH forward, the way a reviewer would see it."""
+    port = free_port()
+    forward = subprocess.Popen(forward_argv(target, port), stdin=subprocess.DEVNULL)
+    try:
+        base = f"http://127.0.0.1:{port}"
+        wait_until_answering(base, forward)
+        return smoke(base, release) + indexability(base, indexable=False)
+    finally:
+        forward.terminate()
+        forward.wait()
 
 
 def remote(target: dict, script: str, capture: bool = False) -> str:
@@ -268,28 +374,16 @@ def build() -> str:
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }, indent=2) + "\n")
 
+    foreign = foreign_binaries(staged)
+    if foreign:
+        raise ReleaseError("release contains native binaries built for this machine:\n  " + "\n  ".join(foreign[:20]))
     found = forbidden_entries(staged)
     if found:
         raise ReleaseError("release contains files that must not be uploaded:\n  " + "\n  ".join(found[:20]))
 
-    server = subprocess.Popen(["node", "server.js"], cwd=app,
-                              env={**os.environ, "PORT": str(LOCAL_PORT), "HOSTNAME": "127.0.0.1", "SITE_ENV": "preview"})
-    try:
-        base = f"http://127.0.0.1:{LOCAL_PORT}"
-        for _ in range(30):
-            try:
-                fetch(base + "/healthz")
-                break
-            except ReleaseError:
-                time.sleep(0.5)
-        else:
-            raise ReleaseError(f"the local server never answered at {base}")
-        failures = smoke(base, release)
-        if fetch(base + "/markets")[1].get("X-Robots-Tag") != "noindex":
-            failures.append("a non-production server did not send X-Robots-Tag: noindex")
-    finally:
-        server.terminate()
-        server.wait()
+    failures = with_local_server(app, "preview", lambda base: smoke(base, release) + indexability(base, indexable=False))
+    # What the server will run: production answers pages without an X-Robots-Tag.
+    failures += with_local_server(app, "production", lambda base: indexability(base, indexable=True))
     if failures:
         raise ReleaseError("smoke test failed:\n  " + "\n  ".join(failures))
     print(f"built {release} at {staged.relative_to(ROOT)}")
@@ -308,7 +402,14 @@ def release_command() -> None:
          f"{STAGING / release}/",
          f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}:{target['DEPLOY_ROOT']}/releases/{release}/"])
     remote(target, f"cd {rpath(target, 'releases', release)} && {compose(CANDIDATE, release, 'up -d --build --wait')} "
-                   f"&& {healthy(CANDIDATE, release)} && echo {shlex.quote(release)} > {rpath(target, 'candidate')}")
+                   f"&& {healthy(CANDIDATE, release)}")
+    # Only a candidate that passed is recorded, so `promote` cannot pick up one that did not.
+    failures = candidate_failures(target, release)
+    if failures:
+        raise ReleaseError(f"candidate {release} failed its smoke test. It was left running on the server "
+                           f"(127.0.0.1:{CANDIDATE['port']}) for inspection and is not recorded as the candidate:\n  "
+                           + "\n  ".join(failures))
+    remote(target, f"echo {shlex.quote(release)} > {rpath(target, 'candidate')}")
     print(f"\ncandidate {release} is running on the server.\n"
           f"preview:  ssh -i {target['DEPLOY_SSH_KEY']} -N -L 8321:127.0.0.1:{CANDIDATE['port']} "
           f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}   then open http://localhost:8321\n"
@@ -320,12 +421,18 @@ def switch_script(target: dict, release: str, live: str) -> str:
     release_dir = rpath(target, "releases", release)
     if live:
         live_dir = rpath(target, "releases", live)
-        restore = (f"if [ -d {live_dir} ]; then cd {live_dir} && {compose(PRODUCTION, live, 'up -d --wait')}; "
-                   f"echo 'production restored to {live}' >&2; "
-                   f"else echo 'production could not be restored: {live} is gone' >&2; fi")
+        done = (f"echo '{live} did not become healthy; it is still the current release' >&2" if live == release
+                else f"echo 'production restored to {live}' >&2")
+        restore = (f"if [ -d {live_dir} ]; then\n"
+                   f"    cd {live_dir} && {compose(PRODUCTION, live, 'up -d --wait')} "
+                   f"|| {{ echo 'RESTORE FAILED: production is down' >&2; exit 1; }}\n"
+                   f"    {done}\n"
+                   f"  else echo 'RESTORE FAILED: production is down; {live} is gone' >&2; exit 1; fi")
         remember = f"echo {shlex.quote(live)} > {rpath(target, 'previous')}" if live != release else ":"
     else:
-        restore = "echo 'there was no earlier release to restore' >&2"
+        # Nothing to go back to: the unhealthy container would keep the production port with `restart: unless-stopped`.
+        restore = (f"{compose(PRODUCTION, release, 'down')} || echo 'could not stop the production slot' >&2\n"
+                   f"  echo 'no earlier release to restore; production slot stopped' >&2")
         remember = ":"
     return f"""
 test -d {release_dir}
@@ -345,6 +452,17 @@ def switch(target: dict, release: str) -> None:
     remote(target, switch_script(target, release, remote_id(target, "current")))
 
 
+def public_check_message(release: str, failures: list[str]) -> str:
+    """Production is already switched and healthy on the server; say what that leaves the operator to do."""
+    head = f"production IS switched to {release} and healthy on the server, but the public check failed:\n  "
+    listed = "\n  ".join(failures)
+    if all(is_reachability(failure) for failure in failures):
+        return (f"{head}{listed}\nThe public address does not answer: fix the Tunnel/DNS, then run "
+                "`pnpm site:indexnow`. Do not roll back for this.")
+    return (f"{head}{listed}\nFix what is listed (`pnpm site:rollback` returns to the previous release if the "
+            "page itself is wrong), then run `pnpm site:indexnow`.")
+
+
 def promote_command() -> None:
     target = load_target()
     release = remote_id(target, "candidate")
@@ -362,11 +480,10 @@ def promote_command() -> None:
                        f"sudo docker image rm -f {shlex.quote('openaiwill-web:' + old)} >/dev/null 2>&1 || true")
     print(f"production is now {release}")
     failures = smoke(SITE_URL, release)
-    if fetch(SITE_URL + "/markets")[1].get("X-Robots-Tag"):
-        failures.append("production sends X-Robots-Tag; it must be indexable")
+    if not any("is not reachable" in failure for failure in failures):
+        failures += indexability(SITE_URL, indexable=True)
     if failures:
-        raise ReleaseError("production is switched but the public check failed (pnpm site:rollback to revert):\n  "
-                           + "\n  ".join(failures))
+        raise ReleaseError(public_check_message(release, failures))
     notify_indexnow()
 
 
@@ -392,15 +509,14 @@ sudo docker ps --filter name=openaiwill --format '{{{{.Names}}}}  {{{{.Image}}}}
 
 def notify_indexnow() -> None:
     """Tell IndexNow-fed engines (Bing, and through it ChatGPT search) which addresses exist now."""
-    keys = [path for path in (ROOT / "public").glob("*.txt")
-            if re.fullmatch(r"[0-9a-f]{32}", path.stem) and path.read_text().strip() == path.stem]
-    if not keys:
+    key = indexnow_key()
+    if not key:
         print("no IndexNow key in public/; skipped")
         return
     _, _, sitemap = fetch(SITE_URL + "/sitemap.xml")
     urls = re.findall(r"<loc>([^<]+)</loc>", sitemap)
-    body = json.dumps({"host": "openaiwill.com", "key": keys[0].stem,
-                       "keyLocation": f"{SITE_URL}/{keys[0].name}", "urlList": urls}).encode()
+    body = json.dumps({"host": "openaiwill.com", "key": key,
+                       "keyLocation": f"{SITE_URL}/{key}.txt", "urlList": urls}).encode()
     request = urllib.request.Request("https://api.indexnow.org/indexnow", data=body,
                                      headers={"Content-Type": "application/json; charset=utf-8"})
     try:
@@ -412,11 +528,11 @@ def notify_indexnow() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["build", "release", "promote", "rollback", "status"])
+    parser.add_argument("command", choices=["build", "release", "promote", "rollback", "status", "indexnow"])
     command = parser.parse_args().command
     try:
         {"build": build, "release": release_command, "promote": promote_command,
-         "rollback": rollback_command, "status": status_command}[command]()
+         "rollback": rollback_command, "status": status_command, "indexnow": notify_indexnow}[command]()
     except ReleaseError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

@@ -49,6 +49,7 @@
     "site:promote": "python3 scripts/site_release.py promote",
     "site:rollback": "python3 scripts/site_release.py rollback",
     "site:status": "python3 scripts/site_release.py status",
+    "site:indexnow": "python3 scripts/site_release.py indexnow",
     "data:test:unit": "python3 -m unittest discover -s scripts/tests -p 'test_data_*unit.py'",
     "data:test": "data/runtime/venv/bin/python -m unittest discover -s scripts/tests -p 'test_data_*.py'",
     "crawl": "data/runtime/crawler-venv/bin/python local/x-crawler/crawler",
