@@ -96,3 +96,30 @@ test("no page claims a replacement share, a probability or a reviewed score", ()
     }
   }
 });
+
+const body = (name) => readFileSync(join(APP, `${name}.body`), "utf8");
+
+test("robots.txt allows everything, names the AI crawlers, and points at the sitemap", () => {
+  const robots = body("robots.txt");
+  assert.match(robots, /Sitemap: https:\/\/openaiwill\.com\/sitemap\.xml/);
+  assert.doesNotMatch(robots, /Disallow: \/\S/);
+  for (const bot of ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
+    "PerplexityBot", "Perplexity-User", "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider"]) {
+    assert.match(robots, new RegExp(`User-Agent: ${bot}\\b`, "i"), bot);
+  }
+});
+
+test("every sitemap address is a prerendered page, with its counterpart", () => {
+  const xml = body("sitemap.xml");
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  assert.ok(locs.length >= FIXED.length * 2);
+  assert.equal(new Set(locs).size, locs.length, "duplicate addresses");
+  for (const loc of locs) {
+    assert.ok(loc.startsWith(`${SITE}/`) || loc === SITE, loc);
+    const path = decodeURI(loc.slice(SITE.length)).replace(/\/$/, "");
+    const file = path.startsWith("/zh-CN") ? path.slice(1) : `en${path}`;
+    assert.ok(existsSync(join(APP, `${file}.html`)), `${loc} is not a prerendered page`);
+  }
+  assert.match(xml, /hreflang="zh-CN"/);
+  assert.match(xml, /hreflang="x-default"/);
+});

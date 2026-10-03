@@ -37,9 +37,14 @@ export const siteCopy = bilingual({
 
 const OG_LOCALE: Record<Language, string> = { en: "en_US", "zh-CN": "zh_CN" };
 
-/** The full public address of `path` (written without a language prefix) in `language`. */
+/**
+ * The full public address of `path` (written without a language prefix) in
+ * `language`. The English home is the bare site address, the spelling Next
+ * writes into each page's canonical link, so the sitemap and the page agree.
+ */
 export function absoluteUrl(language: Language, path: string): string {
-  return `${SITE_URL}${localizedPath(language, path)}`;
+  const local = localizedPath(language, path);
+  return local === "/" ? SITE_URL : `${SITE_URL}${local}`;
 }
 
 /**
