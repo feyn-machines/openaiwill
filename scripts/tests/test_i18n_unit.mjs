@@ -16,7 +16,6 @@ const {
   DEFAULT_LANGUAGE,
   LANGUAGES,
   LANGUAGE_PARAM,
-  languageHref,
   languageRoute,
   localizedPath,
   normalizeLanguage,
@@ -82,16 +81,6 @@ test("the URL language is read from a full URL, a path or a bare query", () => {
   assert.equal(urlLanguage(null), null);
   assert.equal(urlLanguage(undefined), null);
   assert.equal(LANGUAGE_PARAM, "lang");
-});
-
-test("switching keeps the current path and its other parameters", () => {
-  assert.equal(languageHref("/domains?group=health", "zh-CN"), "/domains?group=health&lang=zh-CN");
-  assert.equal(languageHref("/domains?lang=en", "zh-CN"), "/domains?lang=zh-CN");
-  assert.equal(languageHref("/", "zh-CN"), "/?lang=zh-CN");
-  assert.equal(languageHref("/domains/health-ai", "en"), "/domains/health-ai?lang=en");
-  // Without a known path, a relative href still keeps the reader on this page.
-  assert.equal(languageHref(null, "zh-CN"), "?lang=zh-CN");
-  assert.equal(languageHref("", "en"), "?lang=en");
 });
 
 test("English paths have no prefix; Chinese paths are prefixed", () => {

@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/levels";
 import { vocabularyTerm } from "@/components/ontology-labels";
 import s from "@/components/detail.module.css";
-import { bilingual, getLocale } from "@/lib/i18n";
+import { bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events, evidenceForEvent } from "@/lib/snapshot";
 

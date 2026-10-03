@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getLocale, type Language } from "@/lib/i18n";
+import { type Language } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { manifest, snapshotExists, sources, type Source } from "@/lib/snapshot";
 import { NoSnapshot, PageHeader, Section, bilingual, dataStyles as d, formatNumber, isoDate } from "@/components/data-page";
 import { termName } from "@/components/ontology-labels";

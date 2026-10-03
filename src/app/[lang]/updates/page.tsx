@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getLocale } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import {
   chainEvents,
   coverage,

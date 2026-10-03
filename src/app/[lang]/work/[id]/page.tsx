@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LEVEL_NAMES, TIER_NAMES, levelClass } from "@/components/home/sections/levels";
 import s from "@/components/detail.module.css";
-import { bilingual, getLocale } from "@/lib/i18n";
+import { bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { marketHref, updateHref, workHref, workSlug } from "@/lib/routes";
 import { activities, activitiesOfMarket, evidenceForActivity, gatesOfActivity, gates as allGates, manifest } from "@/lib/snapshot";
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { bilingual, getLocale } from "@/lib/i18n";
+import { bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 
 const copy = bilingual({
   en: {
@@ -20,8 +21,8 @@ const copy = bilingual({
 
 /**
  * The 404, in both languages. A Server Component so `getLocale()` can read the
- * reader's language the same way every other page does: explicit `?lang=`, then
- * the saved choice, then English — never the browser preference.
+ * reader's language the same way every other page does: from the `[lang]` path
+ * segment.
  *
  * The root layout still renders around this, so the header, the language switch
  * and the footer stay available: a wrong address should not strand the reader.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Blank, Stat } from "@/components/blueprint";
 import { Screen } from "@/components/home/reveal";
-import { getLocale } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import {
   activitiesOfMarket,
   markets,

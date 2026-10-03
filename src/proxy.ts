@@ -1,20 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  LANGUAGE_COOKIE,
-  LANGUAGE_COOKIE_MAX_AGE,
-  LANGUAGE_HEADER,
-  REQUEST_URL_HEADER,
-  urlLanguage,
-} from "./lib/i18n";
-
-/** Next's own parameter on client navigations; never part of a shareable URL. */
-const RSC_PARAM = "_rsc";
+import { LANGUAGE_COOKIE, LANGUAGE_COOKIE_MAX_AGE, languageRoute } from "./lib/i18n";
 
 /**
  * Only a top-level navigation is a reader choosing a language. Speculative
- * prefetches and client-side data requests must not rewrite the saved choice.
- * Next strips its `RSC` / `Next-Router-Prefetch` headers before the proxy runs,
- * so the browser's own fetch metadata is what is left to read.
+ * prefetches and client-side data requests must not rewrite the saved choice
+ * or be bounced to another language.
  */
 function isNavigation(request: NextRequest) {
   const destination = request.headers.get("sec-fetch-dest");
@@ -23,37 +13,52 @@ function isNavigation(request: NextRequest) {
 }
 
 /**
- * A root layout cannot read `searchParams`, so an explicit `?lang=` in a shared
- * link is validated here and handed to the render as a request header. The path
- * travels with it so the language switch can keep the reader where they are.
- *
- * An explicit choice is also saved, so following one bilingual link does not
- * leave the rest of the site in the other language.
+ * English is served at unprefixed addresses and Chinese under `/zh-CN`; the
+ * pages themselves live under `/[lang]`. The rules are in `languageRoute`.
  */
 export function proxy(request: NextRequest) {
-  const requested = urlLanguage(request.nextUrl.search);
+  const route = languageRoute({
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+    savedLanguage: request.cookies.get(LANGUAGE_COOKIE)?.value,
+    navigation: isNavigation(request),
+  });
 
-  const url = new URL(request.nextUrl);
-  url.searchParams.delete(RSC_PARAM);
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(REQUEST_URL_HEADER, `${url.pathname}${url.search}`);
-  // Never trust an inbound value for this header.
-  if (requested) requestHeaders.set(LANGUAGE_HEADER, requested);
-  else requestHeaders.delete(LANGUAGE_HEADER);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  if (requested && isNavigation(request)) {
-    response.cookies.set({
-      name: LANGUAGE_COOKIE,
-      value: requested,
-      path: "/",
-      maxAge: LANGUAGE_COOKIE_MAX_AGE,
-      sameSite: "lax",
-    });
+  let response: NextResponse;
+  if (route.kind === "redirect") {
+    // `route.location` is a path on this host (see `languageRoute`). Next
+    // resolves the Location it is given against the request, so it needs an
+    // absolute URL here and turns a same-host one back into a relative Location.
+    response = NextResponse.redirect(new URL(route.location, request.url), route.status);
+    if (route.save) {
+      response.cookies.set({
+        name: LANGUAGE_COOKIE,
+        value: route.save,
+        path: "/",
+        maxAge: LANGUAGE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+      });
+    }
+  } else if (route.kind === "rewrite") {
+    const url = request.nextUrl.clone();
+    url.pathname = route.pathname;
+    response = NextResponse.rewrite(url);
+  } else {
+    response = NextResponse.next();
   }
+
+  // Only the production service may be indexed; a candidate build must not be.
+  if (process.env.SITE_ENV !== "production") response.headers.set("X-Robots-Tag", "noindex");
   return response;
 }
 
+/**
+ * Files that are not pages are named one by one. "Anything with an extension"
+ * would be wrong: occupation addresses such as /occupations/11-1011.00 contain
+ * a dot. The 32-hex `.txt` is the IndexNow key file in `public/`.
+ */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  matcher: [
+    "/((?!_next/|og/|healthz$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|icon\\.svg$|[0-9a-f]{32}\\.txt$).*)",
+  ],
 };

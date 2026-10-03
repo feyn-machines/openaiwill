@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLocale, type Language } from "@/lib/i18n";
+import { type Language } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { WorkGrid } from "@/components/work-grid";
 import { Bar, Block, Head, Stat, blueprint as bp } from "@/components/blueprint";
 import {

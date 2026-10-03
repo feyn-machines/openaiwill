@@ -1,11 +1,11 @@
 import { LanguageSwitch } from "@/components/language-switch";
-import { bilingual, getLocale } from "@/lib/i18n";
+import { LANGUAGES, bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
-import { OFFICIAL_X_HANDLE, SITE_SOCIAL } from "@/lib/site-social";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
-import "./globals.css";
+import "../globals.css";
 
 const copy = bilingual({
   en: {
@@ -13,14 +13,12 @@ const copy = bilingual({
     brandLabel: "openaiwill home",
     footerBrand: "openaiwill · Before you build.",
     footerNote: "Evidence first. Opinions that can change.",
-    communityLabel: "Community links",
   },
   "zh-CN": {
     metaDescription: "每一次 AI 更新，都可能改变你的创业判断。对照 AI 平台已经做到的事情检查你的想法，并跟踪它的变化。",
     brandLabel: "openaiwill 首页",
     footerBrand: "openaiwill · 在动手之前。",
     footerNote: "以证据为先，判断随事实更新。",
-    communityLabel: "社区链接",
   },
 });
 
@@ -31,7 +29,7 @@ const copy = bilingual({
  * self-hosts them and hands back the family name to bind the tokens to.
  */
 const interTight = localFont({
-  src: "../../design/system-v1/fonts/InterTight-Variable.ttf",
+  src: "../../../design/system-v1/fonts/InterTight-Variable.ttf",
   weight: "100 900",
   display: "swap",
   variable: "--font-display",
@@ -40,7 +38,7 @@ const interTight = localFont({
 
 // The geometric face for the wordmark and the large headlines (brand type direction 02).
 const outfit = localFont({
-  src: "../../design/system-v1/fonts/Outfit-Variable.ttf",
+  src: "../../../design/system-v1/fonts/Outfit-Variable.ttf",
   weight: "100 900",
   display: "swap",
   variable: "--font-heading",
@@ -48,12 +46,18 @@ const outfit = localFont({
 });
 
 const jetBrainsMono = localFont({
-  src: "../../design/system-v1/fonts/JetBrainsMono-Variable.ttf",
+  src: "../../../design/system-v1/fonts/JetBrainsMono-Variable.ttf",
   weight: "100 800",
   display: "swap",
   variable: "--font-mono",
   fallback: ["SFMono-Regular", "Consolas", "monospace"],
 });
+
+/** Both languages are built ahead of time; no other value of the segment is a page. */
+export function generateStaticParams() {
+  return LANGUAGES.map((lang) => ({ lang }));
+}
+export const dynamicParams = false;
 
 /**
  * Static metadata cannot see the reader's language, so a Chinese reader was
@@ -67,7 +71,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { default: "Will AI Kill Your Idea?", template: "%s | openaiwill" },
     description: copy[language].metaDescription,
-    twitter: { card: "summary", site: OFFICIAL_X_HANDLE },
   };
 }
 
@@ -86,12 +89,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </div>
         </header>
         <main className="wrap">{children}</main>
-        <footer className="footer wrap">
-          <div className="footer-copy"><span>{c.footerBrand}</span><span>{c.footerNote}</span></div>
-          <nav className="footer-social" aria-label={c.communityLabel}>
-            {SITE_SOCIAL.map((item) => <a key={item.label} href={item.href} target="_blank" rel="noopener noreferrer">{item.label}</a>)}
-          </nav>
-        </footer>
+        <footer className="footer wrap"><span>{c.footerBrand}</span><span>{c.footerNote}</span></footer>
       </body>
     </html>
   );

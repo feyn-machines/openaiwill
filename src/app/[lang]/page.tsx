@@ -1,4 +1,5 @@
-import { bilingual, getLocale } from "@/lib/i18n";
+import { bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { buildHomeData } from "@/lib/home-data";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
 import { Overview } from "@/components/home/overview/overview";

@@ -67,7 +67,7 @@ test("no page states a language marker of its own", () => {
 });
 
 test("the root layout resolves metadata per reader rather than statically", () => {
-  const source = read("src/app/layout.tsx");
+  const source = read("src/app/[lang]/layout.tsx");
   assert.ok(
     source.includes("export async function generateMetadata"),
     "a static `metadata` object cannot see the reader's language",

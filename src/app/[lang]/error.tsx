@@ -38,9 +38,9 @@ const serverLanguage = (): Language => DEFAULT_LANGUAGE;
  * The route error boundary, in both languages.
  *
  * An error boundary must be a Client Component, so the async `getLocale()` —
- * which reads request headers and cookies on the server — cannot be called
- * here. The root layout sits outside this boundary and still renders, so the
- * language it resolved is already on `<html lang>` and is read back from there.
+ * which reads the `[lang]` segment on the server — cannot be called here. The
+ * root layout sits outside this boundary and still renders, so the language it
+ * resolved is already on `<html lang>` and is read back from there.
  * Where that is not readable — the server render — English is used, which is
  * the site's default when nobody has chosen a language. `useSyncExternalStore`
  * rather than an effect: reading a value React does not own is what it is for,

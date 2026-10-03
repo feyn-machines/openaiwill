@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { bilingual, getLocale } from "@/lib/i18n";
+import { bilingual } from "@/lib/i18n";
+import { getLocale } from "@/lib/locale";
 import { whitepaperBlocks, whitepaperExists, type Block, type Inline } from "@/lib/whitepaper";
 import { Head, blueprint as b } from "@/components/blueprint";
 import { WhitepaperToc } from "./whitepaper-toc";

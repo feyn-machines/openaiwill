@@ -1,14 +1,14 @@
 /**
  * Language selection for the bilingual site.
  *
- * Precedence, per CLAUDE.md / DESIGN.md: an explicit language in the URL wins,
- * then a saved user choice, then English. The browser `Accept-Language` header
- * is deliberately never consulted, so a Chinese browser still opens the English
- * default until the reader chooses otherwise.
+ * Precedence, per CLAUDE.md / DESIGN.md: the language in the path wins, then
+ * for an unprefixed address the saved user choice, then English. The browser
+ * `Accept-Language` header is deliberately never consulted, so a Chinese
+ * browser still opens the English default until the reader chooses otherwise.
  *
- * This module has no static `next/*` imports on purpose: `src/proxy.ts` (edge)
- * and `scripts/tests/test_i18n_unit.mjs` (plain node) both import the pure
- * resolver, and `next/headers` cannot be loaded outside a server render.
+ * This module has no static `next/*` imports on purpose: `src/proxy.ts` (edge),
+ * Client Components and `scripts/tests/test_i18n_unit.mjs` (plain node) all
+ * import it. The render-time reader of the path language is `./locale`.
  */
 
 export const LANGUAGES = ["en", "zh-CN"] as const;
@@ -25,12 +25,6 @@ export const LANGUAGE_COOKIE = "openaiwill_language";
 
 /** One year, refreshed on every explicit choice. */
 export const LANGUAGE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
-/** Request header the proxy uses to hand the validated URL language to the render. */
-export const LANGUAGE_HEADER = "x-openaiwill-language";
-
-/** Request header the proxy uses to hand the current path + query to the render. */
-export const REQUEST_URL_HEADER = "x-openaiwill-url";
 
 const LANGUAGE_NAMES: Record<Language, string> = { en: "EN", "zh-CN": "中文" };
 
@@ -74,19 +68,6 @@ export function urlLanguage(url: string | null | undefined): Language | null {
   const mark = withoutHash.indexOf("?");
   const query = mark === -1 ? withoutHash : withoutHash.slice(mark + 1);
   return normalizeLanguage(new URLSearchParams(query).get(LANGUAGE_PARAM));
-}
-
-/** The same path and query with the language parameter set to `language`. */
-export function languageHref(url: string | null | undefined, language: Language): string {
-  const fallback = `?${LANGUAGE_PARAM}=${language}`;
-  if (!url) return fallback;
-  try {
-    const target = new URL(url, "http://openaiwill.invalid");
-    target.searchParams.set(LANGUAGE_PARAM, language);
-    return `${target.pathname}${target.search}`;
-  } catch {
-    return fallback;
-  }
 }
 
 /** The public address of `path` in `language`. English has no prefix. */
@@ -199,24 +180,4 @@ export function bilingual<T extends Record<string, string>>(copy: {
   "zh-CN": Record<keyof T, string>;
 }): Record<Language, Record<keyof T, string>> {
   return copy;
-}
-
-/**
- * The current request language. Server Components only: reading the request
- * opts the route into dynamic rendering.
- */
-export async function getLocale(): Promise<{ language: Language }> {
-  const { cookies, headers } = await import("next/headers");
-  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
-  const language = resolveLanguage({
-    urlLanguage: requestHeaders.get(LANGUAGE_HEADER),
-    savedLanguage: cookieStore.get(LANGUAGE_COOKIE)?.value,
-  });
-  return { language };
-}
-
-/** The current path and query, as handed over by the proxy. */
-export async function getRequestUrl(): Promise<string | null> {
-  const { headers } = await import("next/headers");
-  return (await headers()).get(REQUEST_URL_HEADER);
 }
