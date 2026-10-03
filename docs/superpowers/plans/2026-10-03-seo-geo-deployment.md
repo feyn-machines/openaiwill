@@ -2096,7 +2096,7 @@ openaiwill 是什么？
 
 - [ ] **Step 2: Local target file**
 
-Create `.env.deploy` with `DEPLOY_HOST=43.159.61.45`, `DEPLOY_USER=ubuntu`, `DEPLOY_SSH_KEY=~/.ssh/TW_SG.pem`, `DEPLOY_ROOT=/opt/openaiwill`. Confirm `git status` does not list it. Run `pnpm site:status`.
+Create `.env.deploy` with `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` and `DEPLOY_ROOT=/opt/openaiwill`; the operator enters the host, user and key path from their own records (never written to a tracked file). Confirm `git status` does not list it. Run `pnpm site:status`.
 Expected: `current: none`, and no `openaiwill` containers.
 
 - [ ] **Step 3: Candidate** (after the user's go-ahead)

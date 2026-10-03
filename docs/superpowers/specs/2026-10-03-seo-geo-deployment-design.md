@@ -29,13 +29,13 @@
 - 页面从 `datasets/published/latest/` 读盘（5.4 MB，已被 Git 忽略）。五个动态路由已有 `generateStaticParams`。
 - 没有任何部署配置，只有 `.github/workflows/ci.yml`。
 
-服务器 `ubuntu@43.159.61.45`（密钥 `~/.ssh/TW_SG.pem`，只读核对）：
+服务器（只读核对）。服务器地址、登录用户和密钥路径记录在本地被忽略的 `.env.deploy` 中，不写入任何受版本管理的文件：
 
 - Ubuntu 24.04，x86_64，2 核，7.4 GB 内存（约 5 GB 可用），磁盘剩余 29 GB。
 - 已装 Docker 29.6；没有装 Node、Caddy、Nginx。
 - 防火墙只开放 SSH。80 和 443 没有任何进程监听。
 - 对外流量全部经 `cloudflared`（Cloudflare Tunnel，令牌方式运行，路由规则在 Cloudflare 后台配置，服务器上没有配置文件）。
-- 现有三个项目的做法一致：代码放在 `/opt/<项目>/releases/<版本>/`，用 Docker Compose 运行，只绑定 `127.0.0.1:<端口>`。已占用的本地端口：5433、8310、8311、8787、9090、9443。
+- 现有三个项目的做法一致：代码放在 `/opt/<项目>/releases/<版本>/`，用 Docker Compose 运行，只绑定 `127.0.0.1:<端口>`。本项目使用 8320、8321；其他本地端口已被现有项目占用。
 - 本地开发机是 arm64，服务器是 x86_64。
 
 ## 一、部署
@@ -92,7 +92,7 @@
 
 用户于 2026-10-03 确认由本人完成域名指向。
 
-注意：这台服务器不开放 80 和 443，把域名用 A 记录直接指向 `43.159.61.45` 不会生效。指向必须经过 Tunnel：
+注意：这台服务器不开放 80 和 443，把域名用 A 记录直接指向服务器公网地址不会生效。指向必须经过 Tunnel：
 
 1. 确认 `openaiwill.com` 的 DNS 托管在运行这条 Tunnel 的同一个 Cloudflare 账号下；不在的话先把域名的 NS 改过去。
 2. 在 Tunnel 里添加公开主机名 `openaiwill.com` → `http://localhost:8320`，以及 `www.openaiwill.com`。Cloudflare 会自动建立对应的 CNAME 记录，不需要手工添加 A 记录。
