@@ -1,0 +1,29 @@
+# The server database. Started by `pnpm db:setup` from <DEPLOY_ROOT>/db/, with
+# --env-file db.env (written on the server; never in Git).
+name: openaiwill-db
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: openaiwill-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run pnpm db:setup first}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    networks:
+      openaiwill:
+        aliases:
+          - openaiwill-db
+    healthcheck:
+      # TCP, not the socket: the image's first-start temporary server listens on the socket only.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  pgdata:
+networks:
+  openaiwill:
+    external: true

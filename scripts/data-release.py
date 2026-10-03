@@ -6,15 +6,20 @@
     rollback  make the previously live release live again
     status    list releases and the live one
     reset     drop and recreate the kg schema (destroys all releases; --target local only)
+    setup-db  create or update the server database, its roles and the kg schema (--target server only)
 
 `rollback` re-activates the previously active release, so running it twice
 returns to where you started.
 
-Only `--target local` exists until the deployment task adds the server tunnel.
+`--target server` runs the same commands against the server database through an
+SSH forward (settings in .env.deploy; the writer's password is read from the
+server into memory). After `promote` and `rollback` it reports what the
+production site serves. `--target local` (the default) is the local database.
 Errors are one `error: ...` line and exit status 1.
 """
 import argparse
 from pathlib import Path
+import subprocess
 import sys
 import time
 
@@ -22,14 +27,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import psycopg  # noqa: E402
 
+import server_db  # noqa: E402
 from data_pipeline import kg  # noqa: E402
 from data_pipeline.db import connect  # noqa: E402
+from site_release import ReleaseError  # noqa: E402
 
 
 def open_target(target):
     if target == "local":
         return connect()
-    raise kg.KgError("server target arrives with the deployment task")
+    return server_db.server_connection()
 
 
 def summarize(changes):
@@ -66,10 +73,13 @@ def cmd_promote(conn, args):
         raise kg.KgError("no verified release to promote; run `release` first")
     kg.activate(conn, verified[0]["release_id"], "promote")
     print(f"active release: {verified[0]['release_id']}")
+    return verified[0]["release_id"]
 
 
 def cmd_rollback(conn, args):
-    print(f"active release: {kg.rollback(conn)}")
+    active = kg.rollback(conn)
+    print(f"active release: {active}")
+    return active
 
 
 def cmd_status(conn, args):
@@ -82,6 +92,8 @@ def cmd_status(conn, args):
         print(f"{mark} {r['release_id']}  {r['status']}  {total} rows  imported {r['imported_at']}")
     if not info["releases"]:
         print("no releases")
+    if args.target == "server":
+        server_db.report_production()
 
 
 def cmd_reset(conn, args):
@@ -91,19 +103,35 @@ def cmd_reset(conn, args):
 
 COMMANDS = {"release": cmd_release, "promote": cmd_promote, "rollback": cmd_rollback, "status": cmd_status,
             "reset": cmd_reset}
+SERVER_ONLY = {"setup-db"}
+# After these the production site is asked which data release it serves (server target only).
+WATCHED = {"promote", "rollback"}
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=sorted(COMMANDS))
+    parser.add_argument("command", choices=sorted([*COMMANDS, *SERVER_ONLY]))
     parser.add_argument("--target", choices=("local", "server"), default="local")
     parser.add_argument("--snapshot", type=Path, default=kg.SNAPSHOT_DIR)
     args = parser.parse_args(argv)
     try:
         if args.command == "reset" and args.target != "local":
             raise kg.KgError("reset works only with --target local")
+        if args.command in SERVER_ONLY:
+            if args.target != "server":
+                raise kg.KgError(f"{args.command} works only with --target server")
+            server_db.setup_db()
+            return 0
         with open_target(args.target) as conn:
-            COMMANDS[args.command](conn, args)
+            result = COMMANDS[args.command](conn, args)
+        if args.target == "server" and args.command in WATCHED:
+            server_db.report_production(result)
+    except ReleaseError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as error:
+        print(f"error: a command on the server failed with status {error.returncode}", file=sys.stderr)
+        return 1
     except (kg.KgError, psycopg.Error, RuntimeError, OSError, ValueError) as error:
         print(f"error: {' '.join(str(error).split())}", file=sys.stderr)
         return 1

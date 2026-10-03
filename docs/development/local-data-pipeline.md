@@ -67,6 +67,8 @@ pnpm data:review:pending / pnpm data:review:record    # 人工评审
 pnpm data:publish:snapshot                           # 网站读取的已发布快照
 ```
 
+把快照作为版本化数据发布到服务器数据库（`pnpm data:release`、`pnpm data:promote`、`pnpm data:rollback`；`--target local` 对本机库做同样的事）见[网站部署手册](deployment.md)的“发布数据”一节。
+
 能力集从工作本身推导，不从厂商发布推导：按职业大类分层抽样任务原文，
 让模型说出每条任务需要什么能力，**先按跨大类广度筛掉只出现在一个大类的名称**
 （那是任务改写不是能力），再合并同义项。分类是独立的一遍——提议阶段问

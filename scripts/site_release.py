@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Build openaiwill locally and ship the build to the server over SSH.
+"""Build openaiwill locally and ship the code to the server over SSH (the code release line).
 
-  build     verify the snapshot, build, assemble .release/<id>/ and smoke-test it locally
+  build     build, assemble .release/<id>/ and smoke-test it locally
   release   build, upload, and start the release as the candidate on the server
   promote   make the candidate the production service
   rollback  make the previous production release the production service again
-  status    show what the server is running
+  status    show what the server is running: each slot's code release and the data release it serves
   indexnow  tell IndexNow-fed search engines which addresses exist (promote does this too)
 
-The snapshot never leaves this machine: pages are rendered here and only the
-rendered build is uploaded.
+A code release contains no data. The site reads the active data release from the server
+database (published separately with `pnpm data:release` and `pnpm data:promote`), so the
+candidate can only start on a server that already holds one.
 """
 from __future__ import annotations
 
@@ -32,13 +33,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from data_pipeline.pipeline import digest  # noqa: E402
 
 SNAPSHOT = ROOT / "datasets" / "published" / "latest"
 STAGING = ROOT / ".release"
 SITE_URL = "https://openaiwill.com"
-SNAPSHOT_FILES = ["chain", "markets", "tasks", "events", "models", "sources", "coverage", "progress"]
 PRODUCTION = {"project": "openaiwill", "port": 8320, "env": "production"}
 CANDIDATE = {"project": "openaiwill-next", "port": 8321, "env": "preview"}
 LOCAL_PORT = 8399
@@ -51,8 +49,9 @@ class ReleaseError(Exception):
     pass
 
 
-def release_id(generated_at: str, commit: str, dirty: bool) -> str:
-    moment = datetime.fromisoformat(generated_at.replace("Z", "+00:00")).astimezone(timezone.utc)
+def release_id(built_at: datetime, commit: str, dirty: bool) -> str:
+    """`<UTC build time>-<git short sha>[-dirty]`: a code release is named by when and from what it was built."""
+    moment = built_at.astimezone(timezone.utc)
     return f"{moment:%Y%m%dT%H%M%SZ}-{commit}{'-dirty' if dirty else ''}"
 
 
@@ -66,30 +65,6 @@ def checked_id(value: str) -> str:
 
 def valid_ids(names: list[str]) -> list[str]:
     return [name for name in names if RELEASE_ID.fullmatch(name)]
-
-
-def verify_snapshot(directory: Path) -> dict:
-    """The manifest must describe the files beside it; a half-written snapshot is not built."""
-    manifest_path = directory / "manifest.json"
-    if not manifest_path.is_file():
-        raise ReleaseError(f"no manifest at {manifest_path}; run `pnpm data:publish:snapshot`")
-    manifest = json.loads(manifest_path.read_text())
-    payload = {}
-    for name in SNAPSHOT_FILES:
-        path = directory / f"{name}.json"
-        if not path.is_file():
-            raise ReleaseError(f"snapshot file missing: {name}.json")
-        payload[name] = json.loads(path.read_text())
-    counts = {
-        **{f"chain.{key}": len(value) for key, value in payload["chain"].items()},
-        **{key: len(value) for key, value in payload.items() if isinstance(value, list)},
-        **{key: 1 for key, value in payload.items() if isinstance(value, dict) and key != "chain"},
-    }
-    if counts != manifest.get("counts"):
-        raise ReleaseError("snapshot counts do not match its manifest")
-    if digest(payload) != manifest.get("content_sha256"):
-        raise ReleaseError("snapshot content_sha256 does not match its files")
-    return manifest
 
 
 FORBIDDEN_DIRS = {"datasets", "data", "local", "docs", "design", "db", "scripts", ".git", ".claude", ".agents", ".codex"}
@@ -169,8 +144,27 @@ def is_reachability(failure: str) -> bool:
     return "is not reachable" in failure or ": no answer (" in failure
 
 
-def smoke(base: str, release: str | None) -> list[str]:
-    """Requests a reader or a crawler would make. Returns the failures."""
+# One real page of each kind, taken from the sitemap. Occupation addresses contain a dot
+# (the group pages /occupations/g/11 do not), so each of those is requested on its own.
+DETAIL_PAGES = {
+    "market": r"/markets/[^<]+",
+    "dotted occupation": r"/occupations/\d[^<]*\.[^<]+",
+    "occupation group": r"/occupations/g/[^<]+",
+    "update": r"/updates/[^<]+",
+    "work": r"/work/[^<]+",
+    "Chinese dotted occupation": r"/zh-CN/occupations/\d[^<]*\.[^<]+",
+}
+
+
+def detail_patterns(with_data: bool) -> dict[str, str]:
+    """The detail pages a smoke run asks the sitemap for. Without data there are none to ask for."""
+    return dict(DETAIL_PAGES) if with_data else {}
+
+
+def smoke(base: str, release: str | None, with_data: bool = True) -> list[str]:
+    """Requests a reader or a crawler would make. Returns the failures.
+
+    `with_data=False` is the subset that needs no data: fixed pages, redirects, 404s, robots, llms.txt."""
     failures = []
     try:
         fetch(base + "/healthz")
@@ -222,17 +216,7 @@ def smoke(base: str, release: str | None) -> list[str]:
     expect("/markets/no-such-market", 404)
     expect("/zh-CN/updates/no-such-update", 404)
     expect("/no-such-page", 404)
-    # One real page of each kind, taken from the sitemap. Occupation addresses contain a dot
-    # (the group pages /occupations/g/11 do not), so each of those is requested on its own.
-    wanted = {
-        "market": rf"/markets/[^<]+",
-        "dotted occupation": r"/occupations/\d[^<]*\.[^<]+",
-        "occupation group": r"/occupations/g/[^<]+",
-        "update": r"/updates/[^<]+",
-        "work": r"/work/[^<]+",
-        "Chinese dotted occupation": r"/zh-CN/occupations/\d[^<]*\.[^<]+",
-    }
-    for label, pattern in wanted.items():
+    for label, pattern in detail_patterns(with_data).items():
         match = re.search(rf"<loc>{re.escape(SITE_URL)}({pattern})</loc>", sitemap)
         if match:
             expect(match.group(1), 200)
@@ -269,10 +253,20 @@ def wait_until_answering(base: str, process: subprocess.Popen) -> None:
     raise ReleaseError(f"nothing answered at {base}")
 
 
-def with_local_server(app: Path, site_env: str, callback):
+def local_server_env(site_env: str, snapshot_dir: Path | None, base: dict | None = None) -> dict:
+    """Environment for the local smoke server: never a database (a developer's own DATABASE_URL must not
+    leak in), files mode only when a snapshot directory is given, no SITE_REQUIRE_DATABASE."""
+    env = {key: value for key, value in (os.environ if base is None else base).items()
+           if key not in ("DATABASE_URL", "SITE_REQUIRE_DATABASE", "SNAPSHOT_DIR")}
+    env.update({"PORT": str(LOCAL_PORT), "HOSTNAME": "127.0.0.1", "SITE_ENV": site_env})
+    if snapshot_dir is not None:
+        env["SNAPSHOT_DIR"] = str(snapshot_dir)
+    return env
+
+
+def with_local_server(app: Path, site_env: str, callback, snapshot_dir: Path | None = None):
     """Start the built server with SITE_ENV=site_env, wait for it, return callback(base_url), stop it."""
-    server = subprocess.Popen(["node", "server.js"], cwd=app,
-                              env={**os.environ, "PORT": str(LOCAL_PORT), "HOSTNAME": "127.0.0.1", "SITE_ENV": site_env})
+    server = subprocess.Popen(["node", "server.js"], cwd=app, env=local_server_env(site_env, snapshot_dir))
     try:
         base = f"http://127.0.0.1:{LOCAL_PORT}"
         wait_until_answering(base, server)
@@ -315,22 +309,65 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
-def forward_argv(target: dict, local_port: int) -> list[str]:
-    """ssh command that forwards a local port to the candidate slot, and fails if it cannot."""
-    return ssh_base(target, ["-o", "ExitOnForwardFailure=yes", "-N", "-L", f"{local_port}:127.0.0.1:{CANDIDATE['port']}"])
+def forward_argv(target: dict, local_port: int, remote_port: int = CANDIDATE["port"]) -> list[str]:
+    """ssh command that forwards a local port to a port on the server's loopback, and fails if it cannot.
+    Without `remote_port` it reaches the candidate slot."""
+    return ssh_base(target, ["-o", "ExitOnForwardFailure=yes", "-N", "-L", f"{local_port}:127.0.0.1:{remote_port}"])
 
 
-def candidate_failures(target: dict, release: str) -> list[str]:
-    """Smoke-test the candidate on the server through an SSH forward, the way a reviewer would see it."""
+def health_data(body: str) -> dict:
+    """`data` of a /healthz body ({} when the body is not that JSON)."""
+    try:
+        data = json.loads(body).get("data")
+    except (ValueError, AttributeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+PUBLISH_DATA_FIRST = "publish data first: pnpm data:release && pnpm data:promote"
+
+
+def data_release_failures(body: str) -> list[str]:
+    """A candidate must serve a release from the database; anything else means the server holds no data release."""
+    data = health_data(body)
+    if data.get("source") == "database" and data.get("releaseId"):
+        return []
+    return [f"/healthz reports no database data release ({PUBLISH_DATA_FIRST})"]
+
+
+def describe_health(body: str | None) -> str:
+    """One line for `status`: the code release and the data release a slot reports."""
+    if not body or not body.strip():
+        return "not running"
+    try:
+        code = json.loads(body).get("release") or "unknown"
+    except (ValueError, AttributeError):
+        return "answers, but not with a /healthz body"
+    data = health_data(body)
+    served = f"data {data['releaseId']} ({data.get('source')})" if data.get("releaseId") else "no data release loaded"
+    return f"code {code}, {served}"
+
+
+def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
+    """Smoke-test the candidate on the server through an SSH forward, the way a reviewer would see it.
+    Returns the failures and the data release the candidate is serving."""
     port = free_port()
     forward = subprocess.Popen(forward_argv(target, port), stdin=subprocess.DEVNULL)
     try:
         base = f"http://127.0.0.1:{port}"
         wait_until_answering(base, forward)
-        return smoke(base, release) + indexability(base, indexable=False)
+        _, _, body = fetch(base + "/healthz")
+        served = health_data(body).get("releaseId") or ""
+        return smoke(base, release) + data_release_failures(body) + indexability(base, indexable=False), served
     finally:
         forward.terminate()
         forward.wait()
+
+
+def remote_result(target: dict, script: str) -> subprocess.CompletedProcess:
+    """Run a script on the server; the caller decides what a non-zero status means."""
+    return subprocess.run([*ssh_base(target), "bash", "-euo", "pipefail", "-c", shlex.quote(script)],
+                          text=True, capture_output=True)
 
 
 def remote(target: dict, script: str, capture: bool = False) -> str:
@@ -339,9 +376,14 @@ def remote(target: dict, script: str, capture: bool = False) -> str:
     return result.stdout.strip() if capture else ""
 
 
-def compose(slot: dict, release: str, action: str) -> str:
+def site_env_file(target: dict) -> str:
+    """Quoted path of the site's environment file (DATABASE_URL), written by `pnpm db:setup`."""
+    return rpath(target, "site.env")
+
+
+def compose(target: dict, slot: dict, release: str, action: str) -> str:
     return (f"sudo RELEASE_ID={shlex.quote(checked_id(release))} HOST_PORT={slot['port']} SITE_ENV={slot['env']} "
-            f"docker compose -p {slot['project']} {action}")
+            f"SITE_ENV_FILE={site_env_file(target)} docker compose -p {slot['project']} {action}")
 
 
 def rpath(target: dict, *parts: str) -> str:
@@ -360,11 +402,19 @@ def remote_id(target: dict, name: str) -> str:
     return checked_id(value) if value.strip() else ""
 
 
-def build() -> str:
-    manifest = verify_snapshot(SNAPSHOT)
+def build_release_id() -> str:
     # Untracked files do not change what is built from the commit, so only edits to tracked files mark a release dirty.
-    release = release_id(manifest["generated_at"], git("rev-parse", "--short", "HEAD"),
-                         bool(git("status", "--porcelain", "--untracked-files=no")))
+    return release_id(datetime.now(timezone.utc), git("rev-parse", "--short", "HEAD"),
+                      bool(git("status", "--porcelain", "--untracked-files=no")))
+
+
+def snapshot_dir_for_smoke() -> Path | None:
+    """The local snapshot directory when there is one: the smoke server then runs in files mode."""
+    return SNAPSHOT if (SNAPSHOT / "manifest.json").is_file() else None
+
+
+def build() -> str:
+    release = build_release_id()
     if release.endswith("-dirty"):
         print("warning: uncommitted changes; this release cannot be reproduced from a commit", file=sys.stderr)
     run(["pnpm", "check"], env={**os.environ, "RELEASE_ID": release})
@@ -384,8 +434,6 @@ def build() -> str:
     (staged / "release.json").write_text(json.dumps({
         "release": release,
         "commit": git("rev-parse", "HEAD"),
-        "snapshot_generated_at": manifest["generated_at"],
-        "snapshot_sha256": manifest["content_sha256"],
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }, indent=2) + "\n")
 
@@ -396,13 +444,53 @@ def build() -> str:
     if found:
         raise ReleaseError("release contains files that must not be uploaded:\n  " + "\n  ".join(found[:20]))
 
-    failures = with_local_server(app, "preview", lambda base: smoke(base, release) + indexability(base, indexable=False))
+    snapshot = snapshot_dir_for_smoke()
+    if snapshot is None:
+        print("no local snapshot: smoke-testing the no-data subset (run `pnpm data:publish:snapshot` for the full list)")
+    # Files mode reads the snapshot from outside the release; the release itself contains no data.
+    failures = with_local_server(app, "preview", lambda base: smoke(base, release, with_data=snapshot is not None)
+                                 + indexability(base, indexable=False), snapshot)
     # What the server will run: production answers pages without an X-Robots-Tag.
-    failures += with_local_server(app, "production", lambda base: indexability(base, indexable=True))
+    failures += with_local_server(app, "production", lambda base: indexability(base, indexable=True), snapshot)
     if failures:
         raise ReleaseError("smoke test failed:\n  " + "\n  ".join(failures))
     print(f"built {release} at {staged.relative_to(ROOT)}")
     return release
+
+
+def candidate_script(target: dict, release: str) -> str:
+    """Start the candidate. When it does not become healthy, print its /healthz body (marked BODY:) and
+    the container log, and exit 3, so the caller can tell a server without data from any other failure."""
+    release_dir = rpath(target, "releases", release)
+    port = CANDIDATE["port"]
+    return f"""
+cd {release_dir}
+if ! ( {compose(target, CANDIDATE, release, 'up -d --build --wait')} && {healthy(CANDIDATE, release)} ); then
+  body=$(curl -s --max-time 5 http://127.0.0.1:{port}/healthz | head -c 2000 | tr -d '\\n' || true)
+  echo "BODY:$body"
+  {compose(target, CANDIDATE, release, 'logs --tail 15 web')} >&2 || true
+  exit 3
+fi
+"""
+
+
+def candidate_start_failure(stdout: str) -> str:
+    """What to tell the operator when the candidate did not become healthy."""
+    body = next((line[len("BODY:"):] for line in stdout.splitlines() if line.startswith("BODY:")), "")
+    if data_release_failures(body):
+        return (f"the candidate did not become healthy and loaded no data release: {PUBLISH_DATA_FIRST}\n"
+                "(then run `pnpm site:release` again; its /healthz and container log are above)")
+    return "the candidate did not become healthy although it reports a data release; its container log is above"
+
+
+def start_candidate(target: dict, release: str) -> None:
+    result = remote_result(target, candidate_script(target, release))
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="")
+    if result.returncode == 3:
+        raise ReleaseError(candidate_start_failure(result.stdout))
+    if result.returncode != 0:
+        raise ReleaseError(f"starting the candidate failed with status {result.returncode}")
 
 
 def release_command() -> None:
@@ -416,16 +504,15 @@ def release_command() -> None:
     run(["rsync", "-az", "--delete", "-e", f"ssh -i {key} -o IdentitiesOnly=yes -o BatchMode=yes",
          f"{STAGING / release}/",
          f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}:{target['DEPLOY_ROOT']}/releases/{release}/"])
-    remote(target, f"cd {rpath(target, 'releases', release)} && {compose(CANDIDATE, release, 'up -d --build --wait')} "
-                   f"&& {healthy(CANDIDATE, release)}")
+    start_candidate(target, release)
     # Only a candidate that passed is recorded, so `promote` cannot pick up one that did not.
-    failures = candidate_failures(target, release)
+    failures, served = candidate_failures(target, release)
     if failures:
         raise ReleaseError(f"candidate {release} failed its smoke test. It was left running on the server "
                            f"(127.0.0.1:{CANDIDATE['port']}) for inspection and is not recorded as the candidate:\n  "
                            + "\n  ".join(failures))
     remote(target, f"echo {shlex.quote(release)} > {rpath(target, 'candidate')}")
-    print(f"\ncandidate {release} is running on the server.\n"
+    print(f"\ncandidate {release} is running on the server, serving data release {served}.\n"
           f"preview:  ssh -i {target['DEPLOY_SSH_KEY']} -N -L 8321:127.0.0.1:{CANDIDATE['port']} "
           f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}   then open http://localhost:8321\n"
           f"go live:  pnpm site:promote")
@@ -439,20 +526,20 @@ def switch_script(target: dict, release: str, live: str) -> str:
         done = (f"echo '{live} did not become healthy; it is still the current release' >&2" if live == release
                 else f"echo 'production restored to {live}' >&2")
         restore = (f"if [ -d {live_dir} ]; then\n"
-                   f"    cd {live_dir} && {compose(PRODUCTION, live, 'up -d --wait')} "
+                   f"    cd {live_dir} && {compose(target, PRODUCTION, live, 'up -d --wait')} "
                    f"|| {{ echo 'RESTORE FAILED: production is down' >&2; exit 1; }}\n"
                    f"    {done}\n"
                    f"  else echo 'RESTORE FAILED: production is down; {live} is gone' >&2; exit 1; fi")
         remember = f"echo {shlex.quote(live)} > {rpath(target, 'previous')}" if live != release else ":"
     else:
         # Nothing to go back to: the unhealthy container would keep the production port with `restart: unless-stopped`.
-        restore = (f"{compose(PRODUCTION, release, 'down')} || echo 'could not stop the production slot' >&2\n"
+        restore = (f"{compose(target, PRODUCTION, release, 'down')} || echo 'could not stop the production slot' >&2\n"
                    f"  echo 'no earlier release to restore; production slot stopped' >&2")
         remember = ":"
     return f"""
 test -d {release_dir}
 cd {release_dir}
-if ! ( {compose(PRODUCTION, release, 'up -d --build --wait')} && {healthy(PRODUCTION, release)} ); then
+if ! ( {compose(target, PRODUCTION, release, 'up -d --build --wait')} && {healthy(PRODUCTION, release)} ); then
   echo 'release {release} did not become healthy' >&2
   {restore}
   exit 1
@@ -485,7 +572,7 @@ def promote_command() -> None:
         raise ReleaseError("there is no candidate; run `pnpm site:release` first")
     remote(target, healthy(CANDIDATE, release))
     switch(target, release)
-    remote(target, f"cd {rpath(target, 'releases', release)} && {compose(CANDIDATE, release, 'down')} "
+    remote(target, f"cd {rpath(target, 'releases', release)} && {compose(target, CANDIDATE, release, 'down')} "
                    f"&& rm -f {rpath(target, 'candidate')}")
     listing = remote(target, f"ls {rpath(target, 'releases')}", capture=True).split()
     protected = set(valid_ids(remote(target, f"cat {rpath(target, 'current')} {rpath(target, 'previous')} "
@@ -511,6 +598,23 @@ def rollback_command() -> None:
     print(f"production is back on {release}")
 
 
+def health_probe_script() -> str:
+    """Each slot's /healthz body on one marked line (empty when the slot does not answer)."""
+    lines = [f'echo "{name}:$(curl -s --max-time 5 http://127.0.0.1:{slot["port"]}/healthz | head -c 2000 | tr -d \'\\n\' || true)"'
+             for name, slot in (("PRODUCTION", PRODUCTION), ("CANDIDATE", CANDIDATE))]
+    return "\n".join(lines)
+
+
+def parse_probe(output: str) -> dict[str, str]:
+    """{'PRODUCTION': body, 'CANDIDATE': body} from health_probe_script's output."""
+    found = {}
+    for line in output.splitlines():
+        name, _, body = line.partition(":")
+        if name in ("PRODUCTION", "CANDIDATE"):
+            found[name] = body
+    return found
+
+
 def status_command() -> None:
     target = load_target()
     print(remote(target, f"""
@@ -520,6 +624,9 @@ echo "candidate: $(cat {rpath(target, 'candidate')} 2>/dev/null || echo none)"
 echo "releases:  $(ls {rpath(target, 'releases')} 2>/dev/null | tr '\\n' ' ')"
 sudo docker ps --filter name=openaiwill --format '{{{{.Names}}}}  {{{{.Image}}}}  {{{{.Status}}}}  {{{{.Ports}}}}'
 """, capture=True))
+    probes = parse_probe(remote(target, health_probe_script(), capture=True))
+    print(f"production slot (:{PRODUCTION['port']}): {describe_health(probes.get('PRODUCTION'))}")
+    print(f"candidate slot (:{CANDIDATE['port']}):  {describe_health(probes.get('CANDIDATE'))}")
 
 
 def notify_indexnow() -> None:

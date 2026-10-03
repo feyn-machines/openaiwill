@@ -2,70 +2,30 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import site_release as release  # noqa: E402
-from data_pipeline.pipeline import digest  # noqa: E402
-
-PAYLOAD = {
-    "chain": {"events": [{"event_id": "e1"}], "evidence": [], "activities": [], "gates": [], "gate_edges": []},
-    "markets": [], "tasks": [], "events": [{"event_id": "e1"}], "models": [], "sources": [],
-    "coverage": {"a": 1}, "progress": {"b": 2},
-}
-
-
-def write_snapshot(directory, payload=PAYLOAD, **manifest):
-    counts = {
-        **{f"chain.{k}": len(v) for k, v in payload["chain"].items()},
-        **{k: len(v) for k, v in payload.items() if isinstance(v, list)},
-        **{k: 1 for k, v in payload.items() if isinstance(v, dict) and k != "chain"},
-    }
-    body = {"generated_at": "2026-10-03T10:29:12.430661+00:00", "counts": counts,
-            "content_sha256": digest(payload), **manifest}
-    for name, value in payload.items():
-        (directory / f"{name}.json").write_text(json.dumps(value))
-    (directory / "manifest.json").write_text(json.dumps(body))
-
 
 class ReleaseIdTest(unittest.TestCase):
-    def test_id_is_generation_time_and_commit(self):
-        self.assertEqual(release.release_id("2026-10-03T10:29:12.430661+00:00", "e2d4005", False),
-                         "20261003T102912Z-e2d4005")
+    def test_id_is_build_time_and_commit(self):
+        built = datetime(2026, 10, 3, 10, 29, 12, 430661, tzinfo=timezone.utc)
+        self.assertEqual(release.release_id(built, "e2d4005", False), "20261003T102912Z-e2d4005")
 
     def test_time_is_converted_to_utc(self):
-        self.assertEqual(release.release_id("2026-10-03T18:29:12+08:00", "e2d4005", False),
-                         "20261003T102912Z-e2d4005")
+        built = datetime(2026, 10, 3, 18, 29, 12, tzinfo=timezone(timedelta(hours=8)))
+        self.assertEqual(release.release_id(built, "e2d4005", False), "20261003T102912Z-e2d4005")
 
     def test_uncommitted_work_is_marked(self):
-        self.assertTrue(release.release_id("2026-10-03T10:29:12+00:00", "e2d4005", True).endswith("-dirty"))
+        built = datetime(2026, 10, 3, 10, 29, 12, tzinfo=timezone.utc)
+        self.assertTrue(release.release_id(built, "e2d4005", True).endswith("-dirty"))
 
-
-class VerifySnapshotTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.dir = Path(self.tmp.name)
-        self.addCleanup(self.tmp.cleanup)
-
-    def test_a_consistent_snapshot_passes(self):
-        write_snapshot(self.dir)
-        self.assertEqual(release.verify_snapshot(self.dir)["content_sha256"], digest(PAYLOAD))
-
-    def test_a_missing_manifest_fails(self):
-        with self.assertRaisesRegex(release.ReleaseError, "manifest"):
-            release.verify_snapshot(self.dir)
-
-    def test_an_edited_file_fails(self):
-        write_snapshot(self.dir)
-        (self.dir / "events.json").write_text(json.dumps([{"event_id": "e1"}, {"event_id": "e2"}]))
-        with self.assertRaisesRegex(release.ReleaseError, "content_sha256|counts"):
-            release.verify_snapshot(self.dir)
-
-    def test_a_missing_file_fails(self):
-        write_snapshot(self.dir)
-        (self.dir / "tasks.json").unlink()
-        with self.assertRaisesRegex(release.ReleaseError, "tasks.json"):
-            release.verify_snapshot(self.dir)
+    def test_every_id_passes_the_validation_that_guards_remote_commands(self):
+        built = datetime.now(timezone.utc)
+        for dirty in (False, True):
+            self.assertEqual(release.checked_id(release.release_id(built, "abcdef0", dirty)),
+                             release.release_id(built, "abcdef0", dirty))
 
 
 class ForbiddenEntriesTest(unittest.TestCase):
@@ -153,6 +113,11 @@ class ForwardTest(unittest.TestCase):
         port = release.free_port()
         self.assertTrue(1024 <= port <= 65535)
 
+    def test_the_forward_can_reach_any_remote_port(self):
+        argv = release.forward_argv(self.target, 51234, 5434)
+        self.assertEqual(argv[argv.index("-L") + 1], "51234:127.0.0.1:5434")
+        self.assertIn("ExitOnForwardFailure=yes", argv)
+
     def test_the_forward_reaches_the_candidate_slot_and_fails_loudly(self):
         argv = release.forward_argv(self.target, 51234)
         self.assertEqual(argv[0], "ssh")
@@ -216,6 +181,113 @@ class PublicCheckMessageTest(unittest.TestCase):
         message = release.public_check_message(self.new, ["/markets: status 500, expected 200"])
         self.assertIn("pnpm site:rollback", message)
         self.assertIn("production IS switched", message)
+
+
+class SmokeSelectionTest(unittest.TestCase):
+    def test_without_data_no_detail_page_is_asked_for(self):
+        self.assertEqual(release.detail_patterns(False), {})
+
+    def test_with_data_every_kind_of_detail_page_is_asked_for(self):
+        self.assertEqual(set(release.detail_patterns(True)),
+                         {"market", "dotted occupation", "occupation group", "update", "work",
+                          "Chinese dotted occupation"})
+
+    def test_the_selection_is_a_copy(self):
+        release.detail_patterns(True).clear()
+        self.assertTrue(release.detail_patterns(True))
+
+
+class LocalServerEnvTest(unittest.TestCase):
+    base = {"PATH": "/bin", "DATABASE_URL": "postgres://x", "SITE_REQUIRE_DATABASE": "1", "SNAPSHOT_DIR": "/old"}
+
+    def test_a_database_never_leaks_into_the_smoke_server(self):
+        env = release.local_server_env("preview", None, self.base)
+        for name in ("DATABASE_URL", "SITE_REQUIRE_DATABASE", "SNAPSHOT_DIR"):
+            self.assertNotIn(name, env)
+        self.assertEqual((env["SITE_ENV"], env["PATH"], env["PORT"]), ("preview", "/bin", str(release.LOCAL_PORT)))
+
+    def test_files_mode_points_at_the_snapshot_directory(self):
+        env = release.local_server_env("production", Path("/snap"), self.base)
+        self.assertEqual(env["SNAPSHOT_DIR"], "/snap")
+        self.assertNotIn("SITE_REQUIRE_DATABASE", env)
+
+
+class SnapshotChoiceTest(unittest.TestCase):
+    def test_only_a_directory_with_a_manifest_selects_files_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = release.SNAPSHOT
+            try:
+                release.SNAPSHOT = Path(tmp)
+                self.assertIsNone(release.snapshot_dir_for_smoke())
+                (Path(tmp) / "manifest.json").write_text("{}")
+                self.assertEqual(release.snapshot_dir_for_smoke(), Path(tmp))
+            finally:
+                release.SNAPSHOT = original
+
+
+class HealthTest(unittest.TestCase):
+    loaded = json.dumps({"ok": True, "release": "R1", "data": {"releaseId": "D1", "source": "database", "loadedAt": "t"}})
+    empty = json.dumps({"ok": False, "release": "R1", "data": {"releaseId": None, "source": "none", "loadedAt": None}})
+
+    def test_a_database_release_passes(self):
+        self.assertEqual(release.data_release_failures(self.loaded), [])
+
+    def test_no_release_says_to_publish_data_first(self):
+        for body in (self.empty, "", "not json", "[]", json.dumps({"data": None}),
+                     json.dumps({"data": {"releaseId": "D1", "source": "files"}})):
+            failures = release.data_release_failures(body)
+            self.assertEqual(len(failures), 1, body)
+            self.assertIn("publish data first: pnpm data:release && pnpm data:promote", failures[0])
+
+    def test_status_line(self):
+        self.assertEqual(release.describe_health(self.loaded), "code R1, data D1 (database)")
+        self.assertEqual(release.describe_health(self.empty), "code R1, no data release loaded")
+        self.assertEqual(release.describe_health(""), "not running")
+        self.assertEqual(release.describe_health(None), "not running")
+        self.assertIn("not with a /healthz body", release.describe_health("<html>"))
+
+    def test_probe_output_is_parsed_by_slot(self):
+        out = f"PRODUCTION:{self.loaded}\nCANDIDATE:\n"
+        found = release.parse_probe(out)
+        self.assertEqual(found["PRODUCTION"], self.loaded)
+        self.assertEqual(found["CANDIDATE"], "")
+        self.assertEqual(release.describe_health(found["CANDIDATE"]), "not running")
+
+
+class CandidateScriptTest(unittest.TestCase):
+    target = {"DEPLOY_ROOT": "/opt/openaiwill", "DEPLOY_USER": "u"}
+    new = "20261003T102912Z-aaaaaaa"
+
+    def test_the_script_starts_only_the_candidate_slot_with_the_site_env_file(self):
+        script = release.candidate_script(self.target, self.new)
+        self.assertIn("-p openaiwill-next up -d --build --wait", script)
+        self.assertIn("SITE_ENV_FILE=/opt/openaiwill/site.env", script)
+        self.assertNotIn("-p openaiwill up", script)
+        self.assertIn("exit 3", script)
+        self.assertIn("BODY:", script)
+
+    def test_a_server_without_data_gets_the_publish_data_message(self):
+        for stdout in ("BODY:", 'BODY:{"data":{"releaseId":null,"source":"none"}}', ""):
+            self.assertIn("publish data first: pnpm data:release && pnpm data:promote",
+                          release.candidate_start_failure(stdout))
+
+    def test_another_failure_is_not_blamed_on_missing_data(self):
+        body = json.dumps({"data": {"releaseId": "D1", "source": "database"}})
+        message = release.candidate_start_failure(f"BODY:{body}\n")
+        self.assertNotIn("publish data first", message)
+
+    def test_every_compose_call_names_the_env_file(self):
+        command = release.compose(self.target, release.PRODUCTION, self.new, "up -d --wait")
+        self.assertIn("SITE_ENV_FILE=/opt/openaiwill/site.env", command)
+        self.assertIn("HOST_PORT=8320", command)
+
+    def test_the_env_file_path_is_quoted(self):
+        command = release.compose({"DEPLOY_ROOT": "/opt/my site"}, release.CANDIDATE, self.new, "down")
+        self.assertIn("SITE_ENV_FILE='/opt/my site/site.env'", command)
+
+    def test_production_switch_uses_the_env_file_too(self):
+        script = release.switch_script(self.target, self.new, "20261002T102912Z-bbbbbbb")
+        self.assertEqual(script.count("SITE_ENV_FILE=/opt/openaiwill/site.env"), 2)
 
 
 class SwitchScriptTest(unittest.TestCase):

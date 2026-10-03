@@ -307,13 +307,36 @@ class CliTest(KgBase):
             self.assertEqual(cli.main(["status"]), 1)
         self.assertEqual(err.getvalue(), "error: Run setup first\n")
 
-    def test_server_target_fails_cleanly_as_a_process(self):
-        done = subprocess.run([sys.executable, str(SCRIPTS / "data-release.py"), "status", "--target", "server"],
-                              capture_output=True, text=True)
-        self.assertEqual(done.returncode, 1)
-        self.assertEqual(done.stderr, "error: server target arrives with the deployment task\n")
-        self.assertNotIn("Traceback", done.stderr)
+    def test_server_target_errors_are_one_line_and_never_start_a_connection_here(self):
+        err = io.StringIO()
+        with mock.patch.object(cli.server_db, "server_connection",
+                               side_effect=cli.ReleaseError("no .env.deploy; copy it")), \
+                redirect_stderr(err), redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["status", "--target", "server"]), 1)
+        self.assertEqual(err.getvalue(), "error: no .env.deploy; copy it\n")
 
+    def test_setup_db_needs_the_server_target(self):
+        err = io.StringIO()
+        with mock.patch.object(cli.server_db, "setup_db") as setup, redirect_stderr(err):
+            self.assertEqual(cli.main(["setup-db"]), 1)
+        setup.assert_not_called()
+        self.assertEqual(err.getvalue(), "error: setup-db works only with --target server\n")
+
+    def test_promote_and_rollback_on_the_server_report_the_production_site(self):
+        for command in ("promote", "rollback"):
+            fake = mock.MagicMock()
+            with mock.patch.object(cli.server_db, "server_connection", return_value=fake), \
+                    mock.patch.object(cli, "COMMANDS", {**cli.COMMANDS, command: lambda conn, args: "D1"}), \
+                    mock.patch.object(cli.server_db, "report_production") as report, redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main([command, "--target", "server"]), 0)
+            report.assert_called_once_with("D1")
+
+    def test_local_promote_does_not_ask_the_production_site(self):
+        with mock.patch.object(cli, "connect", return_value=mock.MagicMock()), \
+                mock.patch.object(cli, "COMMANDS", {**cli.COMMANDS, "promote": lambda conn, args: "D1"}), \
+                mock.patch.object(cli.server_db, "report_production") as report, redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["promote"]), 0)
+        report.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
