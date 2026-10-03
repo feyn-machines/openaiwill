@@ -198,6 +198,11 @@ def main():
             result.update({'changed': len(changed), 'by_state': states})
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
         elif args.command == 'relations-backfill':
+            # The crawler is a local-only component (local/x-crawler, ignored by Git).
+            crawler_home = ROOT / 'local/x-crawler'
+            if not (crawler_home / 'crawler').is_dir():
+                raise SystemExit('relations-backfill needs the local crawler at local/x-crawler/crawler')
+            sys.path.insert(0, str(crawler_home))
             from crawler.core.errors import SchemaChanged
             from crawler.x import parse as crawler_parse
             from data_pipeline.collection_store import backfill_relations

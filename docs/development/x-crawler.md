@@ -1,13 +1,13 @@
 # X 采集爬虫运行手册
 
-项目唯一的采集组件，位于 `scripts/crawler/`，统一入口 `pnpm crawl <timeline|lookup|doctor>`（`crawl:x`、`crawl:lookup` 是前两者的别名）。Agent 通过 `crawler` 技能调度它；技能不含采集代码，新能力一律加进本组件。原技能 `social-qingguo-collector` 与单账号入口 `collect-official-x.py` 已于 2026-09-27 删除（技能归档在忽略的 `data/archive/skills/`）。设计见 [爬虫子系统设计](../superpowers/specs/2026-09-14-crawler-subsystem-design.md)。
+项目唯一的采集组件，位于 `local/x-crawler/crawler/`（2026-10-03 起只在本地维护，不进 Git；同目录还有测试 `tests/` 和 X 登录模块 `login/`），统一入口 `pnpm crawl <timeline|lookup|doctor>`（`crawl:x`、`crawl:lookup` 是前两者的别名）。Agent 通过 `crawler` 技能调度它；技能不含采集代码，新能力一律加进本组件。原技能 `social-qingguo-collector` 与单账号入口 `collect-official-x.py` 已于 2026-09-27 删除（技能归档在忽略的 `data/archive/skills/`）。设计见 [爬虫子系统设计](../superpowers/specs/2026-09-14-crawler-subsystem-design.md)。
 
-数据流分三段独立：**采集**(本手册,`scripts/crawler`)→ **入库到采集库**(`data:ingest:x`,见下)→ **市场范围计算批次**(现有 `run_batch`,单独一步,本手册不含)。采集只产运行归档、不知道市场/指标;入库把归档幂等落进独立的采集库(不带市场/权重/指标/进度);计算阶段再从采集库按范围选证据。**不做**官网发布记录对账、事件抽取或估计。
+数据流分三段独立：**采集**(本手册,`local/x-crawler/crawler`)→ **入库到采集库**(`data:ingest:x`,见下)→ **市场范围计算批次**(现有 `run_batch`,单独一步,本手册不含)。采集只产运行归档、不知道市场/指标;入库把归档幂等落进独立的采集库(不带市场/权重/指标/进度);计算阶段再从采集库按范围选证据。**不做**官网发布记录对账、事件抽取或估计。
 
 ## 组件结构
 
 ```
-scripts/crawler/
+local/x-crawler/crawler/
   cli.py          pnpm crawl 的子命令
   core/           与数据源无关的机制
     scheduler     唯一的调度器：并发 worker、按失败类型换号/冷却/重试/停批
@@ -40,7 +40,7 @@ scripts/crawler/
 
 - 代理：`X_PROXY`（或 `QINGGUO_PROXY_URL` / `SOCIAL_PROXY_URL`）在 `.env`，青果隧道入口。代理是基础设施凭据，留在 env。入口同一端口同时接受 http 与 https；入口证书 2026-09-27 过期后，自 2026-09-29 起按用户决定改用 `http://`：代理账号密码明文传输，x.com 流量仍在 CONNECT 隧道内端到端 TLS。运行文件记录 `proxy_transport`。青果必须经本机 VPN（Shadowrocket）出去，不能 DIRECT；但 VPN 会把按域名发出的明文代理连接送错地方（表现为 Cloudflare 400），按 IP 则正常，所以 `X_PROXY` 用入口 IP（2026-09-29：`overseas.tunnel.qg.net` → `overseas-us.tunnel.qg.net` → `23.236.65.26`）。青果换 IP 时 `pnpm crawl doctor` 会报错，届时用公共 DNS 重新解析。
 - 账号池：`data/secrets/x-accounts/pool.json`（gitignore、0600）。字段 `username,password,totp_secret,email,email_password,auth_token,ct0,status,cooldown_until,last_used_at,label`。仅 token（有 `auth_token`、`ct0` 为 null）的账号可用——引擎会合成 32 位 ct0（cookie 与 `x-csrf-token` 同值，X 读接口接受），已于 2026-09-14 实机验证。
-- venv：`data/runtime/crawler-venv`。首次或依赖变更后 `pnpm crawl:setup`（装 `requirements-crawler.txt`：twikit 2.3.3、httpx 0.28.1、psycopg 3.3.5）。
+- venv：`data/runtime/crawler-venv`。首次或依赖变更后 `pnpm crawl:setup`（装 `local/x-crawler/requirements.txt`：twikit 2.3.3、httpx 0.28.1、psycopg 3.3.5）。
 - 本地 PostgreSQL 已 `pnpm data:up`：读账号与自动入库都经 `core/store.py` 借用 `data_pipeline` 的连接。
 - 自检：`pnpm crawl doctor` 检查代理配置、账号池（数量、健康态、0600 权限）、本地数据库中可采集的官方号/名单账号数与 twikit，不访问 X、不打印凭据。
 
