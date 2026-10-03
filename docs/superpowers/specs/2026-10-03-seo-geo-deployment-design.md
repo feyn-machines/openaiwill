@@ -13,7 +13,7 @@
 3. **语言地址**：中文版改为路径前缀 `/zh-CN/…`，英文保持无前缀。
 4. **AI 爬虫**：检索引用类和训练类全部允许。
 
-用户同日还确认了项目的官方账号：X 是 `https://x.com/openaiwill`，Discord 是 `https://discord.gg/ArVHw2K9X`，GitHub 是 `https://github.com/feyn-machines/openaiwill`（公开仓库）。三者写入组织的结构化数据（`sameAs`）和 `llms.txt`，并在每页页脚显示为链接；X 账号另外写入分享卡片的 `twitter:site`。
+用户同日还确认了项目的官方账号：X 是 `https://x.com/openaiwill`，Discord 是 `https://discord.gg/ArVHw2K9X`，GitHub 是 `https://github.com/feyn-machines/openaiwill`（公开仓库）。三者写入组织的结构化数据（`sameAs`）和 `llms.txt`，并在每页的页头和页脚都显示为链接；X 账号另外写入分享卡片的 `twitter:site`。
 
 其余内容是本文提出的设计，不是用户原话。
 

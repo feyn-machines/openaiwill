@@ -805,12 +805,12 @@ test("each page names its own address and its counterpart in the other language"
   }
 });
 
-test("every page links to the project's accounts", () => {
+test("every page links to the project's accounts in the header and in the footer", () => {
   for (const language of ["en", "zh-CN"]) {
     for (const path of FIXED) {
       const links = anchors(html(language, path));
       for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]) {
-        assert.ok(links.includes(url), `${language}${path} lacks ${url}`);
+        assert.equal(links.filter((link) => link === url).length, 2, `${language}${path}: ${url} should appear in header and footer`);
       }
     }
   }
@@ -938,7 +938,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 Import `SITE_NAME, SITE_URL, SOCIAL_LINKS, siteCopy` from `@/lib/seo`. Rewrite the comment above it: titles and descriptions follow the language of the address.
 
-In the same file, show the project's accounts in the footer (user request, 2026-10-03). Add a `footerLinks` key to both languages of `copy` (en `"openaiwill elsewhere"`, zh-CN `"openaiwill 的其他地址"`) and add inside `<footer>`, after the two existing `<span>`s:
+In the same file, show the project's accounts in **both the header and the footer** (user request, 2026-10-03: all three, in both places). Add a `footerLinks` key to both languages of `copy` (en `"openaiwill elsewhere"`, zh-CN `"openaiwill 的其他地址"`) and add inside `<footer>`, after the two existing `<span>`s:
 
 ```tsx
 <nav className="footer-links" aria-label={c.footerLinks}>
@@ -949,6 +949,8 @@ In the same file, show the project's accounts in the footer (user request, 2026-
 ```
 
 Add one rule next to the existing `.footer` rule in `src/app/globals.css`, using only existing tokens: `.footer-links{display:flex;gap:var(--ah-space-4)}.footer-links a{text-decoration:underline;text-underline-offset:4px}`. The labels are names and are the same in both languages.
+
+For the header, render the same three links as a second `<nav className="header-social" aria-label={c.footerLinks}>` inside `.header-end`, between the main navigation and `<LanguageSwitch />`, with the same `<a>` markup. Style it next to the existing header rules with existing tokens only (muted colour, the same font size as the main navigation, `gap:var(--ah-space-3)`). The header must not overflow: check `/` and `/markets` in both languages at 1440px and 390px wide with headless Chrome screenshots (`--window-size=1440,900` and `--window-size=390,844`) and read the images. If the links do not fit at 390px, let `.header-end` wrap onto a second row; do not hide them. The homepage also has a fixed `Rail` (`src/components/home/sections/rail.tsx`) that takes over navigation once the header scrolls away; leave it as it is.
 
 - [ ] **Step 5: Every page**
 
