@@ -17,9 +17,12 @@ const {
   LANGUAGES,
   LANGUAGE_PARAM,
   languageHref,
+  localizedPath,
   normalizeLanguage,
   resolveLanguage,
+  splitLanguagePath,
   urlLanguage,
+  languageRoute,
 } = await import(`data:text/javascript;charset=utf-8,${encodeURIComponent(javascript)}`);
 
 const CHINESE_BROWSER = "zh-CN,zh;q=0.9,en;q=0.8";
@@ -89,4 +92,57 @@ test("switching keeps the current path and its other parameters", () => {
   // Without a known path, a relative href still keeps the reader on this page.
   assert.equal(languageHref(null, "zh-CN"), "?lang=zh-CN");
   assert.equal(languageHref("", "en"), "?lang=en");
+});
+
+test("English paths have no prefix; Chinese paths are prefixed", () => {
+  assert.equal(localizedPath("en", "/"), "/");
+  assert.equal(localizedPath("en", "/markets"), "/markets");
+  assert.equal(localizedPath("zh-CN", "/"), "/zh-CN");
+  assert.equal(localizedPath("zh-CN", "/markets/x#a"), "/zh-CN/markets/x#a");
+});
+
+test("a path is split into its language and the rest", () => {
+  assert.deepEqual(splitLanguagePath("/markets"), { language: null, path: "/markets", exact: true });
+  assert.deepEqual(splitLanguagePath("/zh-CN"), { language: "zh-CN", path: "/", exact: true });
+  assert.deepEqual(splitLanguagePath("/zh-CN/occupations/11-1011.00"), { language: "zh-CN", path: "/occupations/11-1011.00", exact: true });
+  assert.deepEqual(splitLanguagePath("/ZH-cn/markets"), { language: "zh-CN", path: "/markets", exact: false });
+});
+
+const route = (pathname, extra = {}) => languageRoute({ pathname, search: "", navigation: true, ...extra });
+
+test("an unprefixed address is served in English", () => {
+  assert.deepEqual(route("/"), { kind: "rewrite", pathname: "/en" });
+  assert.deepEqual(route("/occupations/11-1011.00"), { kind: "rewrite", pathname: "/en/occupations/11-1011.00" });
+});
+
+test("a Chinese address passes through; wrong casing is corrected once", () => {
+  assert.deepEqual(route("/zh-CN/markets"), { kind: "pass" });
+  assert.deepEqual(route("/ZH-cn/markets", { search: "?a=1" }), { kind: "redirect", status: 308, location: "/zh-CN/markets?a=1", save: null });
+});
+
+test("the internal English prefix is never a public address", () => {
+  assert.deepEqual(route("/en/markets"), { kind: "redirect", status: 308, location: "/markets", save: null });
+  assert.deepEqual(route("/en"), { kind: "redirect", status: 308, location: "/", save: null });
+});
+
+test("?lang= moves to the path address, saves the choice, and keeps other parameters", () => {
+  assert.deepEqual(route("/markets", { search: "?lang=zh-CN&q=1" }), { kind: "redirect", status: 307, location: "/zh-CN/markets?q=1", save: "zh-CN" });
+  assert.deepEqual(route("/zh-CN/markets", { search: "?lang=en" }), { kind: "redirect", status: 307, location: "/markets", save: "en" });
+  assert.deepEqual(route("/markets", { search: "?lang=en" }), { kind: "redirect", status: 307, location: "/markets", save: "en" });
+});
+
+test("an unknown ?lang= is dropped without changing language or saving", () => {
+  assert.deepEqual(route("/zh-CN/markets", { search: "?lang=fr" }), { kind: "redirect", status: 307, location: "/zh-CN/markets", save: null });
+  assert.deepEqual(route("/markets", { search: "?lang=" }), { kind: "redirect", status: 307, location: "/markets", save: null });
+});
+
+test("a prefetch never saves a language", () => {
+  assert.equal(route("/markets", { search: "?lang=zh-CN", navigation: false }).save, null);
+});
+
+test("a saved Chinese choice redirects a navigation, and only a navigation", () => {
+  assert.deepEqual(route("/markets", { savedLanguage: "zh-CN" }), { kind: "redirect", status: 307, location: "/zh-CN/markets", save: null });
+  assert.deepEqual(route("/markets", { savedLanguage: "zh-CN", navigation: false }), { kind: "rewrite", pathname: "/en/markets" });
+  assert.deepEqual(route("/markets", { savedLanguage: "en" }), { kind: "rewrite", pathname: "/en/markets" });
+  assert.deepEqual(route("/markets", { savedLanguage: "garbage" }), { kind: "rewrite", pathname: "/en/markets" });
 });

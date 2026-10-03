@@ -89,6 +89,79 @@ export function languageHref(url: string | null | undefined, language: Language)
   }
 }
 
+/** The public address of `path` in `language`. English has no prefix. */
+export function localizedPath(language: Language, path: string): string {
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  if (language === DEFAULT_LANGUAGE) return clean;
+  return clean === "/" ? `/${language}` : `/${language}${clean}`;
+}
+
+/**
+ * `/zh-CN/markets` -> zh-CN + `/markets`. `exact` is false when the tag is a
+ * published language written in another casing, which is one redirect away
+ * from its address rather than a second copy of the page.
+ */
+export function splitLanguagePath(pathname: string): { language: Language | null; path: string; exact: boolean } {
+  const [, first = "", ...rest] = pathname.split("/");
+  const language = normalizeLanguage(first);
+  if (!language) return { language: null, path: pathname || "/", exact: true };
+  return { language, path: `/${rest.join("/")}`.replace(/\/+$/, "") || "/", exact: first === language };
+}
+
+export type LanguageRoute =
+  | { kind: "redirect"; status: 307 | 308; location: string; save: Language | null }
+  | { kind: "rewrite"; pathname: string }
+  | { kind: "pass" };
+
+/**
+ * What the proxy does with one request. Pure, so every rule is unit tested.
+ *
+ * Redirect locations are relative on purpose: the origin sits behind a tunnel
+ * and sees plain HTTP on an internal host, and a relative Location cannot
+ * leak either.
+ *
+ * `?lang=` redirects are temporary. A browser caches a permanent redirect and
+ * stops asking the server, so the second click on a language link would no
+ * longer save the choice.
+ */
+export function languageRoute(request: {
+  pathname: string;
+  search: string;
+  savedLanguage?: string | null;
+  navigation: boolean;
+}): LanguageRoute {
+  const { language: prefix, path, exact } = splitLanguagePath(request.pathname);
+  const params = new URLSearchParams(request.search);
+
+  if (params.has(LANGUAGE_PARAM)) {
+    const requested = urlLanguage(request.search);
+    params.delete(LANGUAGE_PARAM);
+    const query = params.toString();
+    const target = requested ?? prefix ?? DEFAULT_LANGUAGE;
+    return {
+      kind: "redirect",
+      status: 307,
+      location: `${localizedPath(target, path)}${query ? `?${query}` : ""}`,
+      save: request.navigation ? requested : null,
+    };
+  }
+
+  if (prefix === DEFAULT_LANGUAGE) {
+    return { kind: "redirect", status: 308, location: `${path}${request.search}`, save: null };
+  }
+  if (prefix) {
+    return exact
+      ? { kind: "pass" }
+      : { kind: "redirect", status: 308, location: `${localizedPath(prefix, path)}${request.search}`, save: null };
+  }
+
+  const saved = normalizeLanguage(request.savedLanguage);
+  if (saved && saved !== DEFAULT_LANGUAGE && request.navigation) {
+    return { kind: "redirect", status: 307, location: `${localizedPath(saved, path)}${request.search}`, save: null };
+  }
+  return { kind: "rewrite", pathname: `/${DEFAULT_LANGUAGE}${path === "/" ? "" : path}` };
+}
+
 /**
  * Both languages, enforced by the type: a block of copy cannot be written in
  * one language only, because the Chinese record must carry every English key.
