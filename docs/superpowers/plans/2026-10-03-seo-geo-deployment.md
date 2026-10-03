@@ -774,7 +774,7 @@ Expected: `404` on every line.
 
 **Interfaces:**
 - Produces from `@/lib/seo`:
-  - `SITE_URL = "https://openaiwill.com"`, `SITE_NAME = "openaiwill"`, `X_HANDLE = "@openaiwill"`, `X_URL = "https://x.com/openaiwill"`
+  - `SITE_URL = "https://openaiwill.com"`, `SITE_NAME = "openaiwill"`, `X_HANDLE = "@openaiwill"`, `X_URL = "https://x.com/openaiwill"`, `DISCORD_URL = "https://discord.gg/ArVHw2K9X"`
   - `siteCopy: Record<Language, { title: string; description: string }>`
   - `absoluteUrl(language: Language, path: string): string`
   - `pageMetadata(page: { language: Language; path: string; title?: string; description?: string }): Metadata`
@@ -839,6 +839,8 @@ export const SITE_NAME = "openaiwill";
 /** The project's own account on X (user-confirmed 2026-10-03). */
 export const X_HANDLE = "@openaiwill";
 export const X_URL = "https://x.com/openaiwill";
+/** The project's community invite on Discord (user-confirmed 2026-10-03). */
+export const DISCORD_URL = "https://discord.gg/ArVHw2K9X";
 
 /**
  * The words confirmed for the first screen on 2026-09-22 (DESIGN.md): the
@@ -1139,7 +1141,7 @@ test("structured data names the organisation, the datasets and their status", ()
     assert.deepEqual(types(html(language, "")).sort(), ["Organization", "WebSite"]);
     assert.ok(types(html(language, "/whitepaper")).includes("Article"));
     const org = ld(html(language, "")).find((item) => item["@type"] === "Organization");
-    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill"]);
+    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X"]);
   }
 });
 
@@ -1192,7 +1194,7 @@ const organization = {
   name: SITE_NAME,
   url: SITE_URL,
   logo: `${SITE_URL}/icon.svg`,
-  sameAs: [X_URL],
+  sameAs: [X_URL, DISCORD_URL],
 } as const;
 
 export function siteLd(language: Language): object[] {
@@ -1312,6 +1314,7 @@ test("llms.txt is generated from the site, names real pages, and overstates noth
   assert.doesNotMatch(text, /\bplatform\b|verified|reviewed score|replacement rate/i);
   assert.match(text, /machine-proposed/i);
   assert.match(text, /https:\/\/x\.com\/openaiwill/);
+  assert.match(text, /https:\/\/discord\.gg\/ArVHw2K9X/);
   for (const [, url] of text.matchAll(/\]\((https:\/\/openaiwill\.com[^)]*)\)/g)) {
     const path = url.slice(SITE.length).replace(/\/$/, "");
     if (/\.(txt|xml)$/.test(path)) continue;
@@ -1333,7 +1336,7 @@ test("the figures on the home page are in its HTML, not only drawn by script", {
 
 ```ts
 import { LEVEL_NAMES } from "@/lib/level-names";
-import { SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
+import { DISCORD_URL, SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
 import { manifest } from "@/lib/snapshot";
 
@@ -1357,6 +1360,7 @@ export function GET() {
     `- [Sitemap](${SITE_URL}/sitemap.xml)`,
     `- [简体中文](${absoluteUrl("zh-CN", "/")})`,
     `- [openaiwill on X](${X_URL})`,
+    `- [openaiwill on Discord](${DISCORD_URL})`,
     "",
     "## Levels",
     "",
@@ -2085,4 +2089,4 @@ A 403 for a crawler user agent, or a `robots.txt` that is not the one this build
 
 Walk the user through section 5 of the runbook; these need their accounts.
 
-- [ ] **Step 7: Update `CLAUDE.md`** — in "Current state", replace "no … production deployment" with one sentence naming the runbook and that data updates are published by `pnpm site:release` then `pnpm site:promote`; note the language rule is now path-based. Commit — `Document deployment and record the first release`
+- [ ] **Step 7: Update `CLAUDE.md`** — in "Current state", replace "no … production deployment" with one sentence naming the runbook and that data updates are published by `pnpm site:release` then `pnpm site:promote`; note the language rule is now path-based; record the official accounts (X `https://x.com/openaiwill`, Discord `https://discord.gg/ArVHw2K9X`) in the product paragraph. Commit — `Document deployment and record the first release`
