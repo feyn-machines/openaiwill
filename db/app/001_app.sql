@@ -93,6 +93,8 @@ BEGIN
         OR NEW.decision_reason IS DISTINCT FROM OLD.decision_reason OR NEW.decided_at IS DISTINCT FROM OLD.decided_at
         OR NEW.handle IS DISTINCT FROM OLD.handle OR NEW.owner_kind IS DISTINCT FROM OLD.owner_kind
         OR NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.note IS DISTINCT FROM OLD.note
+        OR NEW.display_handle IS DISTINCT FROM OLD.display_handle OR NEW.created_at IS DISTINCT FROM OLD.created_at
+        OR NEW.id IS DISTINCT FROM OLD.id OR NEW.platform IS DISTINCT FROM OLD.platform
         OR (OLD.imported_at IS NOT NULL AND NEW.imported_at IS DISTINCT FROM OLD.imported_at)
     ) THEN
         RAISE EXCEPTION 'a decided submission cannot be changed';

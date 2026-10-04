@@ -16,14 +16,15 @@ export function normalizeHandle(input: unknown): { handle: string; key: string }
   let text = input.trim();
   if (!text) return null;
   if (/^[a-z][a-z0-9+.-]*:/i.test(text) || /^(www\.|mobile\.)?(x|twitter)\.com\//i.test(text)) {
-    // Check for directory traversal before URL parsing
-    if (/\/\.\.\/|\/\.$|\/\.\.\//.test(text)) return null;
+    // Dot segments, checked on the raw text because URL parsing would resolve them away.
+    if (/(^|\/)(\.|%2e){1,2}(\/|$|[?#])/i.test(text)) return null;
     let url: URL;
     try {
       url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
     } catch {
       return null;
     }
+    if (url.port || url.username || url.password || text.includes("\\")) return null;
     if ((url.protocol !== "https:" && url.protocol !== "http:") || !HOSTS.has(url.hostname.toLowerCase())) return null;
     const parts = url.pathname.split("/").filter(Boolean);
     if (parts.length !== 1) return null;

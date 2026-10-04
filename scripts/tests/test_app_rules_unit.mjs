@@ -21,7 +21,8 @@ test("every accepted way of writing an account gives the same handle", () => {
 
 test("what is not one X account is refused", () => {
   for (const input of ["", " ", "@", "a".repeat(16), "has space", "名字", "a-b", "https://x.com/", "https://x.com/OpenAI/status/1",
-    "https://example.com/OpenAI", "https://x.com.evil.com/OpenAI", "javascript:alert(1)", "https://x.com/home/../OpenAI", "a/b", "@@a"]) {
+    "https://example.com/OpenAI", "https://x.com.evil.com/OpenAI", "javascript:alert(1)", "https://x.com/home/../OpenAI", "https://x.com/home/%2e%2e/OpenAI", "https://x.com/./OpenAI", "https://x.com/OpenAI/..",
+    "https://x.com:8080/OpenAI", "https://user@x.com/OpenAI", ["https://user", "p"].join(":") + "@x.com/OpenAI", "https://x.com\\OpenAI", "https://x.com@evil.com/OpenAI", "//x.com/OpenAI", "a/b", "@@a"]) {
     assert.equal(normalizeHandle(input), null, JSON.stringify(input));
   }
   assert.equal(normalizeHandle(undefined), null);

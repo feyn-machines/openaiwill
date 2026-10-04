@@ -4,6 +4,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -40,6 +41,54 @@ class WriteEnvLocal(unittest.TestCase):
         self.path.write_text("A=1")
         app_db.write_env_local({"B": "2"}, path=self.path)
         self.assertEqual(self.path.read_text(), "A=1\nB=2\n")
+
+
+    def test_failed_write_leaves_the_original_and_no_temp_file(self):
+        self.path.write_text("A=1\n")
+        for target in ("os.fsync", "os.replace"):
+            with self.subTest(target), mock.patch(f"app_db.{target}", side_effect=OSError("boom")):
+                with self.assertRaises(OSError):
+                    app_db.write_env_local({"A": "2"}, path=self.path)
+            self.assertEqual(self.path.read_text(), "A=1\n")
+            self.assertEqual(os.listdir(self.dir.name), [".env.local"])
+
+    def test_export_prefix_is_kept(self):
+        self.path.write_text("export A=1\nB=2\n")
+        app_db.write_env_local({"A": "9"}, path=self.path)
+        self.assertEqual(self.path.read_text(), "export A=9\nB=2\n")
+
+
+class LocalPassword(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.path = Path(self.dir.name) / "app-password"
+
+    def test_created_once_with_mode_0600(self):
+        first = app_db.local_password(self.path)
+        self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+        self.assertEqual(app_db.local_password(self.path), first)
+        self.assertEqual(os.listdir(self.dir.name), ["app-password"])
+
+    def test_refuses_a_symlink(self):
+        target = Path(self.dir.name) / "target"
+        target.write_text("secret")
+        os.chmod(target, 0o600)
+        self.path.symlink_to(target)
+        with self.assertRaises(app_db.AppError):
+            app_db.local_password(self.path)
+
+    def test_refuses_loose_mode(self):
+        self.path.write_text("secret")
+        os.chmod(self.path, 0o644)
+        with self.assertRaises(app_db.AppError):
+            app_db.local_password(self.path)
+
+    def test_refuses_empty_file(self):
+        self.path.write_text("\n")
+        os.chmod(self.path, 0o600)
+        with self.assertRaises(app_db.AppError):
+            app_db.local_password(self.path)
 
 
 class ReadAdminEmails(unittest.TestCase):

@@ -116,6 +116,30 @@ class Submissions(AppBase):
         with self.assertRaises(errors.RaiseException):
             self.conn.execute("UPDATE app.submissions SET imported_at = '2026-10-06T00:00:00Z' WHERE id = %s", (ident,))
 
+    def test_decided_row_cannot_change_display_handle_or_clear_imported_at(self):
+        user, admin = self.user(), self.user("a1")
+        ident = self.submit(user, "openai", "openai")
+        self.decide(ident, by=admin)
+        with self.assertRaises(errors.RaiseException):
+            self.conn.execute("UPDATE app.submissions SET display_handle = 'OpenAI' WHERE id = %s", (ident,))
+        self.conn.execute("UPDATE app.submissions SET imported_at = now() WHERE id = %s", (ident,))
+        with self.assertRaises(errors.RaiseException):
+            self.conn.execute("UPDATE app.submissions SET imported_at = NULL WHERE id = %s", (ident,))
+
+    def test_decided_row_cannot_change_created_at_or_platform(self):
+        user, admin = self.user(), self.user("a1")
+        ident = self.submit(user)
+        self.decide(ident, by=admin)
+        with self.assertRaises(errors.RaiseException):
+            self.conn.execute("UPDATE app.submissions SET created_at = created_at - interval '1 day' WHERE id = %s", (ident,))
+
+    def test_reason_length_and_pending_without_decision_time(self):
+        user = self.user()
+        with self.assertRaises(errors.CheckViolation):
+            self.submit(user, "a1", status="rejected", decision_reason="x" * 281, decided_at="2026-10-04T00:00:00Z")
+        with self.assertRaises(errors.CheckViolation):
+            self.submit(user, "a2", decided_at="2026-10-04T00:00:00Z")
+
     def test_deleting_the_deciding_user_keeps_the_submission(self):
         user, admin = self.user(), self.user("a1")
         ident = self.submit(user)

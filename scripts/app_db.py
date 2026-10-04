@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import stat
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,15 +46,40 @@ def ensure_role_and_schema(admin_conn, password: str, role: str = APP_ROLE) -> N
     database = admin_conn.execute("SELECT current_database() AS name").fetchone()["name"]
     admin_conn.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(sql.Identifier(database), name))
     admin_conn.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION {}").format(name))
+    admin_conn.execute(sql.SQL("ALTER SCHEMA app OWNER TO {}").format(name))
 
 
-def local_password() -> str:
+def _write_atomic(path: Path, text: str) -> None:
+    """Write `text` to `path` through a mode-0600 temp file in the same directory, then replace."""
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def local_password(path: Path | None = None) -> str:
     """The local oaw_app password, created on first use in an ignored file with mode 0600."""
-    if not PASSWORD_FILE.exists():
-        fd = os.open(PASSWORD_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "w") as handle:
-            handle.write(secrets.token_hex(24))
-    return PASSWORD_FILE.read_text().strip()
+    path = PASSWORD_FILE if path is None else Path(path)
+    if not path.is_symlink() and not path.exists():
+        _write_atomic(path, secrets.token_hex(24))
+    if path.is_symlink() or not path.is_file():
+        raise AppError("The local app password file must be a regular file, not a link")
+    if stat.S_IMODE(path.stat().st_mode) != 0o600:
+        raise AppError("The local app password file must have mode 0600")
+    value = path.read_text().strip()
+    if not value:
+        raise AppError("The local app password file is empty")
+    return value
 
 
 def connect_app(database: str | None = None):
@@ -121,14 +147,12 @@ def write_env_local(values: dict[str, str], path: Path | None = None) -> None:
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     pending = dict(values)
     for index, line in enumerate(lines):
-        pair = _env_line(line)
+        exported = line.lstrip().startswith("export ")
+        pair = _env_line(line.lstrip()[7:] if exported else line)
         if pair and pair[0] in pending:
-            lines[index] = f"{pair[0]}={pending.pop(pair[0])}"
+            lines[index] = f"{'export ' if exported else ''}{pair[0]}={pending.pop(pair[0])}"
     lines.extend(f"{key}={value}" for key, value in pending.items())
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
-    os.chmod(path, 0o600)
+    _write_atomic(path, "\n".join(lines) + "\n")
 
 
 def setup_local() -> None:
