@@ -21,7 +21,7 @@ export const legalCopy: Record<Language, { privacy: Doc; terms: Doc }> = {
         {
           heading: "What we store",
           body: [
-            "When you sign in with Google: your email address, name and profile picture, as Google gives them to us.",
+            "When you sign in with Google: your email address, name and profile picture, as Google gives them to us. Signing in also records your IP address and browser type with the session, and Google's sign-in tokens, which we keep encrypted and do not use for anything else.",
             "When you submit an account: the X handle, whether it is a person or a company, and your note.",
             "When you subscribe: which topics, your language, and when.",
           ],
@@ -98,7 +98,7 @@ export const legalCopy: Record<Language, { privacy: Doc; terms: Doc }> = {
         {
           heading: "存储什么",
           body: [
-            "使用 Google 登录时：你的邮箱地址、姓名和头像，均为 Google 提供给我们的内容。",
+            "使用 Google 登录时：你的邮箱地址、姓名和头像，均为 Google 提供给我们的内容。登录时还会随会话记录你的 IP 地址和浏览器类型，以及 Google 的登录令牌；令牌加密保存，不作他用。",
             "提交帐号时：该 X 帐号的用户名、它属于个人还是公司，以及你写的备注。",
             "订阅时：订阅的主题、你的语言和订阅时间。",
           ],

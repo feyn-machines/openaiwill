@@ -29,6 +29,8 @@ const copy = bilingual({
     approved: "Approved",
     rejected: "Rejected",
     imported: "Imported",
+    earlierApproved: "Approved before",
+    earlierRejected: "Rejected before",
     empty: "Nothing to review",
     tabs: "View",
   },
@@ -45,6 +47,8 @@ const copy = bilingual({
     approved: "已通过",
     rejected: "已拒绝",
     imported: "已导入",
+    earlierApproved: "此前已通过",
+    earlierRejected: "此前已拒绝",
     empty: "没有待审核的申请",
     tabs: "视图",
   },
@@ -104,6 +108,11 @@ function Group({ group, language }: { group: AdminGroup; language: "en" | "zh-CN
         <span className={s.meta}>{c[group.ownerKind]}</span>
         <span className={s.meta}>{group.count === 1 ? c.request : fill(c.requests, { n: group.count })}</span>
         <span className={s.meta}>{isoDate(group.firstAt)}</span>
+        {group.status === "pending" && group.earlier ? (
+          <span className={`${s.meta} ${s.status}`} data-status={group.earlier}>
+            {group.earlier === "approved" ? c.earlierApproved : c.earlierRejected}
+          </span>
+        ) : null}
         {group.status !== "pending" ? (
           <>
             <span className={`${s.meta} ${s.status}`} data-status={group.status}>{c[group.status]}</span>

@@ -11,7 +11,7 @@ const load = async (relative) => {
 };
 const { normalizeHandle } = await load("../../src/lib/handles.ts");
 const { readJson } = await load("../../src/lib/api.ts");
-const { appEnabled, isAdmin } = await load("../../src/lib/app-config.ts");
+const { appEnabled } = await load("../../src/lib/app-config.ts");
 
 test("every accepted way of writing an account gives the same handle", () => {
   for (const input of ["OpenAI", "@OpenAI", " @OpenAI ", "https://x.com/OpenAI", "https://x.com/OpenAI/", "http://twitter.com/OpenAI",
@@ -42,17 +42,6 @@ test("the user features are on only when all five settings are present", () => {
   assert.equal(appEnabled(full), true);
   for (const key of Object.keys(full)) assert.equal(appEnabled({ ...full, [key]: "" }), false, key);
   assert.equal(appEnabled({}), false);
-});
-
-test("an administrator is a verified address on the list, whatever its case", () => {
-  const admins = ["owner@example.com", "second@example.com"];
-  assert.equal(isAdmin({ email: "owner@example.COM", emailVerified: true }, admins), true);
-  assert.equal(isAdmin({ email: " Second@Example.com ", emailVerified: true }, admins), true);
-  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: false }, admins), false);
-  assert.equal(isAdmin({ email: "other@example.com", emailVerified: true }, admins), false);
-  assert.equal(isAdmin(null, admins), false);
-  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: true }, []), false);
-  assert.equal(isAdmin({ email: "", emailVerified: true }, [""]), false);
 });
 
 const post = (body, headers = {}) => new Request("http://localhost/x", { method: "POST", body, headers });

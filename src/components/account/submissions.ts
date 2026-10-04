@@ -33,6 +33,20 @@ export async function refreshSubmissions(): Promise<void> {
   }
 }
 
+let pageshowRegistered = false;
+
+/** A page restored from the back/forward cache may list submissions of a reader who has since signed out. */
+function registerPageshow() {
+  if (pageshowRegistered || typeof window === "undefined") return;
+  pageshowRegistered = true;
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted || !started) return;
+    publish({ state: "idle", list: EMPTY });
+    started = false;
+    void refreshSubmissions();
+  });
+}
+
 const IDLE: Snapshot = { state: "idle", list: EMPTY };
 
 const subscribe = (listener: () => void) => {
@@ -44,6 +58,7 @@ const subscribe = (listener: () => void) => {
 export function useSubmissions(active: boolean): Snapshot {
   const current = useSyncExternalStore(subscribe, () => snapshot, () => IDLE);
   useEffect(() => {
+    registerPageshow();
     if (active && !started) void refreshSubmissions();
   }, [active]);
   return active ? current : IDLE;

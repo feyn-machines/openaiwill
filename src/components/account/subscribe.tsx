@@ -2,10 +2,10 @@
 
 import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { authClient } from "@/lib/auth-client";
 import { bilingual, type Language } from "@/lib/i18n";
 import styles from "./account.module.css";
 import { refreshMe, useMe } from "./me";
+import { startSignIn } from "./session";
 
 const copy = bilingual({
   en: {
@@ -53,6 +53,7 @@ export function Subscribe({
   const [weekly, setWeekly] = useState(false);
   const [line, setLine] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signInLine, setSignInLine] = useState("");
   const c = copy[language];
 
   if (!enabled || state === "loading" || !me.enabled) return null;
@@ -62,7 +63,8 @@ export function Subscribe({
 
   function open() {
     if (!me.user) {
-      void authClient.signIn.social({ provider: "google", callbackURL: `${window.location.pathname}${window.location.search}` });
+      setSignInLine("");
+      startSignIn(`${window.location.pathname}${window.location.search}`).catch(() => setSignInLine(c.failed));
       return;
     }
     onOpen?.();
@@ -102,6 +104,7 @@ export function Subscribe({
       <button ref={opener} type="button" className={variant === "menu" ? styles.item : styles.footerButton} onClick={open}>
         {active ? c.subscribed : c.subscribe}
       </button>
+      {signInLine ? <span className={styles.note} role="status">{signInLine}</span> : null}
       {createPortal(
         <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onClose={() => (variant === "menu" ? document.querySelector<HTMLElement>("[data-account-menu] summary") : opener.current)?.focus()}>
           <form className={styles.form} onSubmit={save}>

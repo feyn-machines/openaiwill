@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Submission } from "@/lib/app-store";
-import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, type OwnerKind } from "@/lib/handles";
 import { bilingual, type Language } from "@/lib/i18n";
 import styles from "./account.module.css";
 import { useMe } from "./me";
+import { startSignIn } from "./session";
 import { refreshSubmissions } from "./submissions";
 
 export const statusCopy = bilingual({
@@ -62,6 +62,7 @@ export function SubmitAccount({ language, ownerKind, enabled, anchor }: { langua
   const [line, setLine] = useState("");
   const [bad, setBad] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [signInLine, setSignInLine] = useState("");
   const c = copy[language];
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -75,7 +76,8 @@ export function SubmitAccount({ language, ownerKind, enabled, anchor }: { langua
 
   function open() {
     if (!me.user) {
-      void authClient.signIn.social({ provider: "google", callbackURL: `${window.location.pathname}${window.location.search}#${anchor}` });
+      setSignInLine("");
+      startSignIn(`${window.location.pathname}${window.location.search}#${anchor}`).catch(() => setSignInLine(c.failed));
       return;
     }
     setHandle("");
@@ -136,6 +138,7 @@ export function SubmitAccount({ language, ownerKind, enabled, anchor }: { langua
       <button ref={opener} type="button" className={styles.submitButton} onClick={open}>
         {c.open}
       </button>
+      {signInLine ? <span className={styles.note} role="status">{signInLine}</span> : null}
       <dialog
         ref={dialog}
         className={styles.dialog}

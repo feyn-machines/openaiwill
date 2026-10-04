@@ -11,7 +11,7 @@ import { useSubmissions } from "./submissions";
 const isoDate = (value: string) => value.slice(0, 10);
 
 const copy = bilingual({
-  en: { title: "My submissions", person: "People", organization: "Company" },
+  en: { title: "My submissions", person: "Person", organization: "Company" },
   "zh-CN": { title: "我的提交", person: "人物", organization: "公司" },
 });
 

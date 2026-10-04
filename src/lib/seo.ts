@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { LANGUAGES, bilingual, localizedPath, type Language } from "./i18n";
+import { SITE_URL } from "./site-origin";
 import { manifest as dataManifest } from "./snapshot";
 
-/** The public address. Not a secret and not per-environment: a candidate build names the same canonical pages. */
-export const SITE_URL = "https://openaiwill.com";
+export { SITE_URL };
 export const SITE_NAME = "openaiwill";
 /** The project's own account on X (user-confirmed 2026-10-03). */
 export const X_HANDLE = "@openaiwill";

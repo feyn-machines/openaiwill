@@ -20,11 +20,12 @@ import s from "./whitepaper.module.css";
  * it; the section ids are derived from the order of its own headings.
  */
 /**
- * The whitepaper and the legal pages (privacy, terms) read no data release. The
- * whitepaper is built from docs/whitepaper.md, which the server does not carry,
- * so it is rendered at build time; the legal pages are fixed text. Every other
- * page under `[lang]` sets `dynamic = "force-dynamic"` itself, because a
- * layout's setting would override these.
+ * The whitepaper reads no data release. It is built from docs/whitepaper.md, which
+ * the server does not carry, so it is the one page rendered at build time. That
+ * bakes the layout's sign-in menu in as well: `site_release.py` checks after the
+ * build that the static HTML has it (the build machine needs the five sign-in
+ * settings). Every other page under `[lang]` sets `dynamic = "force-dynamic"`
+ * itself, because a layout's setting would override these.
  */
 export const dynamic = "force-static";
 

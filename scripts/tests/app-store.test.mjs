@@ -10,7 +10,10 @@ import ts from "typescript";
 // real oaw_app role are never touched. Skipped when the local admin password file is absent.
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PASSWORD_FILE = `${ROOT}data/postgres/password`;
-const SKIP = existsSync(PASSWORD_FILE) ? false : "no local PostgreSQL (data/postgres/password)";
+// Locally a missing database is a visible skip with its reason. In CI `pnpm data:setup` has created it (see
+// scripts/data-local.py and infra/docker-compose.yml: password file, 127.0.0.1:7543, user openaiwill), so
+// there a missing file is not skipped: the setup fails loudly in `before`.
+const SKIP = existsSync(PASSWORD_FILE) || process.env.CI ? false : "no local PostgreSQL (data/postgres/password; run pnpm data:setup)";
 const require = createRequire(import.meta.url);
 
 let store;
@@ -324,4 +327,50 @@ test("a group shows the display spelling of its earliest request", { skip: SKIP 
   const group = (await store.adminGroups(pool, "pending")).find((g) => g.handle === `case${token}`);
   assert.equal(group.count, 2);
   assert.equal(group.displayHandle, `Case${token}`);
+});
+
+test("a pending group says whether the account was decided before, and how it ended up", { skip: SKIP }, async () => {
+  const token = randomBytes(3).toString("hex");
+  const handle = `earlier${token}`;
+  const [a, b, c, d] = [await user(), await user(), await user(), await user()];
+  const adminId = await user();
+  const pendingGroup = async (ownerKind = "person") =>
+    (await store.adminGroups(pool, "pending")).find((g) => g.handle === handle && g.ownerKind === ownerKind);
+  await store.createSubmission(pool, input(a, handle));
+  assert.equal((await pendingGroup()).earlier, null);
+  assert.equal(await store.decide(pool, { handle, ownerKind: "person", decision: "approved", reason: null, adminId }), 1);
+  await store.createSubmission(pool, input(b, handle));
+  assert.equal((await pendingGroup()).earlier, "approved");
+  assert.equal(await store.decide(pool, { handle, ownerKind: "person", decision: "rejected", reason: "no", adminId }), 1);
+  await store.createSubmission(pool, input(c, handle));
+  assert.equal((await pendingGroup()).earlier, "rejected", "the most recent decision");
+  // Another kind of the same handle has no history of its own.
+  await store.createSubmission(pool, input(d, handle, { ownerKind: "organization" }));
+  assert.equal((await pendingGroup("organization")).earlier, null);
+  for (const group of await store.adminGroups(pool, "decided")) assert.equal(group.earlier, null);
+});
+
+test("deleting a user by e-mail (the privacy page's promise) removes everything of theirs and keeps what they decided", { skip: SKIP }, async () => {
+  const reader = await user();
+  const reviewer = await user();
+  const other = await user();
+  const handle = `gone${randomBytes(3).toString("hex")}`;
+  await store.createSubmission(pool, input(reader, handle));
+  await store.createSubmission(pool, input(other, handle));
+  await pool.query("INSERT INTO app.subscriptions (user_id, topic, language) VALUES ($1, 'weekly', 'en')", [reader]);
+  await pool.query('INSERT INTO app.session (id, "expiresAt", token, "updatedAt", "userId") VALUES ($1, now() + interval \'1 day\', $2, now(), $3)', [`s-${reader}`, `t-${reader}`, reader]);
+  await pool.query('INSERT INTO app."account" ("id", "accountId", "providerId", "userId", "updatedAt") VALUES ($1, $1, \'google\', $2, now())', [`a-${reader}`, reader]);
+  await store.decide(pool, { handle, ownerKind: "person", decision: "approved", reason: null, adminId: reviewer });
+  const email = `${reviewer}@example.com`.toUpperCase();
+  const gone = await pool.query('DELETE FROM app."user" WHERE lower(email) = lower($1) RETURNING id', [email]);
+  assert.deepEqual(gone.rows.map((row) => row.id), [reviewer]);
+  const kept = await pool.query("SELECT user_id, status, decided_by FROM app.submissions WHERE handle = $1 ORDER BY user_id", [handle]);
+  assert.equal(kept.rows.length, 2, "the decided rows of other people stay");
+  for (const row of kept.rows) assert.equal(row.decided_by, null);
+  const mine = (await pool.query('DELETE FROM app."user" WHERE id = $1 RETURNING id', [reader])).rows.length;
+  assert.equal(mine, 1);
+  for (const table of ["submissions", "subscriptions", "session", '"account"']) {
+    const column = table === "session" || table === '"account"' ? '"userId"' : "user_id";
+    assert.equal((await pool.query(`SELECT 1 FROM app.${table} WHERE ${column} = $1`, [reader])).rows.length, 0, table);
+  }
 });

@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useEffect, useRef, useState } from "react";
 import { bilingual, type Language } from "@/lib/i18n";
 import { href } from "@/lib/routes";
 import styles from "./account.module.css";
 import { useMe } from "./me";
+import { signOut, startSignIn, takeSignInFailure } from "./session";
 import { Subscribe } from "./subscribe";
 
 const copy = bilingual({
-  en: { signIn: "Sign in", signOut: "Sign out", account: "Account", admin: "Admin" },
-  "zh-CN": { signIn: "登录", signOut: "退出", account: "账号", admin: "后台" },
+  en: { signIn: "Sign in", signOut: "Sign out", account: "Account", admin: "Admin", failed: "Sign-in failed", retry: "Try again later" },
+  "zh-CN": { signIn: "登录", signOut: "退出", account: "账号", admin: "后台", failed: "登录失败", retry: "请稍后再试" },
 });
 
 function initials(name: string) {
@@ -21,7 +21,14 @@ function initials(name: string) {
 export function AccountMenu({ language, enabled }: { language: Language; enabled: boolean }) {
   const { state, me } = useMe(enabled);
   const menu = useRef<HTMLDetailsElement>(null);
+  const [note, setNote] = useState("");
   const c = copy[language];
+
+  // A failed Google sign-in comes back as ?signin=failed: say so once and take the marker out of the address.
+  useEffect(() => {
+    // Not cleaned up on purpose: a development double-run of this effect must not lose the marker it already took.
+    if (enabled && takeSignInFailure()) window.setTimeout(() => setNote(copy[language].failed), 0);
+  }, [enabled, language]);
 
   useEffect(() => {
     const close = () => menu.current?.removeAttribute("open");
@@ -46,10 +53,14 @@ export function AccountMenu({ language, enabled }: { language: Language; enabled
   if (!me.user) {
     return (
       <div className={styles.root} data-account-menu>
+        {note ? <span className={styles.note} role="status">{note}</span> : null}
         <button
           type="button"
           className={styles.signIn}
-          onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: window.location.pathname + window.location.search })}
+          onClick={() => {
+            setNote("");
+            startSignIn(window.location.pathname + window.location.search).catch(() => setNote(c.retry));
+          }}
         >
           {c.signIn}
         </button>
@@ -80,7 +91,7 @@ export function AccountMenu({ language, enabled }: { language: Language; enabled
           <button
             type="button"
             className={styles.item}
-            onClick={() => void authClient.signOut().finally(() => window.location.reload())}
+            onClick={() => void signOut()}
           >
             {c.signOut}
           </button>

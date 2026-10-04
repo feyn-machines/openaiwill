@@ -181,6 +181,8 @@ export type AdminGroup = {
   decidedBy: string | null;
   reason: string | null;
   importedAt: string | null;
+  /** Pending groups only: how rows for the same account and kind were last decided, null when never. */
+  earlier: "approved" | "rejected" | null;
   requests: { name: string; email: string; note: string | null; createdAt: string }[];
 };
 
@@ -195,6 +197,7 @@ type GroupRow = {
   decided_by: string | null;
   reason: string | null;
   imported_at: Date | null;
+  earlier: "approved" | "rejected" | null;
   requests: { name: string; email: string; note: string | null; createdAt: string }[];
 };
 
@@ -210,6 +213,9 @@ export async function adminGroups(db: Pool, view: "pending" | "decided"): Promis
     `SELECT s.handle, (array_agg(s.display_handle ORDER BY s.created_at, s.id))[1] AS display_handle, s.owner_kind, s.status,
             count(*)::int AS count, min(s.created_at) AS first_at,
             s.decided_at, min(d.email) AS decided_by, min(s.decision_reason) AS reason, min(s.imported_at) AS imported_at,
+            ${pending ? `(SELECT p.status FROM app.submissions p
+                          WHERE p.platform = 'x' AND p.handle = s.handle AND p.owner_kind = s.owner_kind AND p.status <> 'pending'
+                          ORDER BY p.decided_at DESC, p.id DESC LIMIT 1)` : "NULL"} AS earlier,
             json_agg(json_build_object('name', u.name, 'email', u.email, 'note', s.note, 'createdAt', s.created_at)
                      ORDER BY s.created_at, s.id) AS requests
        FROM app.submissions s
@@ -231,6 +237,7 @@ export async function adminGroups(db: Pool, view: "pending" | "decided"): Promis
     decidedBy: row.decided_by,
     reason: row.reason,
     importedAt: row.imported_at ? row.imported_at.toISOString() : null,
+    earlier: row.earlier,
     requests: row.requests,
   }));
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
@@ -133,6 +134,62 @@ test("with sign-in settings, the account menu and the auth endpoints exist and r
   }
 });
 
+/** One GET with any Host header (fetch will not send a forged one); the response is not followed. */
+function getWithHeaders(base, path, headers) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(base);
+    const req = httpRequest({ host: url.hostname, port: url.port, path, method: "GET", headers }, (res) => {
+      res.resume();
+      res.on("end", () => resolve({ status: res.statusCode, location: res.headers.location ?? null }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("www.openaiwill.com is sent to the apex with the same path and query", async () => {
+  for (const path of ["/", "/zh-CN/voices?x=1", "/occupations/11-1011.00", "/api/me", "/markets?lang=zh-CN"]) {
+    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    assert.equal(answer.status, 308, path);
+    assert.equal(answer.location, `${SITE}${path}`, path);
+  }
+  // Behind the tunnel the public name can arrive in X-Forwarded-Host; the case of a host name does not matter.
+  assert.equal((await getWithHeaders(site.base, "/voices", { "x-forwarded-host": "www.openaiwill.com" })).location, `${SITE}/voices`);
+  assert.equal((await getWithHeaders(site.base, "/voices", { host: "WWW.OpenAIWill.com" })).status, 308);
+});
+
+test("only the one www host is redirected, and the Location is always the fixed apex origin", async () => {
+  for (const host of ["openaiwill.com", "127.0.0.1", new URL(site.base).host, "www.openaiwill.com.evil.example", "evil-www.openaiwill.com",
+    "www.openaiwill.com:8080", "wwww.openaiwill.com", "sub.www.openaiwill.com", "www.openaiwill.com@evil.example", "evil.example"]) {
+    const answer = await getWithHeaders(site.base, "/markets", { host });
+    assert.equal(answer.status, 200, host);
+    assert.equal(answer.location, null, host);
+    const api = await getWithHeaders(site.base, "/api/me", { host });
+    assert.equal(api.status, 200, `${host} /api/me`);
+  }
+  for (const path of ["/%2F%2Fevil.example", "/a?next=https://evil.example"]) {
+    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    assert.equal(answer.status, 308, path);
+    assert.ok(answer.location.startsWith(`${SITE}/`), `${path} -> ${answer.location}`);
+    assert.equal(new URL(answer.location).origin, SITE);
+  }
+  // Next itself collapses a leading double slash before the proxy runs, with a same-host relative Location:
+  // never another host, never protocol-relative.
+  for (const path of ["//evil.example/x", "/\\evil.example", "/x//y"]) {
+    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    assert.equal(answer.status, 308, path);
+    assert.ok(answer.location.startsWith("/") && !answer.location.startsWith("//"), `${path} -> ${answer.location}`);
+  }
+  // A forwarded host that is not www does not hide a www Host, and a www forwarded host alone is enough.
+  const mixed = await getWithHeaders(site.base, "/voices", { host: "127.0.0.1", "x-forwarded-host": "evil.example" });
+  assert.equal(mixed.status, 200);
+});
+
+test("a sign-in failure marker does not make another indexable address", async () => {
+  const page = await (await fetch(`${site.base}/voices?signin=failed&error=access_denied`)).text();
+  assert.equal(tag(page, /<link rel="canonical" href="([^"]+)"/), `${SITE}/voices`);
+});
+
 test("every fixed page answers in both languages", () => {
   for (const language of ["en", "zh-CN"]) {
     for (const path of FIXED) {
@@ -180,8 +237,9 @@ test("every data page asks to be rendered per request, so none is baked into the
     entry.isDirectory() ? walk(join(dir, entry.name)) : entry.name === "page.tsx" ? [join(dir, entry.name)] : []);
   for (const file of walk(join(ROOT, "src", "app", "[lang]"))) {
     const text = readFileSync(file, "utf8");
-    // The whitepaper and the legal pages read no data release.
-    if (/[\\/](whitepaper|privacy|terms)[\\/]/.test(file)) assert.match(text, /export const dynamic = "force-static"/, file);
+    // Only the whitepaper is built ahead: it reads a document the server does not carry. The legal pages read
+    // nothing, but the layout's sign-in menu depends on the server's settings, so they render per request too.
+    if (/[\\/]whitepaper[\\/]/.test(file)) assert.match(text, /export const dynamic = "force-static"/, file);
     else assert.match(text, /export const dynamic = "force-dynamic"/, file);
   }
 });
@@ -207,8 +265,9 @@ test("the standalone output carries the database client and the data loader", ()
 test("/healthz names the data release and is not cached", async () => {
   const res = await fetch(`${site.base}/healthz`);
   assert.equal(res.headers.get("cache-control"), "no-store");
-  const { ok, data } = await res.json();
+  const { ok, data, app } = await res.json();
   assert.equal(ok, true);
+  assert.deepEqual(app, { enabled: false });
   assert.equal(res.status, 200);
   if (HAS_SNAPSHOT) {
     assert.equal(data.source, "files");

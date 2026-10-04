@@ -42,6 +42,13 @@ function build() {
       google: { clientId: process.env.GOOGLE_CLIENT_ID as string, clientSecret: process.env.GOOGLE_CLIENT_SECRET as string },
     },
     session: { expiresIn: 60 * 60 * 24 * 30 },
+    // Stored Google tokens are encrypted with the secret (account.encryptOAuthTokens; the columns are text).
+    account: { encryptOAuthTokens: true },
+    // Without a per-call errorCallbackURL (state lost, expired) the reader still lands on our own page.
+    onAPIError: { errorURL: "/?signin=failed" },
+    // Behind Cloudflare the client address is cf-connecting-ip; X-Forwarded-For is client-controlled at its
+    // first hop. A request without the header (local, candidate over an SSH forward) shares one bucket per path.
+    advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } },
   });
 }
 

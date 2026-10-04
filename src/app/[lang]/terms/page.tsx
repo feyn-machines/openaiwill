@@ -5,8 +5,8 @@ import { getLocale } from "@/lib/locale";
 import { pageMetadata } from "@/lib/seo";
 import { LegalDoc } from "../legal-doc";
 
-/** No data is read here, so like the whitepaper it is rendered at build time. */
-export const dynamic = "force-static";
+/** Nothing is read here, but the layout shows the sign-in menu only when the settings are present: render per request so a build without them cannot bake that in. */
+export const dynamic = "force-dynamic";
 
 const meta = bilingual({
   en: { description: "The terms for using openaiwill: the data is machine-proposed and unreviewed, and what to submit." },

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { apexLocation, isWwwHost } from "./lib/site-origin";
 import { LANGUAGE_COOKIE, LANGUAGE_COOKIE_MAX_AGE, languageRoute } from "./lib/i18n";
 
 /**
@@ -34,6 +35,15 @@ function passThrough() {
  * pages themselves live under `/[lang]`. The rules are in `languageRoute`.
  */
 export function proxy(request: NextRequest) {
+  // www.<site> is sent to the apex before anything else: cookies and the sign-in origin check belong to
+  // the apex. Behind the tunnel the app sees the public Host (or X-Forwarded-Host). The Location is the
+  // fixed apex origin plus this request's own path and query, never a value taken from a header.
+  if (isWwwHost(request.headers.get("x-forwarded-host")) || isWwwHost(request.headers.get("host"))) {
+    return NextResponse.redirect(apexLocation(request.nextUrl.pathname, request.nextUrl.search), 308);
+  }
+  // `/api/*` reaches this function only for the redirect above; it has no language.
+  if (request.nextUrl.pathname.startsWith("/api/")) return passThrough();
+
   // The server runs this proxy again on the address a rewrite produced. That second
   // pass is ours, not a reader asking for /en/..., so it must not be sent back.
   if (request.headers.get(REWRITTEN) === MARKER) return passThrough();
@@ -77,10 +87,12 @@ export function proxy(request: NextRequest) {
  * Files that are not pages are named one by one. "Anything with an extension"
  * would be wrong: occupation addresses such as /occupations/11-1011.00 contain
  * a dot. The 32-hex `.txt` is the IndexNow key file in `public/`. Route handlers
- * under `/api/` have no language: rewritten to `/en/api/...` they would be a 404.
+ * under `/api/` have no language: rewritten to `/en/api/...` they would be a 404, so they are
+ * matched only to get the www redirect and are then passed through untouched.
  */
 export const config = {
   matcher: [
+    "/api/:path*",
     "/((?!_next/|api/|og/|healthz$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|icon\\.svg$|[0-9a-f]{32}\\.txt$).*)",
   ],
 };

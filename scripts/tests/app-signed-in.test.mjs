@@ -4,14 +4,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { cleanup, freePort, startServer } from "./site-server.mjs";
+import { cleanup, freePort, startServer, stop } from "./site-server.mjs";
 
 // The signed-in paths, against the built server. A scratch database with a throwaway role holds the `app`
 // schema; sessions are rows plus a cookie signed the way Better Auth signs it. The owner's working database
 // and the real oaw_app role are never touched. Skipped when the local admin password file is absent.
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PASSWORD_FILE = `${ROOT}data/postgres/password`;
-const SKIP = existsSync(PASSWORD_FILE) ? false : "no local PostgreSQL (data/postgres/password)";
+// Locally a missing database is a visible skip with its reason. In CI `pnpm data:setup` has created it (see
+// scripts/data-local.py and infra/docker-compose.yml: password file, 127.0.0.1:7543, user openaiwill), so
+// there a missing file is not skipped: the setup fails loudly in `before`.
+const SKIP = existsSync(PASSWORD_FILE) || process.env.CI ? false : "no local PostgreSQL (data/postgres/password; run pnpm data:setup)";
 const SNAPSHOT_DIR = `${ROOT}datasets/published/latest`;
 const HAS_SNAPSHOT = existsSync(`${SNAPSHOT_DIR}/manifest.json`);
 const require = createRequire(import.meta.url);
@@ -352,4 +355,96 @@ t("signing out ends the session", async () => {
   assert.ok(out.status < 400, `sign-out answered ${out.status}`);
   assert.equal((await me("a")).user, null);
   assert.equal((await call("/admin", { who: "a" })).status, 404);
+});
+
+/** One sign-in start; `ip` is the Cloudflare client address header, or undefined for none. */
+const startSignInAs = (ip, body = { provider: "google", callbackURL: "/" }) =>
+  fetch(`${base}/api/auth/sign-in/social`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: base, ...(ip ? { "cf-connecting-ip": ip } : {}) },
+    body: JSON.stringify(body),
+  });
+
+t("the rate limit follows cf-connecting-ip: two addresses are limited independently, a spoofed X-Forwarded-For counts for nothing", async () => {
+  // Better Auth allows 3 sign-in starts per 10 seconds per client address (rate-limiter/index.mjs).
+  const first = [];
+  for (let i = 0; i < 4; i += 1) first.push((await startSignInAs("203.0.113.10")).status);
+  assert.deepEqual(first, [200, 200, 200, 429]);
+  assert.equal((await startSignInAs("203.0.113.11")).status, 200, "another address has its own allowance");
+  const spoofed = await fetch(`${base}/api/auth/sign-in/social`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: base, "cf-connecting-ip": "203.0.113.10", "x-forwarded-for": "198.51.100.77" },
+    body: JSON.stringify({ provider: "google", callbackURL: "/" }),
+  });
+  assert.equal(spoofed.status, 429, "a client-chosen X-Forwarded-For does not reset the limit");
+});
+
+t("without cf-connecting-ip (local, SSH forward) sign-in still works: requests share one allowance", async () => {
+  const answers = [];
+  for (let i = 0; i < 4; i += 1) answers.push((await startSignInAs(undefined)).status);
+  assert.deepEqual(answers.slice(0, 3), [200, 200, 200]);
+  assert.equal(answers[3], 429);
+});
+
+t("a failed sign-in comes back to the page it started from, or to the home page, with the marker", async () => {
+  const started = await startSignInAs("203.0.113.20", { provider: "google", callbackURL: "/voices", errorCallbackURL: "/voices?signin=failed" });
+  assert.equal(started.status, 200);
+  const { url } = await started.json();
+  const state = new URL(url).searchParams.get("state");
+  assert.ok(state);
+  const cookie = started.headers.getSetCookie().map((line) => line.split(";")[0]).join("; ");
+  const cancelled = await fetch(`${base}/api/auth/callback/google?state=${encodeURIComponent(state)}&error=access_denied`, { headers: { cookie }, redirect: "manual" });
+  assert.ok([302, 303, 307].includes(cancelled.status), `callback answered ${cancelled.status}`);
+  const where = cancelled.headers.get("location");
+  assert.ok(where.startsWith("/voices?signin=failed"), where);
+  assert.ok(where.includes("error=access_denied"), where);
+  // No state at all: Better Auth's configured error address, our own page.
+  const lost = await fetch(`${base}/api/auth/callback/google?error=access_denied`, { redirect: "manual" });
+  assert.ok(lost.headers.get("location").startsWith("/?signin=failed"), lost.headers.get("location"));
+  // The error address is checked like any callback address: a foreign one is refused.
+  assert.equal((await startSignInAs("203.0.113.21", { provider: "google", callbackURL: "/", errorCallbackURL: "https://evil.example/" })).status, 403);
+});
+
+t("/healthz reports the user database as answering", async () => {
+  const res = await fetch(`${base}/healthz`);
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).app, { enabled: true, ok: true });
+});
+
+// Better Auth's own account row (with the encrypted Google tokens) is written only by the OAuth callback after
+// Google has exchanged a code; no request here can produce one without a real Google session, so the
+// encryption setting is covered by reading the configuration, not by a stored row.
+t("Better Auth is configured to encrypt stored Google tokens and to read the client address from cf-connecting-ip", () => {
+  const source = readFileSync(`${ROOT}src/lib/auth.ts`, "utf8");
+  assert.match(source, /account:\s*\{\s*encryptOAuthTokens:\s*true\s*\}/);
+  assert.match(source, /ipAddressHeaders:\s*\["cf-connecting-ip"\]/);
+  assert.match(source, /errorURL:\s*"\/\?signin=failed"/);
+});
+
+test("with an unreachable user database /healthz says so, stays 200, and the public pages still answer", { timeout: 60000 }, async () => {
+  const dead = await freePort();
+  const port = await freePort();
+  const { base: other, proc } = await startServer(
+    {
+      SNAPSHOT_DIR,
+      APP_DATABASE_URL: `postgres://nobody:nothing@127.0.0.1:${dead}/none`,
+      BETTER_AUTH_SECRET: SECRET,
+      BETTER_AUTH_URL: `http://127.0.0.1:${port}`,
+      GOOGLE_CLIENT_ID: "dummy-id",
+      GOOGLE_CLIENT_SECRET: "dummy-secret",
+    },
+    port,
+  );
+  try {
+    const res = await fetch(`${other}/healthz`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.deepEqual(body.app, { enabled: true, ok: false });
+    assert.ok(!JSON.stringify(body).includes("ECONNREFUSED"), "no error text in the answer");
+    assert.equal((await fetch(`${other}/`)).status, 200);
+    assert.equal((await fetch(`${other}/zh-CN/voices`)).status, 200);
+  } finally {
+    await stop(proc);
+  }
 });

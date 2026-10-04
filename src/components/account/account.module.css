@@ -41,3 +41,5 @@ a.item{display:flex;align-items:center;text-decoration:none}
 .footerButton:focus-visible{outline:2px solid var(--ah-color-focus);outline-offset:4px}
 .check{display:flex;align-items:center;gap:var(--ah-space-3);font-size:16px;cursor:pointer}
 .check input{width:20px;height:20px;margin:0;accent-color:var(--ink)}
+.note{font-size:13px;color:var(--ah-color-subtle);margin:0 var(--ah-space-3)}
+.root .note{margin:0 var(--ah-space-3) 0 0}
