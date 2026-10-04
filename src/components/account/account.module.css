@@ -10,6 +10,7 @@
 .panel{position:absolute;right:0;top:calc(100% + 8px);z-index:30;display:flex;flex-direction:column;gap:var(--ah-space-2);min-width:160px;max-width:calc(100vw - 40px);padding:var(--ah-space-3);background:var(--bg);border:1px solid var(--line);border-radius:var(--ah-radius-control)}
 .name{margin:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item{text-align:left}
+a.item{display:flex;align-items:center;text-decoration:none}
 @media(max-width:600px){.signIn{padding:0 8px}.placeholder{width:56px}.root{min-width:56px}}
 .submitButton{font:inherit;font-family:var(--ah-font-mono);font-size:var(--ah-text-label);letter-spacing:var(--ah-tracking-label);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:var(--ah-radius-control);min-height:var(--ah-control-height);padding:0 12px;cursor:pointer;white-space:nowrap}
 .submitButton:hover{background:var(--ah-color-line)}

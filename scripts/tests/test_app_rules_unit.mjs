@@ -88,3 +88,17 @@ test("readJson refuses a body over the cap, by header or by bytes read", async (
   const exact = '"' + "a".repeat(4094) + '"';
   assert.equal((await readJson(post(exact), 4096)).ok, true);
 });
+
+const { csv } = await load("../../src/lib/csv.ts");
+
+test("csv writes a BOM, CRLF line ends, and quotes commas, quotes and newlines", () => {
+  const out = csv([["a", "b,c", 'say "hi"'], ["line\nbreak", "", "x"]]);
+  assert.equal(out, '﻿a,"b,c","say ""hi"""\r\n"line\nbreak",,x\r\n');
+});
+
+test("csv neutralises a cell a spreadsheet would run as a formula", () => {
+  const out = csv([["=HYPERLINK(\"http://x\")", "+1", "-1", "@SUM(A1)", "\tx", "\rx", "safe=1"]]);
+  assert.ok(out.startsWith("﻿"));
+  const line = out.slice(1);
+  assert.ok(line.startsWith("\"'=HYPERLINK(\"\"http://x\"\")\",'+1,'-1,'@SUM(A1),'\tx,\"'\rx\",safe=1"), line);
+});

@@ -1,15 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import { bilingual, type Language } from "@/lib/i18n";
+import { href } from "@/lib/routes";
 import styles from "./account.module.css";
 import { useMe } from "./me";
 import { Subscribe } from "./subscribe";
 
 const copy = bilingual({
-  en: { signIn: "Sign in", signOut: "Sign out", account: "Account" },
-  "zh-CN": { signIn: "登录", signOut: "退出", account: "账号" },
+  en: { signIn: "Sign in", signOut: "Sign out", account: "Account", admin: "Admin" },
+  "zh-CN": { signIn: "登录", signOut: "退出", account: "账号", admin: "后台" },
 });
 
 function initials(name: string) {
@@ -70,6 +72,11 @@ export function AccountMenu({ language, enabled }: { language: Language; enabled
         <div className={styles.panel}>
           <p className={styles.name}>{user.name}</p>
           <Subscribe language={language} enabled={enabled} variant="menu" onOpen={() => menu.current?.removeAttribute("open")} />
+          {me.admin ? (
+            <Link className={styles.item} href={href(language, "/admin")} onClick={() => menu.current?.removeAttribute("open")}>
+              {c.admin}
+            </Link>
+          ) : null}
           <button
             type="button"
             className={styles.item}

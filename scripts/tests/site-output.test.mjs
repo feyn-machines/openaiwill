@@ -128,6 +128,27 @@ test("without sign-in settings the site says so and offers no sign-in", async ()
   assert.ok(!html("en", "").includes("data-account-menu"));
 });
 
+
+/** The admin page and its endpoints answer 404 to anyone without a session; the page with the site's own 404 page. */
+async function assertAdminIsHidden(base) {
+  for (const path of ["/admin", "/zh-CN/admin", "/admin?view=decided"]) {
+    const res = await fetch(`${base}${path}`);
+    assert.equal(res.status, 404, path);
+    assert.match(await res.text(), /404/, path);
+  }
+  const post = await fetch(`${base}/api/admin/submissions`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: base },
+    body: JSON.stringify({ handle: "someone", ownerKind: "person", decision: "approve" }),
+  });
+  assert.equal(post.status, 404);
+  assert.equal((await fetch(`${base}/api/admin/subscribers`)).status, 404);
+}
+
+test("the admin page and its endpoints are a 404 without sign-in settings", async () => {
+  await assertAdminIsHidden(site.base);
+});
+
 /** The local app database (`pnpm app:setup`), when its password file exists; null otherwise. */
 function localAppUrl() {
   const passwordFile = join(ROOT, "data", "postgres", "app-password");
@@ -174,6 +195,7 @@ test("with sign-in settings, the account menu and the auth endpoints exist and r
     assert.equal((await post({ origin: base })).status, 401);
     assert.equal((await post({ origin: "https://evil.example" })).status, 403);
     assert.equal((await fetch(`${base}/api/submissions`)).status, 401);
+    await assertAdminIsHidden(base);
     // Better Auth checks the origin of a request that carries cookies (the CSRF case); one without cookies changes nothing.
     const headers = { "content-type": "application/json", cookie: "better-auth.session_token=not-a-real-session" };
     const refused = await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body: "{}" });
@@ -336,10 +358,16 @@ test("no Dataset JSON-LD description claims a share", () => {
 
 const body = (name) => files.get(name);
 
-test("robots.txt allows everything, names the AI crawlers, and points at the sitemap", () => {
+test("robots.txt allows every page, keeps crawlers out of the admin and the API, names the AI crawlers, and points at the sitemap", () => {
   const robots = body("robots.txt");
   assert.match(robots, /Sitemap: https:\/\/openaiwill\.com\/sitemap\.xml/);
-  assert.doesNotMatch(robots, /Disallow: \/\S/);
+  const groups = robots.split(/\n\s*\n/).filter((group) => /User-Agent:/i.test(group));
+  assert.equal(groups.length, 13);
+  for (const group of groups) {
+    assert.match(group, /^Allow: \/$/m, group);
+    for (const path of ["/admin", "/zh-CN/admin", "/api/"]) assert.match(group, new RegExp(`^Disallow: ${path}$`, "m"), `${path} in ${group}`);
+    assert.deepEqual([...group.matchAll(/^Disallow: (.*)$/gm)].map((m) => m[1]).sort(), ["/admin", "/api/", "/zh-CN/admin"]);
+  }
   for (const bot of ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "Claude-User",
     "PerplexityBot", "Perplexity-User", "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider"]) {
     assert.match(robots, new RegExp(`User-Agent: ${bot}\\b`, "i"), bot);
@@ -354,6 +382,8 @@ test("the sitemap lists each address once, with its counterpart, and the address
   for (const loc of locs) assert.ok(loc.startsWith(`${SITE}/`) || loc === SITE, loc);
   assert.match(xml, /hreflang="zh-CN"/);
   assert.match(xml, /hreflang="x-default"/);
+  assert.ok(!locs.some((loc) => /\/admin(\/|$)/.test(loc)), "the admin page is not in the sitemap");
+  assert.ok(!/\/admin\b/.test(body("llms.txt")), "the admin page is not in llms.txt");
   // The first, the last and twenty evenly spaced addresses between them.
   const sample = new Set([locs[0], locs[locs.length - 1]]);
   for (let i = 0; i < 20; i += 1) sample.add(locs[Math.floor((i * (locs.length - 1)) / 19)]);

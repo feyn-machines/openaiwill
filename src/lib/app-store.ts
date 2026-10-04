@@ -159,3 +159,113 @@ export async function setSubscriptions(
   }
   return getSubscriptions(db, input.userId);
 }
+
+export type AdminGroup = {
+  handle: string;
+  displayHandle: string;
+  ownerKind: OwnerKind;
+  status: "pending" | "approved" | "rejected";
+  count: number;
+  firstAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  reason: string | null;
+  importedAt: string | null;
+  requests: { name: string; email: string; note: string | null; createdAt: string }[];
+};
+
+type GroupRow = {
+  handle: string;
+  display_handle: string;
+  owner_kind: OwnerKind;
+  status: AdminGroup["status"];
+  count: number;
+  first_at: Date;
+  decided_at: Date | null;
+  decided_by: string | null;
+  reason: string | null;
+  imported_at: Date | null;
+  requests: { name: string; email: string; note: string | null; createdAt: string }[];
+};
+
+const MAX_DECIDED_GROUPS = 200;
+
+/**
+ * Pending: one group per account and kind, oldest first. Decided: one group per account, kind and
+ * decision moment, newest first, at most 200. `decidedBy` is the deciding user's address.
+ */
+export async function adminGroups(db: Pool, view: "pending" | "decided"): Promise<AdminGroup[]> {
+  const pending = view === "pending";
+  const { rows } = await db.query<GroupRow>(
+    `SELECT s.handle, min(s.display_handle) AS display_handle, s.owner_kind, s.status,
+            count(*)::int AS count, min(s.created_at) AS first_at,
+            s.decided_at, min(d.email) AS decided_by, min(s.decision_reason) AS reason, min(s.imported_at) AS imported_at,
+            json_agg(json_build_object('name', u.name, 'email', u.email, 'note', s.note, 'createdAt', s.created_at)
+                     ORDER BY s.created_at, s.id) AS requests
+       FROM app.submissions s
+       JOIN app."user" u ON u.id = s.user_id
+       LEFT JOIN app."user" d ON d.id = s.decided_by
+      WHERE s.platform = 'x' AND ${pending ? "s.status = 'pending'" : "s.status <> 'pending'"}
+      GROUP BY s.handle, s.owner_kind, s.status, s.decided_at
+      ORDER BY ${pending ? "min(s.created_at), s.handle" : "s.decided_at DESC, s.handle"}
+      ${pending ? "" : `LIMIT ${MAX_DECIDED_GROUPS}`}`,
+  );
+  return rows.map((row) => ({
+    handle: row.handle,
+    displayHandle: row.display_handle,
+    ownerKind: row.owner_kind,
+    status: row.status,
+    count: row.count,
+    firstAt: row.first_at.toISOString(),
+    decidedAt: row.decided_at ? row.decided_at.toISOString() : null,
+    decidedBy: row.decided_by,
+    reason: row.reason,
+    importedAt: row.imported_at ? row.imported_at.toISOString() : null,
+    requests: row.requests,
+  }));
+}
+
+/**
+ * Decides every pending row of the account and kind in one statement; returns how many rows changed.
+ * 0 means someone decided it first. Decided rows are not touched (the trigger would refuse them).
+ */
+export async function decide(
+  db: Pool,
+  input: { handle: string; ownerKind: OwnerKind; decision: "approved" | "rejected"; reason: string | null; adminId: string },
+): Promise<number> {
+  const { rowCount } = await db.query(
+    `UPDATE app.submissions
+        SET status = $1, decided_by = $2, decision_reason = $3, decided_at = now()
+      WHERE platform = 'x' AND handle = $4 AND owner_kind = $5 AND status = 'pending'`,
+    [input.decision, input.adminId, input.decision === "rejected" ? input.reason : null, input.handle, input.ownerKind],
+  );
+  return rowCount ?? 0;
+}
+
+/** Active subscriptions only; `total` counts each user once. */
+export async function subscriberCounts(db: Pool): Promise<{ total: number; updates: number; weekly: number }> {
+  const { rows } = await db.query<{ total: number; updates: number; weekly: number }>(
+    `SELECT count(DISTINCT user_id)::int AS total,
+            (count(*) FILTER (WHERE topic = 'updates'))::int AS updates,
+            (count(*) FILTER (WHERE topic = 'weekly'))::int AS weekly
+       FROM app.subscriptions WHERE unsubscribed_at IS NULL`,
+  );
+  return rows[0];
+}
+
+/** One row per user with an active subscription; topics joined with "+", the earliest active date. */
+export async function subscriberRows(
+  db: Pool,
+): Promise<{ email: string; name: string; language: string; topics: string; subscribedAt: string }[]> {
+  const { rows } = await db.query<{ email: string; name: string; language: string; topics: string; subscribed_at: Date }>(
+    `SELECT u.email, u.name,
+            (array_agg(s.language ORDER BY s.subscribed_at DESC, s.topic))[1] AS language,
+            string_agg(s.topic, '+' ORDER BY s.topic) AS topics,
+            min(s.subscribed_at) AS subscribed_at
+       FROM app.subscriptions s JOIN app."user" u ON u.id = s.user_id
+      WHERE s.unsubscribed_at IS NULL
+      GROUP BY u.id, u.email, u.name
+      ORDER BY min(s.subscribed_at), u.email`,
+  );
+  return rows.map((row) => ({ email: row.email, name: row.name, language: row.language, topics: row.topics, subscribedAt: row.subscribed_at.toISOString() }));
+}

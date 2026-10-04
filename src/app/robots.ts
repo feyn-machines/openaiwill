@@ -14,11 +14,14 @@ const AI_CRAWLERS = [
   "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider",
 ];
 
+/** Pages and endpoints that are for signed-in people only; no crawler has a reason to fetch them. */
+const PRIVATE = ["/admin", "/zh-CN/admin", "/api/"];
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: "*", allow: "/" },
-      ...AI_CRAWLERS.map((userAgent) => ({ userAgent, allow: "/" })),
+      { userAgent: "*", allow: "/", disallow: PRIVATE },
+      ...AI_CRAWLERS.map((userAgent) => ({ userAgent, allow: "/", disallow: PRIVATE })),
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
   };

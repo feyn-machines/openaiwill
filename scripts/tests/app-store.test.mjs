@@ -223,3 +223,87 @@ test("one user's subscriptions do not affect another's", { skip: SKIP }, async (
   await store.setSubscriptions(pool, sub(a, { updates: true }));
   assert.deepEqual(await store.getSubscriptions(pool, b), { updates: false, weekly: false });
 });
+
+// Administrator view: groups, decisions, subscriber counts.
+async function named(handle, kinds) {
+  const id = await user();
+  for (const kind of kinds) await store.createSubmission(pool, input(id, handle, { ownerKind: kind, note: `note ${kind}` }));
+  return id;
+}
+
+test("pending groups merge the requests of one account and kind; kinds stay apart", { skip: SKIP }, async () => {
+  const handle = `Grp${randomBytes(3).toString("hex")}`;
+  await named(handle, ["person"]);
+  await named(handle, ["organization"]);
+  await named(handle, ["person"]);
+  await named(handle, ["person"]);
+  const groups = (await store.adminGroups(pool, "pending")).filter((g) => g.handle === handle.toLowerCase());
+  assert.equal(groups.length, 2);
+  const person = groups.find((g) => g.ownerKind === "person");
+  assert.equal(person.count, 3);
+  assert.equal(person.requests.length, 3);
+  assert.equal(person.displayHandle, handle);
+  assert.equal(person.status, "pending");
+  assert.equal(groups.find((g) => g.ownerKind === "organization").count, 1);
+});
+
+test("deciding changes every pending row of the group once, leaves the other kind, and a second decision changes nothing", { skip: SKIP }, async () => {
+  const handle = `Dec${randomBytes(3).toString("hex")}`;
+  await named(handle, ["person"]);
+  await named(handle, ["organization"]);
+  await named(handle, ["person"]);
+  await named(handle, ["person"]);
+  const adminId = await user();
+  const base = { handle: handle.toLowerCase(), ownerKind: "person", adminId };
+  assert.equal(await store.decide(pool, { ...base, decision: "approved", reason: null }), 3);
+  assert.equal(await store.decide(pool, { ...base, decision: "rejected", reason: "late" }), 0);
+  const pending = (await store.adminGroups(pool, "pending")).filter((g) => g.handle === handle.toLowerCase());
+  assert.deepEqual(pending.map((g) => g.ownerKind), ["organization"]);
+  const decided = (await store.adminGroups(pool, "decided")).filter((g) => g.handle === handle.toLowerCase());
+  assert.equal(decided.length, 1);
+  assert.equal(decided[0].status, "approved");
+  assert.equal(decided[0].count, 3);
+  assert.equal(decided[0].decidedBy, `${adminId}@example.com`);
+  assert.equal(decided[0].importedAt, null);
+  assert.ok(decided[0].decidedAt);
+});
+
+test("a rejection stores its reason on every row", { skip: SKIP }, async () => {
+  const handle = `Rej${randomBytes(3).toString("hex")}`;
+  await named(handle, ["person"]);
+  await named(handle, ["person"]);
+  const adminId = await user();
+  assert.equal(await store.decide(pool, { handle: handle.toLowerCase(), ownerKind: "person", decision: "rejected", reason: "spam", adminId }), 2);
+  const { rows } = await pool.query("SELECT status, decision_reason, decided_by FROM app.submissions WHERE handle = $1", [handle.toLowerCase()]);
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.status, "rejected");
+    assert.equal(row.decision_reason, "spam");
+    assert.equal(row.decided_by, adminId);
+  }
+  const group = (await store.adminGroups(pool, "decided")).find((g) => g.handle === handle.toLowerCase());
+  assert.equal(group.reason, "spam");
+});
+
+test("subscriber counts count a user once and skip the unsubscribed", { skip: SKIP }, async () => {
+  const before = await store.subscriberCounts(pool);
+  const both = await user();
+  const one = await user();
+  const gone = await user();
+  await store.setSubscriptions(pool, sub(both, { updates: true, weekly: true }));
+  await store.setSubscriptions(pool, sub(one, { weekly: true, language: "zh-CN" }));
+  await store.setSubscriptions(pool, sub(gone, { updates: true, weekly: true }));
+  await store.setSubscriptions(pool, sub(gone));
+  const after = await store.subscriberCounts(pool);
+  assert.equal(after.total - before.total, 2);
+  assert.equal(after.updates - before.updates, 1);
+  assert.equal(after.weekly - before.weekly, 2);
+  const rows = await store.subscriberRows(pool);
+  const mine = rows.filter((r) => [both, one, gone].some((id) => r.email === `${id}@example.com`));
+  assert.equal(mine.length, 2);
+  assert.equal(mine.find((r) => r.email === `${both}@example.com`).topics, "updates+weekly");
+  const second = mine.find((r) => r.email === `${one}@example.com`);
+  assert.equal(second.topics, "weekly");
+  assert.equal(second.language, "zh-CN");
+  assert.match(second.subscribedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
