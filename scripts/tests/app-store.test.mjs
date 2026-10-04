@@ -153,3 +153,10 @@ test("listing returns only the user's rows, newest first, with ISO timestamps", 
   assert.equal(new Date(list[1].decidedAt).toISOString(), list[1].decidedAt);
   assert.deepEqual(await store.listSubmissions(pool, "nobody"), []);
 });
+
+test("a submit for a user that does not exist is no_user and writes nothing", { skip: SKIP }, async () => {
+  const made = await store.createSubmission(pool, input("ghost-user", "Ghost"));
+  assert.deepEqual(made, { result: "no_user" });
+  const { rows } = await pool.query("SELECT count(*)::int AS n FROM app.submissions WHERE handle = 'ghost'");
+  assert.equal(rows[0].n, 0);
+});

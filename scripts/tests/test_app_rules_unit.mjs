@@ -10,6 +10,7 @@ const load = async (relative) => {
   return import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`);
 };
 const { normalizeHandle } = await load("../../src/lib/handles.ts");
+const { readJson } = await load("../../src/lib/api.ts");
 const { appEnabled, isAdmin } = await load("../../src/lib/app-config.ts");
 
 test("every accepted way of writing an account gives the same handle", () => {
@@ -52,4 +53,38 @@ test("an administrator is a verified address on the list, whatever its case", ()
   assert.equal(isAdmin(null, admins), false);
   assert.equal(isAdmin({ email: "owner@example.com", emailVerified: true }, []), false);
   assert.equal(isAdmin({ email: "", emailVerified: true }, [""]), false);
+});
+
+const post = (body, headers = {}) => new Request("http://localhost/x", { method: "POST", body, headers });
+
+test("readJson reads a small JSON body and refuses malformed, empty or non-UTF-8 ones", async () => {
+  assert.deepEqual(await readJson(post('{"a":1}'), 4096), { ok: true, value: { a: 1 } });
+  assert.deepEqual(await readJson(post("{"), 4096), { ok: false });
+  assert.deepEqual(await readJson(new Request("http://localhost/x", { method: "POST" }), 4096), { ok: false });
+  assert.deepEqual(await readJson(post(new Uint8Array([0x22, 0xff, 0x22])), 4096), { ok: false });
+});
+
+test("readJson refuses a body over the cap, by header or by bytes read", async () => {
+  const big = JSON.stringify({ note: "x".repeat(5000) });
+  assert.deepEqual(await readJson(post(big), 4096), { ok: false });
+  assert.deepEqual(await readJson(post("{}", { "content-length": "999999" }), 4096), { ok: false });
+  // No Content-Length, chunked: the running count stops it and the source is cancelled.
+  let pulled = 0;
+  let cancelled = false;
+  const stream = new ReadableStream({
+    pull(controller) {
+      pulled += 1;
+      controller.enqueue(new Uint8Array(1024));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const request = new Request("http://localhost/x", { method: "POST", body: stream, duplex: "half" });
+  assert.deepEqual(await readJson(request, 4096), { ok: false });
+  assert.ok(cancelled);
+  assert.ok(pulled < 20, `pulled ${pulled}`);
+  // Exactly at the cap is accepted.
+  const exact = '"' + "a".repeat(4094) + '"';
+  assert.equal((await readJson(post(exact), 4096)).ok, true);
 });

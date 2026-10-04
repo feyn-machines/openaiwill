@@ -20,7 +20,8 @@ export type Submission = {
 export type CreateResult =
   | { result: "created"; submission: Submission }
   | { result: "duplicate"; submission: Submission }
-  | { result: "limit" };
+  | { result: "limit" }
+  | { result: "no_user" };
 
 export const PENDING_LIMIT = 10;
 
@@ -70,7 +71,11 @@ export async function createSubmission(
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    await client.query('SELECT 1 FROM app."user" WHERE id = $1 FOR UPDATE', [input.userId]);
+    const locked = await client.query('SELECT 1 FROM app."user" WHERE id = $1 FOR UPDATE', [input.userId]);
+    if (locked.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { result: "no_user" };
+    }
     const existing = await client.query<Row>(
       `SELECT ${COLUMNS} FROM app.submissions WHERE user_id = $1 AND platform = 'x' AND handle = $2`,
       [input.userId, input.key],

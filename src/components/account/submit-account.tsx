@@ -161,7 +161,7 @@ export function SubmitAccount({ language, ownerKind, enabled, anchor }: { langua
           </label>
           <label className={styles.field}>
             <span>{c.why}</span>
-            <textarea className={styles.input} value={note} onChange={(event) => setNote(event.target.value)} maxLength={280} rows={3} />
+            <textarea className={styles.input} value={note} onChange={(event) => setNote([...event.target.value].slice(0, 280).join(""))} rows={3} />
             <span className={styles.count}>{[...note].length}/280</span>
           </label>
           <p id={`submit-${anchor}-line`} className={styles.line} role="status" aria-live="polite">{line}</p>

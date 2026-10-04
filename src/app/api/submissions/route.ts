@@ -1,4 +1,4 @@
-import { json, notFound, rateLimit, sameOrigin } from "@/lib/api";
+import { json, notFound, rateLimit, readJson, sameOrigin } from "@/lib/api";
 import { appEnabled } from "@/lib/app-config";
 import { createSubmission, listSubmissions, PENDING_LIMIT } from "@/lib/app-store";
 import { appPool, currentUser } from "@/lib/auth";
@@ -29,14 +29,9 @@ export async function POST(request: Request) {
   if (!user) return json({ error: "signed_out" }, 401);
   if (!rateLimit(`submit:${user.id}`, 20, 3600_000)) return json({ error: "rate" }, 429);
 
-  let body: unknown;
-  try {
-    const text = await request.text();
-    if (new TextEncoder().encode(text).length > MAX_BODY) return json({ error: "invalid" }, 400);
-    body = JSON.parse(text);
-  } catch {
-    return json({ error: "invalid" }, 400);
-  }
+  const read = await readJson(request, MAX_BODY);
+  if (!read.ok) return json({ error: "invalid" }, 400);
+  const body = read.value;
   if (typeof body !== "object" || body === null || Array.isArray(body)) return json({ error: "invalid" }, 400);
   const fields = body as Record<string, unknown>;
 
@@ -49,6 +44,7 @@ export async function POST(request: Request) {
   let note: string | null = null;
   if (fields.note !== undefined && fields.note !== null) {
     if (typeof fields.note !== "string") return json({ error: "invalid_note" }, 400);
+    if (fields.note.includes("\u0000")) return json({ error: "invalid_note" }, 400);
     const trimmed = fields.note.trim();
     if ([...trimmed].length > MAX_NOTE) return json({ error: "invalid_note" }, 400);
     note = trimmed === "" ? null : trimmed;
@@ -60,6 +56,7 @@ export async function POST(request: Request) {
 
   try {
     const created = await createSubmission(appPool(), { userId: user.id, handle: handle.handle, key: handle.key, ownerKind, note });
+    if (created.result === "no_user") return json({ error: "signed_out" }, 401);
     return created.result === "limit" ? json({ result: "limit", limit: PENDING_LIMIT }) : json(created);
   } catch (error) {
     console.error(`[submissions] create failed: ${error instanceof Error ? error.message : "unknown error"}`);

@@ -24,6 +24,40 @@ export function sameOrigin(request: Request): boolean {
   }
 }
 
+/**
+ * Reads a JSON body without buffering more than `maxBytes`: refuses on a larger `Content-Length`
+ * and stops reading as soon as more than `maxBytes` has arrived.
+ */
+export async function readJson(request: Request, maxBytes: number): Promise<{ ok: true; value: unknown } | { ok: false }> {
+  const declared = request.headers.get("content-length");
+  if (declared !== null && Number(declared) > maxBytes) return { ok: false };
+  if (!request.body) return { ok: false };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false };
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return { ok: true, value: JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 const hits = new Map<string, number[]>();
 
 /** In-memory, per process. Returns false once `key` has made `limit` calls within `windowMs`. */

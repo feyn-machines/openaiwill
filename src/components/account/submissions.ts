@@ -20,10 +20,16 @@ export async function refreshSubmissions(): Promise<void> {
   started = true;
   try {
     const response = await fetch("/api/submissions", { cache: "no-store" });
-    const body = response.ok ? ((await response.json()) as { submissions: Submission[] }) : { submissions: EMPTY };
+    if (response.status === 401) {
+      publish({ state: "ready", list: EMPTY });
+      return;
+    }
+    if (!response.ok) throw new Error("list failed");
+    const body = (await response.json()) as { submissions: Submission[] };
     publish({ state: "ready", list: body.submissions });
   } catch {
-    publish({ state: "ready", list: EMPTY });
+    // Not a final answer: the next refresh or mount tries again.
+    started = false;
   }
 }
 
