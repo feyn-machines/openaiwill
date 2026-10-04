@@ -1,4 +1,6 @@
+import { AccountMenu } from "@/components/account/account-menu";
 import { LanguageSwitch } from "@/components/language-switch";
+import { appEnabled } from "@/lib/app-config";
 import { LANGUAGES, bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
@@ -88,6 +90,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               ))}
             </nav>
             <LanguageSwitch />
+            <AccountMenu language={language} enabled={appEnabled()} />
           </div>
         </header>
         <main className="wrap">{children}</main>

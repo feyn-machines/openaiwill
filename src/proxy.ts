@@ -76,10 +76,11 @@ export function proxy(request: NextRequest) {
 /**
  * Files that are not pages are named one by one. "Anything with an extension"
  * would be wrong: occupation addresses such as /occupations/11-1011.00 contain
- * a dot. The 32-hex `.txt` is the IndexNow key file in `public/`.
+ * a dot. The 32-hex `.txt` is the IndexNow key file in `public/`. Route handlers
+ * under `/api/` have no language: rewritten to `/en/api/...` they would be a 404.
  */
 export const config = {
   matcher: [
-    "/((?!_next/|og/|healthz$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|icon\\.svg$|[0-9a-f]{32}\\.txt$).*)",
+    "/((?!_next/|api/|og/|healthz$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|icon\\.svg$|[0-9a-f]{32}\\.txt$).*)",
   ],
 };

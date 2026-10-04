@@ -44,9 +44,9 @@ function assemble() {
 }
 
 /** Start the server on a free port and wait until it answers; returns its address and its process. */
-async function startServer(env) {
+async function startServer(env, fixedPort) {
   const dir = assemble();
-  const port = await freePort();
+  const port = fixedPort ?? (await freePort());
   const childEnv = { ...process.env, ...env, PORT: String(port), HOSTNAME: "127.0.0.1", SITE_ENV: "preview", NODE_ENV: "production" };
   if (!env.DATABASE_URL) delete childEnv.DATABASE_URL;
   const proc = spawn(process.execPath, ["server.js"], { cwd: dir, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
@@ -116,6 +116,57 @@ after(async () => {
 const html = (language, path) => pages.get(`${language}${path}`);
 const anchors = (page) => [...page.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)].map((m) => m[1]);
 const internal = (hrefs) => hrefs.filter((h) => h.startsWith("/") && !h.startsWith("//"));
+
+test("without sign-in settings the site says so and offers no sign-in", async () => {
+  const response = await fetch(`${site.base}/api/me`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { enabled: false, user: null, admin: false, subscriptions: { updates: false, weekly: false } });
+  assert.equal((await fetch(`${site.base}/zh-CN/api/me`)).status, 404);
+  assert.equal((await fetch(`${site.base}/api/auth/get-session`)).status, 404);
+  assert.ok(!html("en", "").includes("data-account-menu"));
+});
+
+/** The local app database (`pnpm app:setup`), when its password file exists; null otherwise. */
+function localAppUrl() {
+  const passwordFile = join(ROOT, "data", "postgres", "app-password");
+  if (!existsSync(passwordFile)) return null;
+  const password = readFileSync(passwordFile, "utf8").trim();
+  return `postgres://oaw_app:${encodeURIComponent(password)}@127.0.0.1:7543/openaiwill_local`;
+}
+
+test("with sign-in settings, the account menu and the auth endpoints exist and refuse a foreign origin", { timeout: 60000 }, async (t) => {
+  const url = localAppUrl();
+  if (!url) return t.skip("no local app database (pnpm app:setup)");
+  const port = await freePort();
+  const { base, proc } = await startServer(
+    {
+      SNAPSHOT_DIR,
+      APP_DATABASE_URL: url,
+      BETTER_AUTH_SECRET: "throwaway-secret-for-the-test-0123456789abcdef",
+      BETTER_AUTH_URL: `http://127.0.0.1:${port}`,
+      GOOGLE_CLIENT_ID: "dummy-id",
+      GOOGLE_CLIENT_SECRET: "dummy-secret",
+    },
+    port,
+  );
+  try {
+    const me = await fetch(`${base}/api/me`);
+    assert.equal(me.status, 200);
+    assert.equal(me.headers.get("x-robots-tag"), "noindex");
+    assert.deepEqual(await me.json(), { enabled: true, user: null, admin: false, subscriptions: { updates: false, weekly: false } });
+    assert.ok((await (await fetch(`${base}/`)).text()).includes("data-account-menu"));
+    assert.equal((await fetch(`${base}/api/auth/get-session`)).status, 200);
+    // Better Auth checks the origin of a request that carries cookies (the CSRF case); one without cookies changes nothing.
+    const headers = { "content-type": "application/json", cookie: "better-auth.session_token=not-a-real-session" };
+    const refused = await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body: "{}" });
+    assert.ok(refused.status >= 400, `sign-out from a foreign origin answered ${refused.status}`);
+    const own = await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { ...headers, origin: base }, body: "{}" });
+    assert.ok(own.status < 400, `sign-out from the site's own origin answered ${own.status}`);
+  } finally {
+    await stop(proc);
+  }
+});
 
 test("every fixed page answers in both languages", () => {
   for (const language of ["en", "zh-CN"]) {
