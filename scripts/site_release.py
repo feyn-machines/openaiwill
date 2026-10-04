@@ -641,6 +641,19 @@ def start_candidate(target: dict, release: str) -> None:
                            f"(127.0.0.1:{CANDIDATE['port']}); the container log is above.") from None
 
 
+def upload_argv(target: dict, release: str, previous: str = "") -> list[str]:
+    """rsync of the staged release into its own directory on the server.
+
+    With a previous release, files that did not change are hard-linked from it on the
+    server and changed ones are sent as differences, so a release uploads little.
+    Release directories are never edited in place, which is what makes the links safe."""
+    key = shlex.quote(os.path.expanduser(target["DEPLOY_SSH_KEY"]))
+    link = [f"--link-dest=../{previous}"] if previous and previous != release else []
+    return ["rsync", "-az", "--delete", *link, "-e", f"ssh -i {key} -o IdentitiesOnly=yes -o BatchMode=yes",
+            f"{STAGING / release}/",
+            f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}:{target['DEPLOY_ROOT']}/releases/{release}/"]
+
+
 def release_command() -> None:
     target = load_target()
     release = build()
@@ -648,10 +661,7 @@ def release_command() -> None:
     # A failed release must not leave an earlier candidate for `promote` to pick up.
     remote(target, f"sudo install -d -o {user} -g {user} {rpath(target)} {rpath(target, 'releases')}"
                    f" && rm -f {rpath(target, 'candidate')}")
-    key = shlex.quote(os.path.expanduser(target["DEPLOY_SSH_KEY"]))
-    run(["rsync", "-az", "--delete", "-e", f"ssh -i {key} -o IdentitiesOnly=yes -o BatchMode=yes",
-         f"{STAGING / release}/",
-         f"{target['DEPLOY_USER']}@{target['DEPLOY_HOST']}:{target['DEPLOY_ROOT']}/releases/{release}/"])
+    run(upload_argv(target, release, remote_id(target, "live")))
     start_candidate(target, release)
     # Only a candidate that passed is recorded, so `promote` cannot pick up one that did not.
     failures, served = candidate_failures(target, release)

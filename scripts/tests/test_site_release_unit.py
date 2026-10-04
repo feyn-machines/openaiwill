@@ -10,6 +10,19 @@ import site_release as release  # noqa: E402
 
 TARGET = {"DEPLOY_HOST": "h.example", "DEPLOY_USER": "u", "DEPLOY_SSH_KEY": "/k/key", "DEPLOY_ROOT": "/opt/openaiwill"}
 
+class UploadTest(unittest.TestCase):
+    def test_unchanged_files_are_linked_from_the_previous_release(self):
+        argv = release.upload_argv(TARGET, "20261004T150523Z-c7f1d16", "20261003T102912Z-e2d4005")
+        self.assertIn("--link-dest=../20261003T102912Z-e2d4005", argv)
+        self.assertEqual(argv[-1], "u@h.example:/opt/openaiwill/releases/20261004T150523Z-c7f1d16/")
+        self.assertTrue(argv[-2].endswith("/20261004T150523Z-c7f1d16/"))
+
+    def test_first_release_and_a_repeat_of_the_live_one_upload_in_full(self):
+        for previous in ("", "20261004T150523Z-c7f1d16"):
+            argv = release.upload_argv(TARGET, "20261004T150523Z-c7f1d16", previous)
+            self.assertFalse([a for a in argv if a.startswith("--link-dest")])
+
+
 class ReleaseIdTest(unittest.TestCase):
     def test_id_is_build_time_and_commit(self):
         built = datetime(2026, 10, 3, 10, 29, 12, 430661, tzinfo=timezone.utc)
