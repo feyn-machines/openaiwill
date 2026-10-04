@@ -11,12 +11,9 @@ export function appEnabled(env: Env = process.env): boolean {
   return REQUIRED.every((key) => Boolean(env[key]));
 }
 
-export function adminEmails(env: Env = process.env): string[] {
-  return (env.ADMIN_EMAILS ?? "").split(",").map((entry) => entry.trim().toLowerCase()).filter(Boolean);
-}
-
-/** A Google address that Google reports as verified and that is on the list. */
-export function isAdmin(user: { email?: string | null; emailVerified?: boolean | null } | null | undefined, env: Env = process.env): boolean {
+/** A Google address that Google reports as verified and that is on the administrator list (`app.admins`). */
+export function isAdmin(user: { email?: string | null; emailVerified?: boolean | null } | null | undefined, admins: readonly string[]): boolean {
   if (!user?.email || user.emailVerified !== true) return false;
-  return adminEmails(env).includes(user.email.trim().toLowerCase());
+  const email = user.email.trim().toLowerCase();
+  return email !== "" && admins.some((entry) => entry.trim().toLowerCase() === email);
 }

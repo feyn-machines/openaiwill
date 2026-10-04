@@ -10,7 +10,7 @@ const load = async (relative) => {
   return import(`data:text/javascript;charset=utf-8,${encodeURIComponent(js)}`);
 };
 const { normalizeHandle } = await load("../../src/lib/handles.ts");
-const { appEnabled, adminEmails, isAdmin } = await load("../../src/lib/app-config.ts");
+const { appEnabled, isAdmin } = await load("../../src/lib/app-config.ts");
 
 test("every accepted way of writing an account gives the same handle", () => {
   for (const input of ["OpenAI", "@OpenAI", " @OpenAI ", "https://x.com/OpenAI", "https://x.com/OpenAI/", "http://twitter.com/OpenAI",
@@ -43,12 +43,12 @@ test("the user features are on only when all four settings are present", () => {
 });
 
 test("an administrator is a verified address on the list, whatever its case", () => {
-  const env = { ADMIN_EMAILS: " Owner@Example.com, second@example.com ,, " };
-  assert.deepEqual(adminEmails(env), ["owner@example.com", "second@example.com"]);
-  assert.equal(isAdmin({ email: "owner@example.COM", emailVerified: true }, env), true);
-  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: false }, env), false);
-  assert.equal(isAdmin({ email: "other@example.com", emailVerified: true }, env), false);
-  assert.equal(isAdmin(null, env), false);
-  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: true }, {}), false);
-  assert.equal(isAdmin({ email: "", emailVerified: true }, { ADMIN_EMAILS: "," }), false);
+  const admins = ["owner@example.com", "second@example.com"];
+  assert.equal(isAdmin({ email: "owner@example.COM", emailVerified: true }, admins), true);
+  assert.equal(isAdmin({ email: " Second@Example.com ", emailVerified: true }, admins), true);
+  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: false }, admins), false);
+  assert.equal(isAdmin({ email: "other@example.com", emailVerified: true }, admins), false);
+  assert.equal(isAdmin(null, admins), false);
+  assert.equal(isAdmin({ email: "owner@example.com", emailVerified: true }, []), false);
+  assert.equal(isAdmin({ email: "", emailVerified: true }, [""]), false);
 });
