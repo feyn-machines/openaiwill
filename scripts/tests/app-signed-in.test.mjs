@@ -67,11 +67,11 @@ before(async () => {
   pool = new Pool({ host: "127.0.0.1", port: 7543, user: names.role, password, database: names.database, max: 4 });
   await pool.query(readFileSync(`${ROOT}db/app/001_app.sql`, "utf8"));
 
-  await makeUser("a", { name: "Ada Admin" });
+  await makeUser("a", { name: "Ada Admin Zq" });
   await makeUser("b", { name: "Bob <script>x</script> & Co" });
   await makeUser("c", { name: "Cy Unverified", verified: false });
-  await makeUser("d", { name: "Dee" });
-  await makeUser("e", { name: "Eve" });
+  await makeUser("d", { name: "Dee Tester Zq" });
+  await makeUser("e", { name: "Eve Tester Zq" });
   await makeUser("f", { name: "=cmd" });
   await pool.query("INSERT INTO app.admins (email) VALUES ($1), ($2)", [people.a.email, people.c.email]);
 
@@ -91,13 +91,16 @@ before(async () => {
 });
 
 after(async () => {
-  await cleanup();
-  await pool?.end();
-  if (admin && names) {
-    await admin.query(`DROP DATABASE IF EXISTS "${names.database}" WITH (FORCE)`);
-    await admin.query(`DROP ROLE IF EXISTS "${names.role}"`);
+  try {
+    await cleanup();
+    await pool?.end();
+    if (admin && names) {
+      await admin.query(`DROP DATABASE IF EXISTS "${names.database}" WITH (FORCE)`);
+      await admin.query(`DROP ROLE IF EXISTS "${names.role}"`);
+    }
+  } finally {
+    await admin?.end();
   }
-  await admin?.end();
 });
 
 /** `who` is a key of `people`, or undefined for signed out. `origin`: true = the site's own, a string = that, false = none. */
@@ -121,7 +124,7 @@ t("the signed cookie is accepted: get-session and /api/me return the user", asyn
   const body = await me("a");
   assert.equal(body.enabled, true);
   assert.equal(body.user.email, people.a.email);
-  assert.equal(body.user.name, "Ada Admin");
+  assert.equal(body.user.name, "Ada Admin Zq");
   // A tampered signature is not a session.
   const forged = await fetch(`${base}/api/me`, { headers: { cookie: `${people.a.cookie.slice(0, -6)}AAAA` } });
   assert.equal((await forged.json()).user, null);
@@ -181,13 +184,16 @@ t("submitting as a reader: origin, validation, duplicates, listing", async () =>
   }
   const bad = async (fields) => (await submit("b", fields)).status;
   assert.equal(await bad({ handle: "not a handle!", ownerKind: "person" }), 400);
-  assert.equal(await bad({ handle: "okname", ownerKind: "company" }), 400);
-  assert.equal(await bad({ handle: "okname", ownerKind: "person", note: "😀".repeat(281) }), 400);
-  assert.equal(await bad({ handle: "okname", ownerKind: "person", note: "a\u0000b" }), 400);
-  assert.equal(await bad({ handle: "okname", ownerKind: "person", note: "x".repeat(5000) }), 400);
-  assert.equal((await submit("b", { handle: "okname", ownerKind: "person", note: "😀".repeat(280) })).status, 200);
+  assert.equal(await bad({ handle: "zqokname", ownerKind: "company" }), 400);
+  assert.equal(await bad({ handle: "zqokname", ownerKind: "person", note: "😀".repeat(281) }), 400);
+  assert.equal(await bad({ handle: "zqokname", ownerKind: "person", note: "a\u0000b" }), 400);
+  assert.equal(await bad({ handle: "zqokname", ownerKind: "person", note: "x".repeat(5000) }), 400);
+  assert.equal((await submit("b", { handle: "zqokname", ownerKind: "person", note: "😀".repeat(280) })).status, 200);
+  // The body cap alone: everything else in the request is valid.
+  assert.equal((await submit("b", { handle: "zqpad", ownerKind: "person", note: "short", pad: "x".repeat(5000) })).status, 400);
+  assert.equal((await pool.query("SELECT 1 FROM app.submissions WHERE handle = 'zqpad'")).rows.length, 0, "no row for an oversized body");
   const list = await (await call("/api/submissions", { who: "b" })).json();
-  assert.deepEqual(list.submissions.map((s) => s.handle).sort(), ["Shared1", "okname"]);
+  assert.deepEqual(list.submissions.map((s) => s.handle).sort(), ["Shared1", "zqokname"]);
   assert.equal((await call("/api/submissions", { who: "d" })).status, 200);
   assert.deepEqual((await (await call("/api/submissions", { who: "d" })).json()).submissions, []);
 });
@@ -201,9 +207,9 @@ t("an account already in the loaded data is reported as monitored", { skip: SKIP
 
 t("the eleventh pending submission is refused", async () => {
   for (let i = 1; i <= 10; i += 1) {
-    assert.equal((await (await submit("e", { handle: `lim${i}`, ownerKind: "organization" })).json()).result, "created", `lim${i}`);
+    assert.equal((await (await submit("e", { handle: `zqlim${i}`, ownerKind: "organization" })).json()).result, "created", `zqlim${i}`);
   }
-  assert.deepEqual(await (await submit("e", { handle: "lim11", ownerKind: "organization" })).json(), { result: "limit", limit: 10 });
+  assert.deepEqual(await (await submit("e", { handle: "zqlim11", ownerKind: "organization" })).json(), { result: "limit", limit: 10 });
 });
 
 t("the administrator page shows the pending groups, escaped, in both languages", async () => {
@@ -222,7 +228,7 @@ t("the administrator page shows the pending groups, escaped, in both languages",
   assert.ok(html.includes('href="/api/admin/subscribers"'));
   assert.ok(html.includes(people.b.email));
   // the organization group of the limit test is separate from person groups
-  assert.ok(shows(html, "lim1"));
+  assert.ok(shows(html, "zqlim1"));
 
   const zh = await call("/zh-CN/admin", { who: "a" });
   assert.equal(zh.status, 200);
@@ -244,37 +250,64 @@ t("deciding as an administrator: origin, validation, counts, reasons, decider", 
   assert.equal((await decideAs("a", { ...ok, handle: "Bad Handle" })).status, 400);
   assert.equal((await decideAs("a", { ...ok, ownerKind: "company" })).status, 400);
   assert.equal((await decideAs("a", { ...ok, decision: "maybe" })).status, 400);
-  const reject = { handle: "okname", ownerKind: "person", decision: "reject" };
+  const reject = { handle: "zqokname", ownerKind: "person", decision: "reject" };
   assert.equal((await decideAs("a", { ...reject, reason: "   " })).status, 400);
   assert.equal((await decideAs("a", reject)).status, 400);
   assert.equal((await decideAs("a", { ...reject, reason: "😀".repeat(281) })).status, 400);
   assert.equal((await decideAs("a", { ...reject, reason: "a\u0000b" })).status, 400);
   assert.equal((await decideAs("a", ok, { rawBody: JSON.stringify({ ...ok, reason: "x".repeat(3000) }) })).status, 400);
+  // The body cap alone: a valid pending group, a valid decision, and padding.
+  assert.equal((await submit("d", { handle: "zqpadgrp", ownerKind: "person" })).status, 200);
+  assert.equal((await decideAs("a", { handle: "zqpadgrp", ownerKind: "person", decision: "approve", pad: "x".repeat(5000) })).status, 400);
+  assert.equal((await pool.query("SELECT status FROM app.submissions WHERE handle = 'zqpadgrp'")).rows[0].status, "pending");
   assert.equal((await pool.query("SELECT 1 FROM app.submissions WHERE status <> 'pending'")).rows.length, 0, "nothing was decided by a refused request");
 
   assert.deepEqual(await (await decideAs("a", ok)).json(), { changed: 2 });
   assert.deepEqual(await (await decideAs("a", ok)).json(), { changed: 0 });
   assert.deepEqual(await (await decideAs("a", { ...reject, reason: "  not relevant  " })).json(), { changed: 1 });
   // approve with a reason: the reason is ignored
-  assert.equal((await submit("d", { handle: "appr1", ownerKind: "person" })).status, 200);
-  assert.deepEqual(await (await decideAs("a", { handle: "appr1", ownerKind: "person", decision: "approve", reason: "ignored" })).json(), { changed: 1 });
+  assert.equal((await submit("d", { handle: "zqappr1", ownerKind: "person" })).status, 200);
+  assert.deepEqual(await (await decideAs("a", { handle: "zqappr1", ownerKind: "person", decision: "approve", reason: "ignored" })).json(), { changed: 1 });
 
   const { rows } = await pool.query("SELECT handle, status, decision_reason, decided_by FROM app.submissions WHERE status <> 'pending' ORDER BY handle, user_id");
   assert.equal(rows.length, 4);
   for (const row of rows) assert.equal(row.decided_by, people.a.id);
-  assert.deepEqual(rows.find((r) => r.handle === "okname"), { handle: "okname", status: "rejected", decision_reason: "not relevant", decided_by: people.a.id });
-  assert.equal(rows.find((r) => r.handle === "appr1").decision_reason, null);
+  assert.deepEqual(rows.find((r) => r.handle === "zqokname"), { handle: "zqokname", status: "rejected", decision_reason: "not relevant", decided_by: people.a.id });
+  assert.equal(rows.find((r) => r.handle === "zqappr1").decision_reason, null);
   assert.deepEqual(rows.filter((r) => r.handle === "shared1").map((r) => r.status), ["approved", "approved"]);
 
   const mine = (await (await call("/api/submissions", { who: "b" })).json()).submissions;
   assert.equal(mine.find((s) => s.handle === "Shared1").status, "approved");
-  const rejected = mine.find((s) => s.handle === "okname");
+  const rejected = mine.find((s) => s.handle === "zqokname");
   assert.equal(rejected.status, "rejected");
   assert.equal(rejected.reason, "not relevant");
 
   const decided = await (await call("/admin?view=decided", { who: "a" })).text();
   assert.ok(shows(decided, "Shared1") && decided.includes("Approved") && decided.includes("Rejected") && decided.includes("not relevant"));
   assert.ok(decided.includes(people.a.email), "the decider is named");
+});
+
+t("after rows exist, the admin page still gives a reader or nobody nothing, in the raw payload too", async () => {
+  const handles = ["Shared1", "shared1", "zqokname", "zqappr1", "zqpadgrp", ...Array.from({ length: 11 }, (_, i) => `zqlim${i + 1}`)];
+  const secrets = [
+    ...handles,
+    ...Object.values(people).flatMap((person) => [person.email, person.name]),
+    "<script>alert(1)</script>", "alert(1)", "😀".repeat(20), "not relevant",
+  ];
+  for (const who of ["b", "c", undefined]) {
+    for (const path of ["/admin", "/zh-CN/admin", "/admin?view=decided"]) {
+      const res = await call(path, { who });
+      assert.equal(res.status, 404, `${who} ${path}`);
+      const raw = await res.text();
+      for (const secret of secrets) assert.ok(!raw.includes(secret), `${who} ${path} leaks ${secret.slice(0, 12)}`);
+    }
+  }
+  const before = (await pool.query("SELECT id, status FROM app.submissions ORDER BY id")).rows;
+  assert.ok(before.some((row) => row.status === "pending"));
+  for (const who of ["b", "c", undefined]) {
+    assert.equal((await decideAs(who, { handle: "zqlim1", ownerKind: "organization", decision: "reject", reason: "no" })).status, 404, who);
+  }
+  assert.deepEqual((await pool.query("SELECT id, status FROM app.submissions ORDER BY id")).rows, before, "nothing changed");
 });
 
 t("subscriptions as a reader", async () => {
@@ -291,11 +324,16 @@ t("subscriptions as a reader", async () => {
 
 t("the subscriber list as CSV", async () => {
   assert.equal((await call("/api/subscriptions", { who: "f", method: "PUT", body: { updates: true, weekly: false, language: "en" } })).status, 200);
+  const utcDay = () => new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  const dayBefore = utcDay();
   const res = await call("/api/admin/subscribers", { who: "a" });
+  const dayAfter = utcDay();
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "text/csv; charset=utf-8");
-  const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  assert.equal(res.headers.get("content-disposition"), `attachment; filename="openaiwill-subscribers-${day}.csv"`);
+  assert.ok(
+    [dayBefore, dayAfter].some((day) => res.headers.get("content-disposition") === `attachment; filename="openaiwill-subscribers-${day}.csv"`),
+    res.headers.get("content-disposition"),
+  );
   assert.match(res.headers.get("cache-control") ?? "", /no-store/);
   assert.equal(res.headers.get("x-robots-tag"), "noindex");
   const text = Buffer.from(await res.arrayBuffer()).toString("utf8");
