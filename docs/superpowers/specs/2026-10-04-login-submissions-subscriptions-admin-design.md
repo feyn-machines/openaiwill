@@ -124,7 +124,7 @@
 
 需要用户做的：
 
-- 在 Google 后台为该登录应用登记回调地址 `https://openaiwill.com/api/auth/callback/google`，本机调试另加 `http://localhost:3000/api/auth/callback/google`。
+- 在 Google 后台为该登录应用登记回调地址 `https://openaiwill.com/api/auth/callback/google`，本机调试另加 `http://localhost:3456/api/auth/callback/google`。
 - 提供管理员的 Google 邮箱。
 
 ## 验证
