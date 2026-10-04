@@ -211,5 +211,119 @@ class Administrators(AppBase):
                 self.conn.execute("INSERT INTO app.admins (email) VALUES (%s)", (value,))
 
 
+class Pull(AppBase):
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self.out = tempfile.TemporaryDirectory()
+        self.addCleanup(self.out.cleanup)
+        self.dir = Path(self.out.name) / "submissions"
+        self.admin_user = self.user("admin1")
+
+    def decide(self, ident, status="approved", reason=None):
+        self.conn.execute(
+            "UPDATE app.submissions SET status = %s, decision_reason = %s, decided_by = %s, decided_at = now() WHERE id = %s",
+            (status, reason, self.admin_user, ident))
+
+    def approved(self, user, handle, display=None, kind="organization", note=None):
+        ident = self.submit(self.user(user), handle, display, owner_kind=kind, note=note)
+        self.decide(ident)
+        return ident
+
+    def files(self):
+        return sorted(self.dir.glob("approved-*.json")) if self.dir.exists() else []
+
+    def run_pull(self):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            path = app_db.pull_from(self.conn, self.dir)
+        return path, out.getvalue()
+
+    def test_requests_are_grouped_by_account_and_the_earliest_display_form_is_kept(self):
+        import json
+        self.approved("u1", "openai", "OpenAI", note="first note")
+        self.approved("u2", "openai", "openai", note=None)
+        self.approved("u3", "anthropicai", "AnthropicAI", kind="organization", note="second")
+        path, out = self.run_pull()
+        data = json.loads(path.read_text())
+        self.assertEqual(sorted(data), ["accounts", "pulled_at"])
+        accounts = {a["handle"]: a for a in data["accounts"]}
+        self.assertEqual(sorted(accounts), ["AnthropicAI", "OpenAI"])
+        self.assertEqual((accounts["OpenAI"]["requests"], accounts["AnthropicAI"]["requests"]), (2, 1))
+        self.assertEqual(accounts["OpenAI"]["notes"], ["first note"])
+        self.assertEqual(accounts["OpenAI"]["account_kind"], "organization")
+        for account in accounts.values():
+            self.assertEqual(sorted(account), ["account_kind", "approved_at", "handle", "notes", "requests"])
+        self.assertIn("2", out)
+        self.assertIn("pnpm data:panel:import", out)
+
+    def test_the_same_handle_as_person_and_organization_are_two_accounts(self):
+        import json
+        self.approved("u1", "openai", kind="organization")
+        self.approved("u2", "openai", kind="person")
+        path, _ = self.run_pull()
+        kinds = sorted(a["account_kind"] for a in json.loads(path.read_text())["accounts"])
+        self.assertEqual(kinds, ["organization", "person"])
+
+    def test_a_second_run_writes_nothing(self):
+        self.approved("u1", "openai")
+        self.run_pull()
+        path, out = self.run_pull()
+        self.assertIsNone(path)
+        self.assertEqual(out.strip(), "no approved submissions waiting")
+        self.assertEqual(len(self.files()), 1)
+
+    def test_pending_and_rejected_rows_are_never_included_nor_marked(self):
+        import json
+        self.approved("u1", "openai")
+        self.submit(self.user("u2"), "pendingone")
+        rejected = self.submit(self.user("u3"), "rejectedone")
+        self.decide(rejected, "rejected", "no")
+        path, _ = self.run_pull()
+        self.assertEqual([a["handle"] for a in json.loads(path.read_text())["accounts"]], ["openai"])
+        rows = self.conn.execute("SELECT handle, imported_at IS NOT NULL AS imported FROM app.submissions ORDER BY handle").fetchall()
+        self.assertEqual({r["handle"]: r["imported"] for r in rows}, {"openai": True, "pendingone": False, "rejectedone": False})
+
+    def test_a_later_approval_of_a_known_handle_is_pulled_again_as_a_new_request(self):
+        import json
+        self.approved("u1", "openai")
+        self.run_pull()
+        self.approved("u2", "openai")
+        path, _ = self.run_pull()
+        self.assertEqual(json.loads(path.read_text())["accounts"][0]["requests"], 1)
+
+    def test_the_file_holds_no_requester_identity_and_is_private(self):
+        import stat
+        self.approved("u1", "openai", note="why")
+        path, _ = self.run_pull()
+        text = path.read_text()
+        self.assertNotIn("@", text)
+        self.assertNotIn("u1", text)
+        self.assertNotIn("user_id", text)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertRegex(path.name, r"^approved-\d{8}T\d{6}Z\.json$")
+
+    def test_a_failed_write_rolls_the_database_back(self):
+        self.approved("u1", "openai")
+        self.dir.parent.mkdir(exist_ok=True)
+        self.dir.write_text("a file where the directory should be")
+        with self.assertRaises(OSError):
+            app_db.pull_from(self.conn, self.dir)
+        self.assertEqual(self.conn.execute("SELECT count(*) AS n FROM app.submissions WHERE imported_at IS NOT NULL").fetchone()["n"], 0)
+
+    def test_a_failed_update_removes_the_file_again(self):
+        self.approved("u1", "openai")
+        self.conn.execute("CREATE OR REPLACE FUNCTION app.refuse() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+                          "IF NEW.imported_at IS NOT NULL AND OLD.imported_at IS NULL THEN RAISE EXCEPTION 'no'; END IF; "
+                          "RETURN NEW; END $$")
+        self.conn.execute("CREATE TRIGGER refuse BEFORE UPDATE ON app.submissions FOR EACH ROW EXECUTE FUNCTION app.refuse()")
+        with self.assertRaises(errors.RaiseException):
+            app_db.pull_from(self.conn, self.dir)
+        self.assertEqual(self.files(), [])
+        self.assertEqual(self.conn.execute("SELECT count(*) AS n FROM app.submissions WHERE imported_at IS NOT NULL").fetchone()["n"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

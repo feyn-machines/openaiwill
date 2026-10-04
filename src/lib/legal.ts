@@ -122,7 +122,7 @@ export const legalCopy: Record<Language, { privacy: Doc; terms: Doc }> = {
           heading: "你的选择",
           body: [
             "可随时通过“订阅”控件取消订阅。",
-            "如需删除你的帐号及与之相关的全部内容，请在 X 上联系 {x}，或到我们的 {discord} 留言；我们会在 30 天内删除。",
+            "如需删除你的帐号及与之相关的全部内容，请在 X 上联系 {x}，或通过我们的 {discord} 联系我们；我们会在 30 天内删除。",
           ],
         },
         {

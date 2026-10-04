@@ -7,6 +7,7 @@
   rollback  make the previous production release the production service again
   status    show what the server is running: each slot's code release and the data release it serves
   indexnow  tell IndexNow-fed search engines which addresses exist (promote does this too)
+  env       upload GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from the local .env to the server's site.env
 
 A code release contains no data. The site reads the active data release from the server
 database (published separately with `pnpm data:release` and `pnpm data:promote`), so the
@@ -378,6 +379,27 @@ def describe_health(body: str | None) -> str:
     return f"code {code}, {served}"
 
 
+# Everything the site needs before it shows sign-in, submit and subscribe (src/lib/app-config.ts).
+APP_SETTINGS = ("APP_DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")
+
+
+def site_env_keys_script(target: dict) -> str:
+    """Prints the key names (never the values) of the server's site.env, one per line. No sudo needed."""
+    return f"sed -n 's/^\\([A-Z_][A-Z0-9_]*\\)=.*/\\1/p' {site_env_file(target)}"
+
+
+def sign_in_failures(keys: list[str], read_me) -> list[str]:
+    """A candidate whose site.env holds all the user-feature settings must report `enabled: true` on /api/me.
+    Without them the features are off by design and nothing is asked. `read_me()` returns the body or raises."""
+    if not all(key in keys for key in APP_SETTINGS):
+        return []
+    try:
+        enabled = json.loads(read_me()).get("enabled") is True
+    except (ReleaseError, ValueError, AttributeError):
+        enabled = False
+    return [] if enabled else ["sign-in is configured but not answering"]
+
+
 def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
     """Smoke-test the candidate on the server through an SSH forward, the way a reviewer would see it.
     Returns the failures and the data release the candidate is serving."""
@@ -388,7 +410,12 @@ def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
         wait_until_answering(base, forward)
         _, _, body = fetch(base + "/healthz")
         served = health_data(body).get("releaseId") or ""
-        return smoke(base, release) + data_release_failures(body) + indexability(base, indexable=False), served
+        try:
+            keys = remote(target, site_env_keys_script(target), capture=True).split()
+            sign_in = sign_in_failures(keys, lambda: fetch(base + "/api/me")[2])
+        except subprocess.CalledProcessError:
+            sign_in = ["could not read the site settings on the server"]
+        return (smoke(base, release) + data_release_failures(body) + indexability(base, indexable=False) + sign_in), served
     finally:
         forward.terminate()
         forward.wait()
@@ -398,6 +425,59 @@ def remote(target: dict, script: str, capture: bool = False) -> str:
     result = subprocess.run([*ssh_base(target), "bash", "-euo", "pipefail", "-c", shlex.quote(script)],
                             check=True, text=True, capture_output=capture)
     return result.stdout.strip() if capture else ""
+
+
+SAFE_SETTING = re.compile(r"[A-Za-z0-9._~+/=:@%,-]+")
+GOOGLE_KEYS = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")
+
+
+def read_google_settings(paths=None) -> dict[str, str]:
+    """The two Google values from the local .env then .env.local (later wins). Only these two keys are read."""
+    import app_db
+
+    paths = app_db.ENV_FILES if paths is None else paths
+    values = {}
+    for key in GOOGLE_KEYS:
+        value = app_db.read_env_value(key, paths)
+        if not value:
+            raise ReleaseError(f"{key} is missing in the local .env or .env.local")
+        values[key] = value
+    return values
+
+
+def site_env_script(target: dict, values: dict[str, str]) -> str:
+    """Script (sent on stdin) that sets exactly the two Google keys in the server's site.env: the old lines are
+    dropped and the new ones appended, every other line stays, mode 600. The values are inside this text only."""
+    if sorted(values) != sorted(GOOGLE_KEYS):
+        raise ReleaseError("site:env sets GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, nothing else")
+    for key, value in values.items():
+        if not SAFE_SETTING.fullmatch(value):
+            raise ReleaseError(f"{key} contains a character that cannot be stored safely in site.env "
+                               "(whitespace, quotes, $, #, backslash, backtick or a control character)")
+    site_env = site_env_file(target)
+    drops = " ".join(f"-e '^{key}='" for key in GOOGLE_KEYS)
+    sets = "".join(f"printf '%s=%s\\n' {key} '{values[key]}' >> \"$tmp\"\n" for key in GOOGLE_KEYS)
+    return f"""umask 077
+f={site_env}
+[ -f "$f" ] || {{ echo 'site.env does not exist on the server; run pnpm db:setup first' >&2; exit 1; }}
+tmp=$(mktemp "$f.XXXXXX")
+{{ grep -v {drops} "$f" || true; }} > "$tmp"
+{sets}chmod 600 "$tmp"
+mv "$tmp" "$f"
+echo 'set {", ".join(GOOGLE_KEYS)} in site.env'
+"""
+
+
+def env_command() -> None:
+    target = load_target()
+    remote_stdin(target, site_env_script(target, read_google_settings()))
+    print("restart the site for this to take effect: pnpm site:release && pnpm site:promote")
+
+
+def remote_stdin(target: dict, script: str) -> None:
+    """Run a script on the server by sending it on stdin (nothing in it reaches a command line); its output is
+    shown as it comes."""
+    subprocess.run([*ssh_base(target), "bash", "-euo", "pipefail", "-s"], input=script, text=True, check=True)
 
 
 def site_env_file(target: dict) -> str:
@@ -699,11 +779,12 @@ def notify_indexnow() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["build", "release", "promote", "rollback", "status", "indexnow"])
+    parser.add_argument("command", choices=["build", "release", "promote", "rollback", "status", "indexnow", "env"])
     command = parser.parse_args().command
     try:
         {"build": build, "release": release_command, "promote": promote_command,
-         "rollback": rollback_command, "status": status_command, "indexnow": notify_indexnow}[command]()
+         "rollback": rollback_command, "status": status_command, "indexnow": notify_indexnow,
+         "env": env_command}[command]()
     except ReleaseError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

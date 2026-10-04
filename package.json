@@ -50,6 +50,7 @@
     "site:rollback": "python3 scripts/site_release.py rollback",
     "site:status": "python3 scripts/site_release.py status",
     "site:indexnow": "python3 scripts/site_release.py indexnow",
+    "site:env": "python3 scripts/site_release.py env",
     "data:test:unit": "python3 -m unittest discover -s scripts/tests -p 'test_data_*unit.py'",
     "data:test": "data/runtime/venv/bin/python -m unittest discover -s scripts/tests -p 'test_data_*.py'",
     "crawl": "data/runtime/crawler-venv/bin/python local/x-crawler/crawler",
@@ -74,7 +75,9 @@
     "data:local:release": "data/runtime/venv/bin/python scripts/data-release.py release --target local",
     "data:local:promote": "data/runtime/venv/bin/python scripts/data-release.py promote --target local",
     "app:setup": "data/runtime/venv/bin/python scripts/app-db.py setup-local",
-    "db:setup": "data/runtime/venv/bin/python scripts/data-release.py setup-db --target server"
+    "db:setup": "data/runtime/venv/bin/python scripts/data-release.py setup-db --target server",
+    "admins:sync": "data/runtime/venv/bin/python scripts/app-db.py admins --target server",
+    "submissions:pull": "data/runtime/venv/bin/python scripts/app-db.py pull --target server"
   },
   "dependencies": {
     "better-auth": "1.7.7",

@@ -22,6 +22,37 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  # Daily dump of schema app (user data) into <DEPLOY_ROOT>/backups, kept 14 days. The kg schema is not dumped:
+  # a data release can recreate it. A dump is renamed into place only when it succeeded and is not empty.
+  backup:
+    image: postgres:16-alpine
+    container_name: openaiwill-db-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?run pnpm db:setup first}
+    volumes:
+      - ../backups:/backups
+    networks:
+      - openaiwill
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -o pipefail
+        umask 077
+        while true; do
+          out=/backups/app-$$(date -u +%Y%m%dT%H%M%SZ).sql.gz
+          if pg_dump -h openaiwill-db -U postgres -d openaiwill -n app | gzip > "$$out.tmp" && [ -s "$$out.tmp" ]; then
+            mv "$$out.tmp" "$$out"
+          else
+            rm -f "$$out.tmp"
+            echo "app backup failed" >&2
+          fi
+          find /backups -name 'app-*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
 volumes:
   pgdata:
 networks:

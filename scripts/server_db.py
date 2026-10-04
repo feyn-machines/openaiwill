@@ -21,11 +21,15 @@ from site_release import PRODUCTION, ReleaseError
 ROOT = site.ROOT
 DEPLOY_DB = ROOT / "deploy" / "db"
 SCHEMA_SQL = ROOT / "db" / "published" / "001_kg.sql"
+APP_SQL_DIR = ROOT / "db" / "app"
+APP_FILE_NAME = re.compile(r"[0-9]{3}_[a-z_]+\.sql")
 
 DB_PORT = 5434
 DB_NAME = "openaiwill"
 WRITER = "oaw_kg_writer"
 SITE_ROLE = "oaw_site"
+APP_ROLE = "oaw_app"
+APP_BACKUPS = "backups"
 PASSWORD_PATTERN = re.compile(r"[0-9A-Za-z]{32,}")
 WATCH_SECONDS = 60
 
@@ -41,11 +45,11 @@ def parse_env(text: str) -> dict[str, str]:
     return values
 
 
-def checked_password(value: str) -> str:
+def checked_password(value: str, key: str = "OAW_KG_WRITER_PASSWORD") -> str:
     """A password read from the server. A malformed one is refused without echoing any value."""
     value = value.strip()
     if not PASSWORD_PATTERN.fullmatch(value):
-        raise ReleaseError("db.env on the server has no usable OAW_KG_WRITER_PASSWORD; run `pnpm db:setup` first")
+        raise ReleaseError(f"db.env on the server has no usable {key}; run `pnpm db:setup` first")
     return value
 
 
@@ -68,7 +72,13 @@ def heredoc(path: str, text: str, tag: str) -> str:
     return f"cat > {path} <<'{tag}'\n{text if text.endswith(chr(10)) else text + chr(10)}{tag}\n"
 
 
-def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: str, grants_sql: str) -> str:
+def app_sql_files() -> dict[str, str]:
+    """db/app/*.sql by file name, in the order they are applied."""
+    return {path.name: path.read_text() for path in sorted(APP_SQL_DIR.glob("*.sql"))}
+
+
+def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: str, grants_sql: str,
+                 app_sql: dict[str, str]) -> str:
     """The one script `pnpm db:setup` runs on the server (sent on stdin). Repeatable.
 
     Passwords are generated here, only when db.env does not exist, written with umask 077, and
@@ -78,11 +88,19 @@ def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: st
     Everything here reaches PostgreSQL as the superuser through the container's local socket (trusted, no
     password), and roles.sql then sets all three role passwords, the superuser's included, to the newly
     generated ones. No step needs the old superuser password, and no data is touched.
+    Schema app (user data) belongs to oaw_app, whose password is added to an older db.env, and whose settings
+    (APP_DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL) are added to site.env only when absent; the Google
+    values are uploaded separately by `pnpm site:env`. Existing keys are never rewritten, except that
+    APP_DATABASE_URL follows db.env's app password.
     Every command that could read the script from stdin has its own redirect."""
     root = site.rpath(target)
     db = site.rpath(target, "db")
     env_file = site.rpath(target, "db", "db.env")
     site_env = site.site_env_file(target)
+    backups = site.rpath(target, APP_BACKUPS)
+    for name in app_sql:
+        if not APP_FILE_NAME.fullmatch(name):
+            raise ReleaseError(f"unexpected file name in db/app: {name}")
 
     def put(name: str, text: str, tag: str) -> str:
         return heredoc(site.rpath(target, "db", name), text, tag)
@@ -94,16 +112,25 @@ def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: st
     address = 'ip=$(hostname -i); ip=${{ip%% *}}; '  # doubled braces: str.format below
     check = ('sudo docker exec -i --env-file {env} openaiwill-db sh -c '
              "'" + address + 'PGPASSWORD="{password}" psql -X -h "$ip" -U {role} -d {db} -tAc "{sql}"\' </dev/null')
+    app_puts = "".join(put(name, text, f"OPENAIWILL_APP_{chr(65 + index)}_EOF") for index, (name, text) in enumerate(app_sql.items()))
+    app_apply = "".join(f"{psql} -U {APP_ROLE} -d {DB_NAME} < {name}\n" for name in app_sql)
     wrong = check.format(env="db.env", password="not-the-password", role=SITE_ROLE, db=DB_NAME, sql="SELECT 1")
     return f"""umask 077
 sudo install -d -m 755 -o "$(id -un)" -g "$(id -gn)" {root} {db} </dev/null
+sudo install -d -m 700 -o "$(id -un)" -g "$(id -gn)" {backups} </dev/null
 sudo docker network inspect openaiwill >/dev/null 2>&1 </dev/null || sudo docker network create openaiwill >/dev/null </dev/null
 newpw() {{ local p; p=$(openssl rand -hex 24); [ "${{#p}}" -eq 48 ] || {{ echo 'could not generate a password' >&2; exit 1; }}; echo "$p"; }}
+newsecret() {{ local p; p=$(openssl rand -hex 32); [ "${{#p}}" -eq 64 ] || {{ echo 'could not generate a secret' >&2; exit 1; }}; echo "$p"; }}
 if [ ! -f {env_file} ]; then
   if [ -f {site_env} ]; then echo 'site.env exists but db/db.env does not; refusing to invent new passwords' >&2; exit 1; fi
-  a=$(newpw); b=$(newpw); c=$(newpw)
-  printf 'POSTGRES_PASSWORD=%s\\nOAW_KG_WRITER_PASSWORD=%s\\nOAW_SITE_PASSWORD=%s\\n' "$a" "$b" "$c" > {env_file}
+  a=$(newpw); b=$(newpw); c=$(newpw); d=$(newpw)
+  printf 'POSTGRES_PASSWORD=%s\\nOAW_KG_WRITER_PASSWORD=%s\\nOAW_SITE_PASSWORD=%s\\nOAW_APP_PASSWORD=%s\\n' "$a" "$b" "$c" "$d" > {env_file}
   echo 'generated the database passwords on the server'
+fi
+if ! grep -q '^OAW_APP_PASSWORD=' {env_file}; then
+  e=$(newpw)
+  printf 'OAW_APP_PASSWORD=%s\\n' "$e" >> {env_file}
+  echo 'added the app password to db.env'
 fi
 chmod 600 {env_file}
 if [ ! -f {site_env} ]; then
@@ -112,16 +139,43 @@ if [ ! -f {site_env} ]; then
   printf 'DATABASE_URL=postgres://{SITE_ROLE}:%s@openaiwill-db:5432/{DB_NAME}\\n' "$pw" > {site_env}
   echo 'wrote site.env'
 fi
+apw=$(sed -n 's/^OAW_APP_PASSWORD=//p' {env_file})
+[ -n "$apw" ] || {{ echo 'db.env has no OAW_APP_PASSWORD' >&2; exit 1; }}
+want="postgres://{APP_ROLE}:${{apw}}@openaiwill-db:5432/{DB_NAME}"
+cur=$(sed -n 's/^APP_DATABASE_URL=//p' {site_env})
+if [ -z "$cur" ]; then
+  printf 'APP_DATABASE_URL=%s\\n' "$want" >> {site_env}
+  echo 'added APP_DATABASE_URL to site.env'
+elif [ "$cur" != "$want" ]; then
+  tmp=$(mktemp {site_env}.XXXXXX)
+  {{ grep -v '^APP_DATABASE_URL=' {site_env} || true; }} > "$tmp"
+  printf 'APP_DATABASE_URL=%s\\n' "$want" >> "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" {site_env}
+  echo 'updated APP_DATABASE_URL in site.env to follow db.env'
+fi
+if ! grep -q '^BETTER_AUTH_SECRET=' {site_env}; then
+  secret=$(newsecret)
+  printf 'BETTER_AUTH_SECRET=%s\\n' "$secret" >> {site_env}
+  echo 'added BETTER_AUTH_SECRET to site.env'
+fi
+if ! grep -q '^BETTER_AUTH_URL=' {site_env}; then
+  printf 'BETTER_AUTH_URL={site.SITE_URL}\\n' >> {site_env}
+  echo 'added BETTER_AUTH_URL to site.env'
+fi
 chmod 600 {site_env}
-{put('compose.yml', compose_text, 'OPENAIWILL_COMPOSE_EOF')}{put('roles.sql', roles_sql, 'OPENAIWILL_ROLES_EOF')}{put('001_kg.sql', schema_sql, 'OPENAIWILL_SCHEMA_EOF')}{put('grants.sql', grants_sql, 'OPENAIWILL_GRANTS_EOF')}cd {db}
+{put('compose.yml', compose_text, 'OPENAIWILL_COMPOSE_EOF')}{put('roles.sql', roles_sql, 'OPENAIWILL_ROLES_EOF')}{put('001_kg.sql', schema_sql, 'OPENAIWILL_SCHEMA_EOF')}{put('grants.sql', grants_sql, 'OPENAIWILL_GRANTS_EOF')}{app_puts}cd {db}
 sudo docker compose -p openaiwill-db --env-file db.env up -d --wait --wait-timeout 180 </dev/null
 {psql} -U postgres -d postgres < roles.sql
 {psql} -U {WRITER} -d {DB_NAME} < 001_kg.sql
 {psql} -U {WRITER} -d {DB_NAME} < grants.sql
-{check.format(env='db.env', password='$OAW_KG_WRITER_PASSWORD', role=WRITER, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')} >/dev/null
+{app_apply}{check.format(env='db.env', password='$OAW_KG_WRITER_PASSWORD', role=WRITER, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')} >/dev/null
 n=$({check.format(env='db.env', password='$OAW_SITE_PASSWORD', role=SITE_ROLE, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')})
 if {wrong} >/dev/null 2>&1; then echo 'password authentication is not being enforced on the container network' >&2; exit 1; fi
-echo "both roles authenticate with their passwords over the container network and a wrong password is refused; releases in kg: $n"
+{check.format(env='db.env', password='$OAW_APP_PASSWORD', role=APP_ROLE, db=DB_NAME, sql='SELECT count(*) FROM app.submissions')} >/dev/null
+if {check.format(env='db.env', password='$OAW_APP_PASSWORD', role=APP_ROLE, db=DB_NAME, sql='SELECT 1 FROM kg.releases')} >/dev/null 2>&1; then echo 'isolation broken: the app role can read kg' >&2; exit 1; fi
+if {check.format(env='db.env', password='$OAW_SITE_PASSWORD', role=SITE_ROLE, db=DB_NAME, sql='SELECT 1 FROM app.submissions')} >/dev/null 2>&1; then echo 'isolation broken: the site role can read app' >&2; exit 1; fi
+echo "the three roles authenticate with their passwords over the container network, a wrong password is refused and neither the app role nor the site role reaches the other's schema; releases in kg: $n"
 echo 'database ready (127.0.0.1:{DB_PORT} on the server, network openaiwill)'
 """
 
@@ -133,14 +187,29 @@ def port_probe_script(port: int) -> str:
 
 def remote_stdin(target: dict, script: str) -> None:
     """Run a script on the server by sending it on stdin; its output is shown as it comes."""
-    subprocess.run([*site.ssh_base(target), "bash", "-euo", "pipefail", "-s"], input=script, text=True, check=True)
+    site.remote_stdin(target, script)
 
 
 def setup_db() -> None:
     target = site.load_target()
     script = setup_script(target, (DEPLOY_DB / "compose.yml").read_text(), (DEPLOY_DB / "roles.sql").read_text(),
-                          SCHEMA_SQL.read_text(), (DEPLOY_DB / "grants.sql").read_text())
+                          SCHEMA_SQL.read_text(), (DEPLOY_DB / "grants.sql").read_text(), app_sql_files())
     remote_stdin(target, script)
+    sync_server_admins()
+
+
+def sync_server_admins() -> None:
+    """Make app.admins on the server equal to ADMIN_EMAILS in the local .env. Counts only are printed; an empty
+    list is a warning, not a failure (the table keeps what it has)."""
+    import app_db
+
+    emails = app_db.read_admin_emails()
+    if not emails:
+        print("warning: ADMIN_EMAILS is empty in the local .env; the administrator list on the server was left unchanged")
+        return
+    with server_connection(APP_ROLE) as conn:
+        added, removed = app_db.sync_admins(conn, emails)
+    print(f"administrators on the server: {len(emails)} on the list (+{added}, -{removed})")
 
 
 def read_writer_password(target: dict) -> str:
@@ -152,6 +221,15 @@ def read_writer_password(target: dict) -> str:
         raise ReleaseError(f"could not read the database credentials on the server (status {error.returncode}); "
                            "has `pnpm db:setup` run?") from None
     return checked_password(value)
+
+
+def read_app_password(target: dict) -> str:
+    try:
+        value = site.remote(target, f"sed -n 's/^OAW_APP_PASSWORD=//p' {site.rpath(target, 'db', 'db.env')}", capture=True)
+    except subprocess.CalledProcessError as error:
+        raise ReleaseError(f"could not read the database credentials on the server (status {error.returncode}); "
+                           "has `pnpm db:setup` run?") from None
+    return checked_password(value, "OAW_APP_PASSWORD")
 
 
 def wait_for_listener(port: int, process: subprocess.Popen, seconds: float = 15) -> None:
@@ -168,21 +246,26 @@ def wait_for_listener(port: int, process: subprocess.Popen, seconds: float = 15)
 
 
 @contextlib.contextmanager
-def server_connection():
-    """A psycopg connection to the server database as the data writer, through an SSH forward that is
-    always closed. The password lives in this process's memory only."""
+def server_connection(role: str = WRITER):
+    """A psycopg connection to the server database as the data writer (default) or as oaw_app, through an SSH
+    forward that is always closed. The password lives in this process's memory only."""
     import psycopg
     from psycopg.rows import dict_row
 
+    if role not in (WRITER, APP_ROLE):
+        raise ValueError("unknown database role")
     target = site.load_target()
-    password = read_writer_password(target)
+    password = read_writer_password(target) if role == WRITER else read_app_password(target)
+    # The writer works in public; oaw_app's own search_path (app) is set on the role by roles.sql.
+    options = "-c timezone=UTC" + (" -c search_path=public" if role == WRITER else "")
     port = site.free_port()
     forward = subprocess.Popen(db_forward_argv(target, port), stdin=subprocess.DEVNULL)
     try:
         wait_for_listener(port, forward)
-        conn = psycopg.connect(host="127.0.0.1", port=port, dbname=DB_NAME, user=WRITER, password=password,
+        conn = psycopg.connect(host="127.0.0.1", port=port, dbname=DB_NAME, user=role, password=password,
                                autocommit=True, row_factory=dict_row, connect_timeout=10,
-                               application_name="openaiwill-data-release", options="-c timezone=UTC -c search_path=public")
+                               application_name="openaiwill-data-release" if role == WRITER else "openaiwill-app-admin",
+                               options=options)
         try:
             yield conn
         finally:

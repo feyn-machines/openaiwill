@@ -8,6 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import site_release as release  # noqa: E402
 
+TARGET = {"DEPLOY_HOST": "h.example", "DEPLOY_USER": "u", "DEPLOY_SSH_KEY": "/k/key", "DEPLOY_ROOT": "/opt/openaiwill"}
+
 class ReleaseIdTest(unittest.TestCase):
     def test_id_is_build_time_and_commit(self):
         built = datetime(2026, 10, 3, 10, 29, 12, 430661, tzinfo=timezone.utc)
@@ -416,6 +418,166 @@ class SwitchScriptTest(unittest.TestCase):
         script = release.switch_script(self.target, self.old, self.old)
         self.assertNotIn("production restored", script)
         self.assertIn(f"{self.old} did not become healthy; it is still the current release", script)
+
+class SiteEnvTest(unittest.TestCase):
+    ID = "123456-abc.apps.example.invalid"
+    SECRET = "GOCSPX-test_secret-value"
+
+    def run_script(self, initial, values=None):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve() / "deploy"
+            root.mkdir()
+            target = {**TARGET, "DEPLOY_ROOT": str(root)}
+            site = root / "site.env"
+            if initial is not None:
+                site.write_text(initial)
+            script = release.site_env_script(target, values or {"GOOGLE_CLIENT_ID": self.ID, "GOOGLE_CLIENT_SECRET": self.SECRET})
+            done = subprocess.run(["bash", "-euo", "pipefail", "-s"], input=script, text=True, capture_output=True)
+            leftovers = [p.name for p in root.iterdir() if p.name != "site.env"]
+            text = site.read_text() if site.exists() else None
+            mode = oct(site.stat().st_mode & 0o777) if site.exists() else None
+            return done, text, mode, leftovers, script
+
+    def test_the_two_keys_are_added_to_an_existing_file_and_other_lines_stay(self):
+        done, text, mode, leftovers, _ = self.run_script("DATABASE_URL=postgres://x\nBETTER_AUTH_URL=https://openaiwill.com\n")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(text.startswith("DATABASE_URL=postgres://x\nBETTER_AUTH_URL=https://openaiwill.com\n"))
+        self.assertIn(f"GOOGLE_CLIENT_ID={self.ID}\n", text)
+        self.assertIn(f"GOOGLE_CLIENT_SECRET={self.SECRET}\n", text)
+        self.assertEqual((mode, leftovers), ("0o600", []))
+
+    def test_existing_values_are_replaced_not_duplicated(self):
+        done, text, _, _, _ = self.run_script("GOOGLE_CLIENT_ID=old\nA=1\nGOOGLE_CLIENT_SECRET=old\n")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(text.count("GOOGLE_CLIENT_ID="), 1)
+        self.assertEqual(text.count("GOOGLE_CLIENT_SECRET="), 1)
+        self.assertNotIn("old", text)
+        self.assertIn("A=1\n", text)
+
+    def test_a_file_without_a_final_newline_is_not_glued_to_the_new_key(self):
+        done, text, _, _, _ = self.run_script("A=1")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(text.splitlines()[0], "A=1")
+
+    def test_running_it_twice_changes_nothing(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            target = {**TARGET, "DEPLOY_ROOT": str(root)}
+            (root / "site.env").write_text("A=1\n")
+            script = release.site_env_script(target, {"GOOGLE_CLIENT_ID": self.ID, "GOOGLE_CLIENT_SECRET": self.SECRET})
+            subprocess.run(["bash", "-euo", "pipefail", "-s"], input=script, text=True, check=True)
+            first = (root / "site.env").read_text()
+            subprocess.run(["bash", "-euo", "pipefail", "-s"], input=script, text=True, check=True)
+            self.assertEqual((root / "site.env").read_text(), first)
+
+    def test_a_missing_site_env_is_an_error_not_a_new_file(self):
+        done, text, _, _, _ = self.run_script(None)
+        self.assertEqual(done.returncode, 1)
+        self.assertIsNone(text)
+        self.assertIn("pnpm db:setup", done.stderr)
+
+    def test_the_output_names_keys_and_never_values(self):
+        done, _, _, _, _ = self.run_script("A=1\n")
+        self.assertIn("GOOGLE_CLIENT_ID", done.stdout)
+        self.assertNotIn(self.ID, done.stdout + done.stderr)
+        self.assertNotIn(self.SECRET, done.stdout + done.stderr)
+
+    def test_unsafe_values_are_refused_without_echoing_them(self):
+        for bad in ("a\nb", "it's", "a b", "a$b", "a#b", 'a"b', "a\\b", "a`b", "a\rb", ""):
+            with self.subTest(bad=bad), self.assertRaises(release.ReleaseError) as raised:
+                release.site_env_script(TARGET, {"GOOGLE_CLIENT_ID": bad, "GOOGLE_CLIENT_SECRET": self.SECRET})
+            self.assertIn("GOOGLE_CLIENT_ID", str(raised.exception))
+            if bad.strip():
+                self.assertNotIn(bad, str(raised.exception))
+
+    def test_only_the_two_google_keys_can_be_set(self):
+        with self.assertRaises(release.ReleaseError):
+            release.site_env_script(TARGET, {"GOOGLE_CLIENT_ID": self.ID, "GOOGLE_CLIENT_SECRET": self.SECRET, "ADMIN_EMAILS": "a@example.com"})
+        with self.assertRaises(release.ReleaseError):
+            release.site_env_script(TARGET, {"GOOGLE_CLIENT_ID": self.ID})
+
+    def test_values_travel_inside_the_script_only(self):
+        script = release.site_env_script(TARGET, {"GOOGLE_CLIENT_ID": self.ID, "GOOGLE_CLIENT_SECRET": self.SECRET})
+        self.assertTrue(script.startswith("umask 077\n"))
+        for line in script.splitlines():
+            if self.SECRET in line:
+                self.assertTrue(line.startswith("printf '%s=%s\\n' GOOGLE_CLIENT_SECRET"), line)
+        self.assertNotIn("sudo", script)
+        self.assertNotIn("ADMIN_EMAILS", script)
+
+
+class LocalGoogleSettingsTest(unittest.TestCase):
+    def read(self, env="", env_local=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for name, text in ((".env", env), (".env.local", env_local)):
+                if text is not None:
+                    (Path(tmp) / name).write_text(text)
+                paths.append(Path(tmp) / name)
+            return release.read_google_settings(tuple(paths))
+
+    def test_both_values_are_read_and_the_later_file_wins(self):
+        values = self.read("GOOGLE_CLIENT_ID=a\nGOOGLE_CLIENT_SECRET=b\nADMIN_EMAILS=x@example.com\n", "GOOGLE_CLIENT_ID=c\n")
+        self.assertEqual(values, {"GOOGLE_CLIENT_ID": "c", "GOOGLE_CLIENT_SECRET": "b"})
+
+    def test_a_missing_value_is_refused_naming_the_key_only(self):
+        for env in ("", "GOOGLE_CLIENT_ID=a\n", "GOOGLE_CLIENT_SECRET=b\n", "GOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=b\n"):
+            with self.subTest(env=env), self.assertRaises(release.ReleaseError) as raised:
+                self.read(env)
+            self.assertIn("GOOGLE_CLIENT_", str(raised.exception))
+            self.assertNotIn("=b", str(raised.exception))
+
+    def test_admin_emails_are_not_required_and_not_returned(self):
+        self.assertNotIn("ADMIN_EMAILS", self.read("GOOGLE_CLIENT_ID=a\nGOOGLE_CLIENT_SECRET=b\n"))
+
+
+class SignInCandidateTest(unittest.TestCase):
+    ALL = list(release.APP_SETTINGS)
+
+    def test_a_candidate_without_the_settings_is_not_asked_and_not_failed(self):
+        calls = []
+        self.assertEqual(release.sign_in_failures(["DATABASE_URL"], lambda: calls.append(1) or "{}"), [])
+        self.assertEqual(release.sign_in_failures(self.ALL[:4], lambda: calls.append(1) or "{}"), [])
+        self.assertEqual(calls, [])
+
+    def test_configured_and_answering_passes(self):
+        self.assertEqual(release.sign_in_failures(self.ALL, lambda: '{"enabled": true, "user": null}'), [])
+
+    def test_configured_but_disabled_or_broken_is_a_failed_candidate(self):
+        def broken():
+            raise release.ReleaseError("status 500")
+
+        for read in (lambda: '{"enabled": false}', lambda: "not json", lambda: "[]", broken):
+            self.assertEqual(release.sign_in_failures(self.ALL, read), ["sign-in is configured but not answering"])
+
+    def test_keys_are_listed_by_name_only_without_sudo(self):
+        script = release.site_env_keys_script(TARGET)
+        self.assertIn("/opt/openaiwill/site.env", script)
+        self.assertNotIn("sudo", script)
+        self.assertNotRegex(script, r"\bcat\b")
+
+    def test_the_keys_script_prints_names_only(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            (root / "site.env").write_text("A_B=secret1\n# c=d\nGOOGLE_CLIENT_SECRET=secret2\n\nBAD LINE\n")
+            out = subprocess.run(["bash", "-c", release.site_env_keys_script({**TARGET, "DEPLOY_ROOT": str(root)})],
+                                 capture_output=True, text=True).stdout
+        self.assertEqual(out.split(), ["A_B", "GOOGLE_CLIENT_SECRET"])
+
+
+class CommandsTest(unittest.TestCase):
+    def test_env_is_a_command_and_a_package_script(self):
+        import subprocess
+        done = subprocess.run([sys.executable, str(Path(release.__file__)), "--help"], capture_output=True, text=True)
+        self.assertIn("env", done.stdout)
+        package = json.loads((release.ROOT / "package.json").read_text())["scripts"]
+        self.assertEqual(package["site:env"], "python3 scripts/site_release.py env")
+        self.assertEqual(package["admins:sync"], "data/runtime/venv/bin/python scripts/app-db.py admins --target server")
+        self.assertEqual(package["submissions:pull"], "data/runtime/venv/bin/python scripts/app-db.py pull --target server")
+
 
 
 if __name__ == "__main__":

@@ -20,10 +20,11 @@ import s from "./whitepaper.module.css";
  * it; the section ids are derived from the order of its own headings.
  */
 /**
- * The one page that reads no data release: it is built from docs/whitepaper.md,
- * which the server does not carry, so it is rendered at build time. Every other
+ * The whitepaper and the legal pages (privacy, terms) read no data release. The
+ * whitepaper is built from docs/whitepaper.md, which the server does not carry,
+ * so it is rendered at build time; the legal pages are fixed text. Every other
  * page under `[lang]` sets `dynamic = "force-dynamic"` itself, because a
- * layout's setting would override this one.
+ * layout's setting would override these.
  */
 export const dynamic = "force-static";
 

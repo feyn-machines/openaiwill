@@ -7,10 +7,12 @@ Passwords are passed as query parameters or through the environment, never forma
 No psycopg import at module level: the pure helpers are unit-tested with the system python."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
 import stat
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +21,7 @@ APP_SQL = sorted((ROOT / "db/app").glob("*.sql"))
 PASSWORD_FILE = ROOT / "data/postgres/app-password"
 ENV_FILES = (ROOT / ".env", ROOT / ".env.local")
 LOCAL_DATABASE = "openaiwill_local"
+SUBMISSIONS_DIR = ROOT / "data/submissions"
 
 
 class AppError(Exception):
@@ -178,3 +181,90 @@ def setup_local() -> None:
         values["BETTER_AUTH_SECRET"] = secrets.token_hex(32)
     write_env_local(values)
     print("app schema ready in the local database; .env.local updated (values not shown)")
+
+
+def _pull_accounts(rows) -> list[dict]:
+    """Approved, not yet imported submission rows (ordered by created_at, id) grouped by account. The display
+    handle is the earliest request's; `approved_at` is when the account was first approved. No requester data."""
+    groups: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        group = groups.setdefault((row["handle"], row["owner_kind"]), {
+            "handle": row["display_handle"], "account_kind": row["owner_kind"], "requests": 0, "notes": [],
+            "approved_at": row["decided_at"]})
+        group["requests"] += 1
+        if row["note"]:
+            group["notes"].append(row["note"])
+        if row["decided_at"] < group["approved_at"]:
+            group["approved_at"] = row["decided_at"]
+    accounts = list(groups.values())
+    for account in accounts:
+        account["approved_at"] = account["approved_at"].astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return accounts
+
+
+def pull_from(conn, out_dir: Path | None = None) -> Path | None:
+    """Write the approved, not yet imported submissions to out_dir/approved-<UTC stamp>.json and mark them
+    imported, in one transaction: the file is written before the commit, and removed again if anything fails
+    afterwards. Returns the file, or None when nothing was waiting. `conn` is a connection as oaw_app."""
+    out_dir = SUBMISSIONS_DIR if out_dir is None else Path(out_dir)
+    path = None
+    try:
+        with conn.transaction():
+            rows = conn.execute(
+                "SELECT id, handle, display_handle, owner_kind, note, decided_at FROM app.submissions "
+                "WHERE status = 'approved' AND imported_at IS NULL ORDER BY created_at, id FOR UPDATE").fetchall()
+            if not rows:
+                print("no approved submissions waiting")
+                return None
+            accounts = _pull_accounts(rows)
+            now = datetime.now(timezone.utc)
+            out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path = out_dir / f"approved-{now.strftime('%Y%m%dT%H%M%SZ')}.json"
+            _write_atomic(path, json.dumps({"pulled_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "accounts": accounts},
+                                           ensure_ascii=False, indent=2) + "\n")
+            ids = [row["id"] for row in rows]
+            changed = conn.execute("UPDATE app.submissions SET imported_at = now() WHERE id = ANY(%s) AND imported_at IS NULL",
+                                   (ids,)).rowcount
+            if changed != len(ids):
+                raise AppError("the submissions changed while they were being pulled; nothing was imported")
+    except BaseException:
+        if path is not None:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        raise
+    try:
+        shown = path.relative_to(ROOT)
+    except ValueError:
+        shown = path
+    print(f"wrote {shown}: {len(accounts)} account(s) from {len(rows)} approved request(s)")
+    print("add name and role for each person, then import with pnpm data:panel:import")
+    return path
+
+
+def _connection_for(target: str):
+    """Context manager yielding a connection as oaw_app to the local or the server database."""
+    if target == "local":
+        return connect_app()
+    if target == "server":
+        import server_db
+
+        return server_db.server_connection(APP_ROLE)
+    raise AppError("--target must be server or local")
+
+
+def pull(target: str) -> None:
+    """Pull the approved submissions of the server (or the local database) into data/submissions/."""
+    with _connection_for(target) as conn:
+        pull_from(conn)
+
+
+def sync_admins_to(target: str) -> None:
+    """Make the administrator list in the database equal to ADMIN_EMAILS in the local .env. Counts only."""
+    emails = read_admin_emails()
+    if not emails:
+        raise AppError("ADMIN_EMAILS is empty in the local .env; the administrator list was left unchanged")
+    with _connection_for(target) as conn:
+        added, removed = sync_admins(conn, emails)
+    print(f"administrators on the {target}: {len(emails)} on the list (+{added}, -{removed})")

@@ -19,8 +19,9 @@ TARGET = {"DEPLOY_HOST": "h.example", "DEPLOY_USER": "u", "DEPLOY_SSH_KEY": "/k/
 GOOD = "a" * 48
 
 
-def build(target=TARGET, compose="services: {}\n", roles="SELECT 1;\n", schema="SELECT 2;\n", grants="SELECT 3;\n"):
-    return server_db.setup_script(target, compose, roles, schema, grants)
+def build(target=TARGET, compose="services: {}\n", roles="SELECT 1;\n", schema="SELECT 2;\n", grants="SELECT 3;\n",
+          app=None):
+    return server_db.setup_script(target, compose, roles, schema, grants, {"001_app.sql": "SELECT 4;\n"} if app is None else app)
 
 
 class EnvFileTest(unittest.TestCase):
@@ -70,7 +71,8 @@ class SetupScriptTest(unittest.TestCase):
         done = subprocess.run(["bash", "-n"], input=build(schema=server_db.SCHEMA_SQL.read_text(),
                                                            compose=(server_db.DEPLOY_DB / "compose.yml").read_text(),
                                                            roles=(server_db.DEPLOY_DB / "roles.sql").read_text(),
-                                                           grants=(server_db.DEPLOY_DB / "grants.sql").read_text()),
+                                                           grants=(server_db.DEPLOY_DB / "grants.sql").read_text(),
+                                                           app=server_db.app_sql_files()),
                               text=True, capture_output=True)
         self.assertEqual((done.returncode, done.stderr), (0, ""))
 
@@ -79,8 +81,10 @@ class SetupScriptTest(unittest.TestCase):
         guard = script.index("if [ ! -f /opt/openaiwill/db/db.env ]; then")
         self.assertLess(guard, script.index("a=$(newpw)"))
         self.assertLess(script.index("a=$(newpw)"), script.index("fi\nchmod 600 /opt/openaiwill/db/db.env"))
-        self.assertEqual(script.count("newpw)"), 3)
-        self.assertEqual(script.count("openssl rand"), 1)
+        # a, b, c, d at creation; e when an older db.env lacks the app password
+        self.assertEqual(script.count("newpw)"), 5)
+        self.assertEqual(script.count("openssl rand -hex 24"), 1)
+        self.assertEqual(script.count("openssl rand -hex 32"), 1)
 
     def test_secret_files_are_written_with_umask_077_and_mode_600(self):
         script = build()
@@ -98,15 +102,17 @@ class SetupScriptTest(unittest.TestCase):
 
     def test_no_password_is_ever_printed_or_put_on_a_command_line(self):
         script = build()
-        for name in ("$a", "$b", "$c", "$pw"):
+        for name in ("$a", "$b", "$c", "$d", "$e", "$pw", "$apw", "$want", "$cur", "$secret"):
             for line in script.splitlines():
                 if name in line:
-                    self.assertTrue(line.lstrip().startswith(("a=", "printf", "pw=", "[ -n")) or "> /opt" in line, line)
+                    self.assertTrue(line.lstrip().startswith(("a=", "printf", "pw=", "[ -n", "apw=", "e=", "want=", "cur=",
+                                                              "secret=", "elif", "if [ -z", "if [ \"$cur\"")) or ">> " in line
+                                    or "> /opt" in line, line)
         self.assertNotIn("echo \"$", script.replace('echo "$p"', ""))
         self.assertNotRegex(script, r"PGPASSWORD=[^\"]")
         self.assertNotIn("set -x", script)
         self.assertNotIn(" -e PGPASSWORD", script)
-        self.assertEqual(script.count("--env-file"), 7)
+        self.assertEqual(script.count("--env-file"), 11)
 
     def test_every_remote_value_is_quoted_from_the_deploy_root(self):
         script = build({**TARGET, "DEPLOY_ROOT": "/opt/my site"})
@@ -122,17 +128,17 @@ class SetupScriptTest(unittest.TestCase):
         tail = script[script.index("up -d --wait"):]
         steps = re.findall(r"-U (\w+) -d (\w+) < (\S+)", tail)
         self.assertEqual(steps, [("postgres", "postgres", "roles.sql"), ("oaw_kg_writer", "openaiwill", "001_kg.sql"),
-                                 ("oaw_kg_writer", "openaiwill", "grants.sql")])
+                                 ("oaw_kg_writer", "openaiwill", "grants.sql"), ("oaw_app", "openaiwill", "001_app.sql")])
 
     def test_the_four_files_are_uploaded_before_the_database_starts(self):
         script = build()
-        for name in ("compose.yml", "roles.sql", "001_kg.sql", "grants.sql"):
+        for name in ("compose.yml", "roles.sql", "001_kg.sql", "grants.sql", "001_app.sql"):
             self.assertLess(script.index(f"cat > /opt/openaiwill/db/{name} <<"), script.index("up -d --wait"))
 
     def test_the_password_checks_connect_over_the_container_address_where_scram_applies(self):
         script = build()
         tail = script[script.index("up -d --wait"):]
-        for who, role in (("KG_WRITER", "oaw_kg_writer"), ("SITE", "oaw_site")):
+        for who, role in (("KG_WRITER", "oaw_kg_writer"), ("SITE", "oaw_site"), ("APP", "oaw_app")):
             self.assertIn(f'PGPASSWORD="$OAW_{who}_PASSWORD" psql -X -h "$ip" -U {role} -d openaiwill', tail)
         self.assertIn("ip=$(hostname -i); ip=${ip%% *};", tail)
         # Never the loopback address or the socket: the stock image trusts those.
@@ -141,6 +147,7 @@ class SetupScriptTest(unittest.TestCase):
                 self.assertNotIn("127.0.0.1", line)
                 self.assertNotIn(" -h 127", line)
         self.assertEqual(tail.count('-tAc "SELECT count(*) FROM kg.releases"'), 2)
+        self.assertEqual(tail.count('-tAc "SELECT count(*) FROM app.submissions"'), 1)
 
     def test_a_wrong_password_must_be_refused_or_setup_aborts(self):
         script = build()
@@ -154,8 +161,8 @@ class SetupScriptTest(unittest.TestCase):
 
     def test_the_final_messages_say_only_what_is_proven(self):
         script = build()
-        self.assertIn("both roles authenticate with their passwords over the container network and a wrong "
-                      "password is refused", script)
+        self.assertIn("the three roles authenticate with their passwords over the container network, a wrong "
+                      "password is refused and neither the app role nor the site role reaches the other's schema", script)
         self.assertNotIn("connect with their passwords", script)
         self.assertTrue(script.rstrip().splitlines()[-1].startswith("echo 'database ready"))
 
@@ -178,7 +185,7 @@ class SetupScriptTest(unittest.TestCase):
                 checked += 1
                 redirects = len(re.findall(r"</dev/null|< [\w./]+\.sql", line))
                 self.assertGreaterEqual(redirects, line.count("sudo "), line)
-        self.assertGreaterEqual(checked, 9)
+        self.assertGreaterEqual(checked, 12)
 
     def test_a_lost_db_env_is_recovered_without_the_old_superuser_password(self):
         script = build()
@@ -239,6 +246,62 @@ class WriterPasswordFetchTest(unittest.TestCase):
         self.assertNotIn("sudo", seen[0])
 
 
+class AppPasswordFetchTest(unittest.TestCase):
+    def test_only_the_app_value_is_fetched_without_sudo(self):
+        seen = []
+        original = site_release.remote
+        site_release.remote = lambda target, script, capture=False: seen.append(script) or GOOD
+        try:
+            self.assertEqual(server_db.read_app_password(TARGET), GOOD)
+        finally:
+            site_release.remote = original
+        self.assertEqual(seen, ["sed -n 's/^OAW_APP_PASSWORD=//p' /opt/openaiwill/db/db.env"])
+
+    def test_a_bad_value_names_the_key_and_never_the_value(self):
+        with self.assertRaises(site_release.ReleaseError) as raised:
+            server_db.checked_password("short-secret", "OAW_APP_PASSWORD")
+        self.assertIn("OAW_APP_PASSWORD", str(raised.exception))
+        self.assertNotIn("short-secret", str(raised.exception))
+
+
+class AdminSyncAfterSetupTest(unittest.TestCase):
+    def run_sync(self, emails):
+        import app_db
+        calls = []
+
+        class Conn:
+            pass
+
+        @contextlib.contextmanager
+        def fake_connection(role):
+            calls.append(("connect", role))
+            yield Conn()
+
+        originals = (server_db.server_connection, app_db.read_admin_emails, app_db.sync_admins)
+        server_db.server_connection = fake_connection
+        app_db.read_admin_emails = lambda: emails
+        app_db.sync_admins = lambda conn, wanted: calls.append(("sync", list(wanted))) or (len(wanted), 0)
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                server_db.sync_server_admins()
+        finally:
+            server_db.server_connection, app_db.read_admin_emails, app_db.sync_admins = originals
+        return calls, out.getvalue()
+
+    def test_the_list_is_synced_as_the_app_role_and_only_counts_are_printed(self):
+        calls, out = self.run_sync(["a@example.com", "b@example.com"])
+        self.assertEqual(calls, [("connect", "oaw_app"), ("sync", ["a@example.com", "b@example.com"])])
+        self.assertIn("2", out)
+        self.assertNotIn("example.com", out)
+
+    def test_an_empty_list_is_a_one_line_warning_and_no_connection(self):
+        calls, out = self.run_sync([])
+        self.assertEqual(calls, [])
+        self.assertEqual(len(out.strip().splitlines()), 1)
+        self.assertIn("ADMIN_EMAILS", out)
+
+
 class ReportNeverFailsTest(unittest.TestCase):
     def test_every_probe_failure_is_a_note_not_an_error(self):
         original = server_db._report_production
@@ -293,6 +356,208 @@ class DeployFilesTest(unittest.TestCase):
         self.assertIn("env_file: ${SITE_ENV_FILE", compose)
         self.assertIn("RELEASE_ID: ${RELEASE_ID}", compose)  # /healthz reports it at request time
         self.assertRegex(compose, r"networks:\n  openaiwill:\n    external: true")
+
+
+class AppSetupScriptTest(unittest.TestCase):
+    def test_the_app_files_are_uploaded_each_with_its_own_tag_and_a_name_that_cannot_break_the_path(self):
+        script = build(app={"001_app.sql": "SELECT 1;\n", "002_more.sql": "SELECT 2;\n"})
+        self.assertIn("cat > /opt/openaiwill/db/001_app.sql <<'", script)
+        self.assertIn("cat > /opt/openaiwill/db/002_more.sql <<'", script)
+        tags = re.findall(r"<<'([A-Z_]+)'", script)
+        self.assertEqual(len(tags), len(set(tags)))
+        steps = re.findall(r"-U oaw_app -d openaiwill < (\S+)", script)
+        self.assertEqual(steps, ["001_app.sql", "002_more.sql"])
+        with self.assertRaises(site_release.ReleaseError):
+            build(app={"../x.sql": "SELECT 1;\n"})
+
+    def test_the_real_app_sql_is_what_gets_uploaded(self):
+        files = server_db.app_sql_files()
+        self.assertEqual(sorted(files), [p.name for p in sorted((server_db.ROOT / "db" / "app").glob("*.sql"))])
+        self.assertIn("CREATE TABLE IF NOT EXISTS app.admins", "".join(files.values()))
+
+    def test_the_backup_directory_is_private_and_owned_by_the_deploy_user(self):
+        self.assertIn('sudo install -d -m 700 -o "$(id -un)" -g "$(id -gn)" /opt/openaiwill/backups </dev/null', build())
+
+    def test_the_app_password_is_added_to_an_old_db_env_without_touching_other_lines(self):
+        script = build()
+        self.assertIn("if ! grep -q '^OAW_APP_PASSWORD=' /opt/openaiwill/db/db.env; then", script)
+        self.assertIn(">> /opt/openaiwill/db/db.env", script)
+        self.assertNotRegex(script, r"sed -i")
+
+    def test_site_env_gets_the_app_settings_only_when_absent_and_heals_the_url(self):
+        script = build()
+        self.assertIn('want="postgres://oaw_app:${apw}@openaiwill-db:5432/openaiwill"', script)
+        self.assertIn("BETTER_AUTH_URL=https://openaiwill.com", script)
+        self.assertIn("grep -q '^BETTER_AUTH_SECRET=' /opt/openaiwill/site.env", script)
+        self.assertIn("grep -q '^BETTER_AUTH_URL=' /opt/openaiwill/site.env", script)
+
+    def test_isolation_between_the_app_and_the_site_role_is_asserted(self):
+        script = build()
+        app_to_kg = [l for l in script.splitlines() if "-U oaw_app" in l and "kg.releases" in l]
+        site_to_app = [l for l in script.splitlines() if "-U oaw_site" in l and "app.submissions" in l]
+        self.assertEqual((len(app_to_kg), len(site_to_app)), (1, 1))
+        for line in app_to_kg + site_to_app:
+            self.assertTrue(line.startswith("if sudo docker exec"), line)
+            self.assertIn("exit 1", line)
+            self.assertIn('-h "$ip"', line)
+
+
+class SetupScriptRunTest(unittest.TestCase):
+    """Runs the generated script for real in a temporary deploy root, with `sudo` and `docker` replaced by stubs
+    that record their arguments. Everything else (file writes, modes, openssl, sed, grep) is the real thing."""
+
+    FAKE_DOCKER = """#!/bin/sh
+echo "$*" >> "$FAKE_LOG"
+case "$1" in
+  network|compose) exit 0;;
+  exec)
+    last=""; for a in "$@"; do last=$a; done
+    case "$last" in
+      *not-the-password*) exit 1;;
+    esac
+    if [ -z "${FAKE_ISOLATION_BROKEN:-}" ]; then
+      case "$last" in
+        *"-U oaw_app"*kg.releases*) exit 1;;
+        *"-U oaw_site"*app.submissions*) exit 1;;
+      esac
+    fi
+    cat >/dev/null 2>&1 || true
+    echo 0;;
+esac
+"""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        self.root = base / "deploy"
+        self.bin = base / "bin"
+        self.bin.mkdir()
+        (self.bin / "sudo").write_text('#!/bin/sh\nexec "$@"\n')
+        (self.bin / "docker").write_text(self.FAKE_DOCKER)
+        for name in ("sudo", "docker"):
+            (self.bin / name).chmod(0o755)
+        self.log = base / "docker.log"
+        self.target = {**TARGET, "DEPLOY_ROOT": str(self.root)}
+        self.db_env = self.root / "db" / "db.env"
+        self.site_env = self.root / "site.env"
+
+    def run_script(self, **env):
+        import os
+        full = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}", "FAKE_LOG": str(self.log), **env}
+        return subprocess.run(["bash", "-euo", "pipefail", "-s"], input=build(self.target), text=True,
+                              capture_output=True, env=full)
+
+    @staticmethod
+    def env(path):
+        return server_db.parse_env(path.read_text())
+
+    def test_a_fresh_server_gets_four_passwords_and_all_site_settings(self):
+        done = self.run_script()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        db = self.env(self.db_env)
+        self.assertEqual(sorted(db), ["OAW_APP_PASSWORD", "OAW_KG_WRITER_PASSWORD", "OAW_SITE_PASSWORD", "POSTGRES_PASSWORD"])
+        self.assertEqual(len({v for v in db.values()}), 4)
+        site = self.env(self.site_env)
+        self.assertEqual(site["DATABASE_URL"], f"postgres://oaw_site:{db['OAW_SITE_PASSWORD']}@openaiwill-db:5432/openaiwill")
+        self.assertEqual(site["APP_DATABASE_URL"], f"postgres://oaw_app:{db['OAW_APP_PASSWORD']}@openaiwill-db:5432/openaiwill")
+        self.assertRegex(site["BETTER_AUTH_SECRET"], r"[0-9a-f]{64}")
+        self.assertEqual(site["BETTER_AUTH_URL"], "https://openaiwill.com")
+        self.assertEqual(oct(self.db_env.stat().st_mode & 0o777), "0o600")
+        self.assertEqual(oct(self.site_env.stat().st_mode & 0o777), "0o600")
+        self.assertEqual(oct((self.root / "backups").stat().st_mode & 0o777), "0o700")
+        for secret in (*db.values(), site["BETTER_AUTH_SECRET"]):
+            self.assertNotIn(secret, done.stdout + done.stderr)
+            self.assertNotIn(secret, self.log.read_text())
+        self.assertTrue((self.root / "db" / "001_app.sql").is_file())
+
+    def test_a_second_run_changes_nothing(self):
+        self.run_script()
+        before = (self.db_env.read_bytes(), self.site_env.read_bytes())
+        done = self.run_script()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual((self.db_env.read_bytes(), self.site_env.read_bytes()), before)
+
+    def test_an_older_server_is_upgraded_in_place(self):
+        (self.root / "db").mkdir(parents=True)
+        old_db = f"POSTGRES_PASSWORD={'a' * 48}\nOAW_KG_WRITER_PASSWORD={'b' * 48}\nOAW_SITE_PASSWORD={'c' * 48}\n"
+        old_site = f"DATABASE_URL=postgres://oaw_site:{'c' * 48}@openaiwill-db:5432/openaiwill\nEXTRA=keep me\n"
+        self.db_env.write_text(old_db)
+        self.site_env.write_text(old_site)
+        done = self.run_script()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(self.db_env.read_text().startswith(old_db))
+        self.assertTrue(self.site_env.read_text().startswith(old_site))
+        self.assertEqual(set(self.env(self.site_env)) - {"DATABASE_URL", "EXTRA"},
+                         {"APP_DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL"})
+
+    def test_a_changed_app_password_heals_the_url_and_nothing_else(self):
+        self.run_script()
+        before = self.env(self.site_env)
+        db = self.db_env.read_text().replace(self.env(self.db_env)["OAW_APP_PASSWORD"], "f" * 48)
+        self.db_env.write_text(db)
+        self.assertEqual(self.run_script().returncode, 0)
+        after = self.env(self.site_env)
+        self.assertEqual(after["APP_DATABASE_URL"], f"postgres://oaw_app:{'f' * 48}@openaiwill-db:5432/openaiwill")
+        self.assertEqual({k: v for k, v in after.items() if k != "APP_DATABASE_URL"},
+                         {k: v for k, v in before.items() if k != "APP_DATABASE_URL"})
+        self.assertEqual(oct(self.site_env.stat().st_mode & 0o777), "0o600")
+        self.assertEqual([p.name for p in self.root.iterdir() if p.name.startswith("site.env.")], [])
+
+    def test_existing_site_settings_are_never_rewritten(self):
+        self.run_script()
+        text = self.site_env.read_text().replace("BETTER_AUTH_URL=https://openaiwill.com", "BETTER_AUTH_URL=https://other.example")
+        self.site_env.write_text(text + "GOOGLE_CLIENT_ID=kept\n")
+        self.run_script()
+        self.assertEqual(self.site_env.read_text(), text + "GOOGLE_CLIENT_ID=kept\n")
+
+    def test_a_broken_isolation_stops_setup_with_one_line(self):
+        done = self.run_script(FAKE_ISOLATION_BROKEN="1")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("isolation", done.stderr)
+        self.assertEqual(len(done.stderr.strip().splitlines()), 1)
+
+
+class SiteRoleFilesTest(unittest.TestCase):
+    roles = (server_db.DEPLOY_DB / "roles.sql").read_text()
+    compose = (server_db.DEPLOY_DB / "compose.yml").read_text()
+
+    def test_roles_sql_creates_the_app_role_and_schema(self):
+        self.assertIn("\\getenv app_password OAW_APP_PASSWORD", self.roles)
+        self.assertIn("WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'oaw_app')", self.roles)
+        self.assertIn("ALTER ROLE oaw_app NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD", self.roles)
+        self.assertIn("GRANT CONNECT ON DATABASE openaiwill TO oaw_app", self.roles)
+        self.assertIn("CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION oaw_app", self.roles)
+        self.assertIn("ALTER SCHEMA app OWNER TO oaw_app", self.roles)
+        self.assertIn("ALTER ROLE oaw_app SET search_path = app", self.roles)
+        self.assertLess(self.roles.index("\\connect openaiwill"), self.roles.index("CREATE SCHEMA IF NOT EXISTS app"))
+        self.assertNotIn("oaw_site", self.roles[self.roles.index("CREATE SCHEMA IF NOT EXISTS app"):])
+
+    def test_the_backup_service_dumps_schema_app_daily_and_keeps_14_days(self):
+        import json
+        done = subprocess.run(["docker", "compose", "-f", str(server_db.DEPLOY_DB / "compose.yml"), "config", "--format", "json"],
+                              capture_output=True, text=True, env={**__import__("os").environ, "POSTGRES_PASSWORD": "x"})
+        if done.returncode != 0:
+            self.skipTest("docker compose is not available")
+        service = json.loads(done.stdout)["services"]["backup"]
+        self.assertEqual(service["image"], "postgres:16-alpine")
+        self.assertEqual(service["restart"], "unless-stopped")
+        self.assertEqual(service["depends_on"]["db"]["condition"], "service_healthy")
+        self.assertIn("openaiwill", service["networks"])
+        volume = service["volumes"][0]
+        self.assertEqual((volume["target"], Path(volume["source"]).name), ("/backups", "backups"))
+        self.assertEqual(Path(volume["source"]).parent.name, "deploy")  # ../backups relative to deploy/db
+        self.assertEqual(service["environment"]["PGPASSWORD"], "x")
+        text = " ".join(service["command"])
+        for part in ("set -o pipefail", "umask 077", "pg_dump -h openaiwill-db -U postgres -d openaiwill -n app", "gzip",
+                     "sleep 86400", "-mtime +14", "-delete", "app-*.sql.gz", "[ -s "):
+            self.assertIn(part, text)
+        self.assertLess(text.index(".tmp"), text.index("mv "))
+
+    def test_dollar_signs_are_escaped_for_compose(self):
+        self.assertNotRegex(self.compose, r"(?<!\$)\$\((?!\$)")
+        self.assertNotRegex(self.compose, r"(?<!\$)\$\{?(?:out|stamp)\b")
 
 
 class PollTest(unittest.TestCase):
