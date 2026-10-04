@@ -14,7 +14,7 @@
 
 - Both languages complete: English (unprefixed) and Simplified Chinese (`/zh-CN`). Every new string goes through `bilingual({...})` from `src/lib/i18n.ts`. UI copy is short labels and numbers; no method or caveat prose.
 - Page HTML must not depend on the visitor: no `cookies()`/`headers()` session reads in any page except `/admin`. Sign-in state is rendered by client components.
-- Without `APP_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` all set, the site builds, starts and passes `pnpm check`; sign-in, submit and subscribe controls are not rendered and `/api/*` user endpoints answer 404.
+- Without `APP_DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` all set (five settings; `BETTER_AUTH_URL` was added during review), the site builds, starts and passes `pnpm check`; sign-in, submit and subscribe controls are not rendered and `/api/*` user endpoints answer 404.
 - Secrets (`GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`, database passwords, `ADMIN_EMAILS`) only in ignored env files or on the server; never printed, never in a tracked file, never with a `NEXT_PUBLIC_` prefix. Server address, login user and key path stay only in `.env.deploy`.
 - `kg` stays read-only for the site (`oaw_site`). `oaw_app` has no access to `kg`; `oaw_kg_writer` has no access to `app`. Data releases never touch `app`.
 - Account type values are exactly `person` and `organization` (the ontology's `owner_kind`). Submission status values are exactly `pending`, `approved`, `rejected`. Subscription topics are exactly `updates`, `weekly`.
