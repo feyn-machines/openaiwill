@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 export type Me = {
   enabled: boolean;
@@ -33,13 +33,31 @@ export async function refreshMe(): Promise<void> {
   }
 }
 
+let pageshowRegistered = false;
+
+/** A page restored from the back/forward cache may still show a signed-in reader who has since signed out. */
+function registerPageshow() {
+  if (pageshowRegistered || typeof window === "undefined") return;
+  pageshowRegistered = true;
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) void refreshMe();
+  });
+}
+
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
-  if (!started) void refreshMe();
   return () => listeners.delete(listener);
 };
 const loading: Snapshot = { state: "loading", me: EMPTY };
+const off: Snapshot = { state: "ready", me: EMPTY };
 
-export function useMe(): Snapshot {
-  return useSyncExternalStore(subscribe, () => snapshot, () => loading);
+/** The shared answer of /api/me. With `enabled` false nothing is requested and the answer is "not signed in". */
+export function useMe(enabled: boolean): Snapshot {
+  const current = useSyncExternalStore(subscribe, () => snapshot, () => loading);
+  useEffect(() => {
+    if (!enabled) return;
+    registerPageshow();
+    if (!started) void refreshMe();
+  }, [enabled]);
+  return enabled ? current : off;
 }

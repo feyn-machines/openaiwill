@@ -1,22 +1,24 @@
 /** Shared pieces of the JSON route handlers under `/api/`. */
 
-const HEADERS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } as const;
+/** Every response that carries or depends on a user must send these. */
+export const NO_STORE_HEADERS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } as const;
 
 /** A JSON answer that no cache may keep and no search engine may index. */
 export function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: HEADERS });
+  return Response.json(body, { status, headers: NO_STORE_HEADERS });
 }
 
 export function notFound(): Response {
   return json({ error: "not_found" }, 404);
 }
 
-/** True when the request names an `Origin` and it is this site's own. */
+/** True when the request names an `Origin` equal to the origin of `BETTER_AUTH_URL`; false when that is unset or malformed. */
 export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) return false;
+  const site = process.env.BETTER_AUTH_URL;
+  if (!origin || !site) return false;
   try {
-    return new URL(origin).origin === new URL(process.env.BETTER_AUTH_URL ?? request.url).origin;
+    return new URL(origin).origin === new URL(site).origin;
   } catch {
     return false;
   }

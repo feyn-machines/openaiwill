@@ -53,7 +53,7 @@ type Answer =
   | { result: "limit"; limit: number };
 
 export function SubmitAccount({ language, ownerKind, enabled, anchor }: { language: Language; ownerKind: OwnerKind; enabled: boolean; anchor: "people" | "companies" }) {
-  const { state, me } = useMe();
+  const { state, me } = useMe(enabled);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

@@ -16,7 +16,7 @@ function initials(name: string) {
 }
 
 export function AccountMenu({ language, enabled }: { language: Language; enabled: boolean }) {
-  const { state, me } = useMe();
+  const { state, me } = useMe(enabled);
   const menu = useRef<HTMLDetailsElement>(null);
   const c = copy[language];
 

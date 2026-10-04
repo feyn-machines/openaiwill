@@ -157,7 +157,19 @@ test("with sign-in settings, the account menu and the auth endpoints exist and r
     assert.equal(me.headers.get("x-robots-tag"), "noindex");
     assert.deepEqual(await me.json(), { enabled: true, user: null, admin: false, subscriptions: { updates: false, weekly: false } });
     assert.ok((await (await fetch(`${base}/`)).text()).includes("data-account-menu"));
-    assert.equal((await fetch(`${base}/api/auth/get-session`)).status, 200);
+    const session = await fetch(`${base}/api/auth/get-session`);
+    assert.equal(session.status, 200);
+    assert.equal(session.headers.get("cache-control"), "no-store");
+    assert.equal(session.headers.get("x-robots-tag"), "noindex");
+    const signIn = await fetch(`${base}/api/auth/sign-in/social`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: base },
+      body: JSON.stringify({ provider: "google", callbackURL: "/" }),
+      redirect: "manual",
+    });
+    assert.equal(signIn.headers.get("cache-control"), "no-store");
+    assert.equal(signIn.headers.get("x-robots-tag"), "noindex");
+    assert.ok(new URL((await signIn.json()).url).hostname === "accounts.google.com", "sign-in points at Google");
     const post = (headers) => fetch(`${base}/api/submissions`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ handle: "@someone", ownerKind: "person" }) });
     assert.equal((await post({ origin: base })).status, 401);
     assert.equal((await post({ origin: "https://evil.example" })).status, 403);

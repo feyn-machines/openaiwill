@@ -16,7 +16,7 @@ const copy = bilingual({
 });
 
 export function MySubmissions({ language, enabled }: { language: Language; enabled: boolean }) {
-  const { state, me } = useMe();
+  const { state, me } = useMe(enabled);
   const { list } = useSubmissions(enabled && state === "ready" && me.enabled && me.user !== null);
   const c = copy[language];
   if (!enabled || list.length === 0) return null;

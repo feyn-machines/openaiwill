@@ -35,9 +35,9 @@ test("X's own pages are not accounts", () => {
   }
 });
 
-const full = { APP_DATABASE_URL: "postgres://x", BETTER_AUTH_SECRET: "s", GOOGLE_CLIENT_ID: "i", GOOGLE_CLIENT_SECRET: "k" };
+const full = { APP_DATABASE_URL: "postgres://x", BETTER_AUTH_URL: "http://localhost:3456", BETTER_AUTH_SECRET: "s", GOOGLE_CLIENT_ID: "i", GOOGLE_CLIENT_SECRET: "k" };
 
-test("the user features are on only when all four settings are present", () => {
+test("the user features are on only when all five settings are present", () => {
   assert.equal(appEnabled(full), true);
   for (const key of Object.keys(full)) assert.equal(appEnabled({ ...full, [key]: "" }), false, key);
   assert.equal(appEnabled({}), false);
