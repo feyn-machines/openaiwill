@@ -5,6 +5,9 @@ import { pageMetadata } from "@/lib/seo";
 import { manifest, snapshotExists, sources as allSources, type Source } from "@/lib/snapshot";
 import { NoSnapshot, PageHeader, Section, bilingual, dataStyles as d, formatNumber, isoDate } from "@/components/data-page";
 import { termName } from "@/components/ontology-labels";
+import { MySubmissions } from "@/components/account/my-submissions";
+import { SubmitAccount } from "@/components/account/submit-account";
+import { appEnabled } from "@/lib/app-config";
 import { Avatar } from "./avatar";
 import s from "./voices.module.css";
 
@@ -136,6 +139,7 @@ export default async function VoicesPage() {
     );
   }
 
+  const enabled = appEnabled();
   const sources = allSources();
   const people = sources.filter((x) => x.owner_kind === "person");
   const orgs = sources.filter((x) => x.owner_kind === "organization").sort(byLatest);
@@ -154,7 +158,9 @@ export default async function VoicesPage() {
         lead={c.lead}
       />
 
-      {sources.length === 0 ? <p className={d.note}>{c.empty}</p> : null}
+      <MySubmissions language={language} enabled={enabled} />
+
+      {sources.length === 0 && !enabled ? <p className={d.note}>{c.empty}</p> : null}
 
       {top.length > 0 ? (
         <Section id="top" title={c.topTitle}>
@@ -178,15 +184,33 @@ export default async function VoicesPage() {
         </Section>
       ) : null}
 
-      {rest.length > 0 ? (
-        <Section id="people" title={c.peopleTitle} note={formatNumber(rest.length)}>
-          <Rows list={rest} language={language} label={fill(c.listLabel, { title: c.peopleTitle })} />
+      {rest.length > 0 || enabled ? (
+        <Section
+          id="people"
+          title={c.peopleTitle}
+          note={rest.length > 0 ? formatNumber(rest.length) : undefined}
+          action={<SubmitAccount language={language} ownerKind="person" enabled={enabled} anchor="people" />}
+        >
+          {rest.length > 0 ? (
+            <Rows list={rest} language={language} label={fill(c.listLabel, { title: c.peopleTitle })} />
+          ) : (
+            <p className={d.note}>{c.empty}</p>
+          )}
         </Section>
       ) : null}
 
-      {orgs.length > 0 ? (
-        <Section id="companies" title={c.orgsTitle} note={formatNumber(orgs.length)}>
-          <Rows list={orgs} language={language} label={fill(c.listLabel, { title: c.orgsTitle })} />
+      {orgs.length > 0 || enabled ? (
+        <Section
+          id="companies"
+          title={c.orgsTitle}
+          note={orgs.length > 0 ? formatNumber(orgs.length) : undefined}
+          action={<SubmitAccount language={language} ownerKind="organization" enabled={enabled} anchor="companies" />}
+        >
+          {orgs.length > 0 ? (
+            <Rows list={orgs} language={language} label={fill(c.listLabel, { title: c.orgsTitle })} />
+          ) : (
+            <p className={d.note}>{c.empty}</p>
+          )}
         </Section>
       ) : null}
     </div>

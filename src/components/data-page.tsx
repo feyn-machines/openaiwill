@@ -194,19 +194,29 @@ export function Section({
   eyebrow,
   title,
   note,
+  action,
   children,
 }: {
   id?: string;
   eyebrow?: string;
   title: string;
   note?: ReactNode;
+  /** Shown at the end of the title row. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className={styles.section} id={id}>
       <div className={styles.sectionHead}>
         {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
-        <h2 className={styles.sectionTitle}>{title}</h2>
+        {action ? (
+          <div className={styles.sectionTitleRow}>
+            <h2 className={styles.sectionTitle}>{title}</h2>
+            {action}
+          </div>
+        ) : (
+          <h2 className={styles.sectionTitle}>{title}</h2>
+        )}
         {note ? <p className={styles.note}>{note}</p> : null}
       </div>
       {children}

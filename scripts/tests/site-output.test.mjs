@@ -124,6 +124,7 @@ test("without sign-in settings the site says so and offers no sign-in", async ()
   assert.deepEqual(await response.json(), { enabled: false, user: null, admin: false, subscriptions: { updates: false, weekly: false } });
   assert.equal((await fetch(`${site.base}/zh-CN/api/me`)).status, 404);
   assert.equal((await fetch(`${site.base}/api/auth/get-session`)).status, 404);
+  assert.equal((await fetch(`${site.base}/api/submissions`)).status, 404);
   assert.ok(!html("en", "").includes("data-account-menu"));
 });
 
@@ -157,6 +158,10 @@ test("with sign-in settings, the account menu and the auth endpoints exist and r
     assert.deepEqual(await me.json(), { enabled: true, user: null, admin: false, subscriptions: { updates: false, weekly: false } });
     assert.ok((await (await fetch(`${base}/`)).text()).includes("data-account-menu"));
     assert.equal((await fetch(`${base}/api/auth/get-session`)).status, 200);
+    const post = (headers) => fetch(`${base}/api/submissions`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ handle: "@someone", ownerKind: "person" }) });
+    assert.equal((await post({ origin: base })).status, 401);
+    assert.equal((await post({ origin: "https://evil.example" })).status, 403);
+    assert.equal((await fetch(`${base}/api/submissions`)).status, 401);
     // Better Auth checks the origin of a request that carries cookies (the CSRF case); one without cookies changes nothing.
     const headers = { "content-type": "application/json", cookie: "better-auth.session_token=not-a-real-session" };
     const refused = await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body: "{}" });
