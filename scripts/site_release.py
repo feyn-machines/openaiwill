@@ -461,7 +461,8 @@ def site_env_script(target: dict, values: dict[str, str]) -> str:
 f={site_env}
 [ -f "$f" ] || {{ echo 'site.env does not exist on the server; run pnpm db:setup first' >&2; exit 1; }}
 tmp=$(mktemp "$f.XXXXXX")
-{{ grep -v {drops} "$f" || true; }} > "$tmp"
+trap 'rm -f "$tmp"' EXIT
+grep -v {drops} "$f" > "$tmp" || [ $? -eq 1 ]
 {sets}chmod 600 "$tmp"
 mv "$tmp" "$f"
 echo 'set {", ".join(GOOGLE_KEYS)} in site.env'

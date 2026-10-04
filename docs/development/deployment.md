@@ -93,7 +93,9 @@ ssh -i <密钥> <用户>@<地址> 'rm -rf <DEPLOY_ROOT>/releases/<id>; sudo dock
 pnpm db:setup
 ```
 
-预期：在服务器上建目录 `<DEPLOY_ROOT>/db` 和 `<DEPLOY_ROOT>/backups`，建 Docker 网络 `openaiwill`，首次生成四个口令并写入两个环境文件（输出 `generated the database passwords on the server` 和 `wrote site.env`，不显示口令），启动数据库和备份容器（等待最多 180 秒），建三个角色、数据库 `openaiwill`、schema `kg` 和 schema `app`，最后在数据库容器自己的网络地址上（该地址上口令校验生效；回环地址和套接字在官方镜像里是免口令的，所以不用它们）用三个角色各自的口令连一次，并确认用错误口令连接 `oaw_site` 会被拒绝（若被接受，脚本以 `password authentication is not being enforced on the container network` 中止），确认 `oaw_app` 读不了 `kg`、`oaw_site` 读不了 `app`（否则以 `isolation broken: ...` 中止），打印 `the three roles authenticate with their passwords over the container network, a wrong password is refused and neither the app role nor the site role reaches the other's schema; releases in kg: 0`，随后 `database ready (...)`，再经 SSH 转发把管理员名单同步进数据库（`administrators on the server: ...`，见第 8 节）。**必须看到 `database ready` 这一行才算完成（其后只有管理员名单同步一行）**：只做了一半就中断（例如端口被占）时，随后的 `pnpm data:release` 也许能写入，但网站读不到数据，直到重新运行 `pnpm db:setup`。可重复执行：环境文件已存在时不会重新生成口令。
+预期：在服务器上建目录 `<DEPLOY_ROOT>/db` 和 `<DEPLOY_ROOT>/backups`，建 Docker 网络 `openaiwill`，首次生成四个口令并写入两个环境文件（输出 `generated the database passwords on the server` 和 `wrote site.env`，不显示口令），启动数据库和备份容器（等待最多 180 秒），建三个角色、数据库 `openaiwill`、schema `kg` 和 schema `app`，最后在数据库容器自己的网络地址上（该地址上口令校验生效；回环地址和套接字在官方镜像里是免口令的，所以不用它们）用三个角色各自的口令连一次，并确认用错误口令连接 `oaw_site` 会被拒绝（若被接受，脚本以 `password authentication is not being enforced on the container network` 中止），用超级用户直接查权限，确认 `oaw_app` 对 `kg`、`oaw_site` 和 `oaw_kg_writer` 对 `app` 没有 USAGE，`oaw_app` 对 `public` 没有 CREATE（否则以 `isolation broken: <角色> <schema>` 中止），打印 `the three roles authenticate with their passwords over the container network, a wrong password is refused and neither the app role nor the site role reaches the other's schema; releases in kg: 0`，随后 `database ready (...)`，再经 SSH 转发把管理员名单同步进数据库（`administrators on the server: ...`，见第 8 节）。在已经运行过的服务器上再次运行（升级或重复运行），输出里没有 `generated the database passwords` 和 `wrote site.env`，只会出现实际做了的补充：`added the app password to db.env`（旧的 `db.env` 没有 `OAW_APP_PASSWORD`）、`added APP_DATABASE_URL to site.env`、`updated APP_DATABASE_URL in site.env to follow db.env`（`db.env` 里的口令变过）、`added BETTER_AUTH_SECRET to site.env`、`added BETTER_AUTH_URL to site.env`；什么都不缺时一行也没有。追加前脚本会先补上文件末尾缺的换行，不改动已有的行。开头还会校验 `db.env` 里已有的口令（必须是 48 位十六进制）：不合格时一行 `db.env has an unusable <KEY>; nothing was changed`（只给键名）并以状态 1 退出，什么都没改——常见原因是更早的一次手工编辑把两行粘在了一起，修好 `db.env` 再运行。检查之后脚本重启备份容器，使备份在结构建好之后立即做第一份。
+
+**必须看到 `database ready` 这一行才算完成（其后只有管理员名单同步一行）**：只做了一半就中断（例如端口被占）时，随后的 `pnpm data:release` 也许能写入，但网站读不到数据，直到重新运行 `pnpm db:setup`。可重复执行：环境文件已存在时不会重新生成口令。
 
 ```bash
 pnpm data:publish:snapshot
@@ -212,7 +214,7 @@ pnpm data:rollback
 
 - **位置**：服务器上的 Compose 项目 `openaiwill-db`，镜像 `postgres:16-alpine`，数据在命名卷里，只绑定服务器的 `127.0.0.1:5434`，加入 Docker 网络 `openaiwill`（容器名 `openaiwill-db`），`restart: unless-stopped`。文件在 `<DEPLOY_ROOT>/db/`（`compose.yml`、`roles.sql`、`001_kg.sql`、`grants.sql`、`001_app.sql`、`db.env`），由 `pnpm db:setup` 从仓库的 `deploy/db/`、`db/published/001_kg.sql` 和 `db/app/` 写入。同一个 Compose 项目里还有备份容器 `openaiwill-db-backup`（第 8 节）。
 - **角色**：超级用户（容器默认的 `postgres`）只在 `pnpm db:setup` 里使用；`oaw_kg_writer` 是数据库 `openaiwill` 和 schema `kg` 的所有者，数据发布以它连接；`oaw_site` 在数据库 `openaiwill` 里只有 CONNECT、`kg` 的 USAGE 和 `kg` 内现有及以后新建的表与视图的 SELECT（`public` schema 已对 PUBLIC 收回）。它还保留 PostgreSQL 对 PUBLIC 的默认权限，即能连接内置的 `postgres`、`template1` 数据库，但在那里没有任何对象权限；这里没有收回，以免影响超级用户自己的使用。数据发布只写 `kg`。第三个角色 `oaw_app` 只拥有 schema `app`，见第 8 节。
-- **口令在哪**：四个口令（超级用户、`oaw_kg_writer`、`oaw_site`、`oaw_app`）在服务器上生成，存在 `<DEPLOY_ROOT>/db/db.env`（权限 600）；`<DEPLOY_ROOT>/site.env`（权限 600）含 `DATABASE_URL`（`oaw_site`，主机 `openaiwill-db`）和用户功能的设置（第 8 节）。口令不进 Git，不在本机任何文件里，不在脚本输出里。丢失 `db.env`（数据卷还在）时不丢数据、也不需要旧口令：超级用户经容器内的本地套接字连接不需要口令。恢复办法：在服务器上删除 `site.env`（`db.env` 已丢），然后在本机重新运行 `pnpm db:setup`。脚本会生成四个新口令，写出新的 `db.env` 和 `site.env`（`site.env` 里的 Google 值要再运行一次 `pnpm site:env`），重新创建数据库容器（数据卷不变），并把四个角色（含超级用户）的口令同步成新值；之后检查三个角色的口令。已经运行的网站容器还带着旧的 `site.env`：正式站继续用内存里已加载的数据提供服务，但重启后会因连不上数据库而起不来，所以要尽快重建。办法是 `pnpm site:release`，然后 `pnpm site:promote`：新的候选容器读新的 `site.env`，在动正式服务之前就证明新口令可用，新的版本号会让正式容器被重新创建。不想重新构建时的手动办法（在服务器上，`<current>` 是 `<DEPLOY_ROOT>/current` 文件里的版本号）：`cd <DEPLOY_ROOT>/releases/<current> && sudo RELEASE_ID=<current> HOST_PORT=8320 SITE_ENV=production SITE_ENV_FILE=<DEPLOY_ROOT>/site.env docker compose -p openaiwill up -d --force-recreate --wait --wait-timeout 180`，随后用 `pnpm site:status` 确认正式站在报告数据版本。
+- **口令在哪**：四个口令（超级用户、`oaw_kg_writer`、`oaw_site`、`oaw_app`）在服务器上生成，存在 `<DEPLOY_ROOT>/db/db.env`（权限 600）；`<DEPLOY_ROOT>/site.env`（权限 600）含 `DATABASE_URL`（`oaw_site`，主机 `openaiwill-db`）和用户功能的设置（第 8 节）。口令不进 Git，不在本机任何文件里，不在脚本输出里。丢失 `db.env`（数据卷还在）时不丢数据、也不需要旧口令：超级用户经容器内的本地套接字连接不需要口令。恢复办法：在服务器上删除 `site.env`（`db.env` 已丢）——注意这会重新生成 `BETTER_AUTH_SECRET`，所有人会因此退出登录，Google 的两个值也要用 `pnpm site:env` 再传一次——然后在本机重新运行 `pnpm db:setup`。脚本会生成四个新口令，写出新的 `db.env` 和 `site.env`（`site.env` 里的 Google 值要再运行一次 `pnpm site:env`），重新创建数据库容器（数据卷不变），并把四个角色（含超级用户）的口令同步成新值；之后检查三个角色的口令。已经运行的网站容器还带着旧的 `site.env`：正式站继续用内存里已加载的数据提供服务，但重启后会因连不上数据库而起不来，所以要尽快重建。办法是 `pnpm site:release`，然后 `pnpm site:promote`：新的候选容器读新的 `site.env`，在动正式服务之前就证明新口令可用，新的版本号会让正式容器被重新创建。不想重新构建时的手动办法（在服务器上，`<current>` 是 `<DEPLOY_ROOT>/current` 文件里的版本号）：`cd <DEPLOY_ROOT>/releases/<current> && sudo RELEASE_ID=<current> HOST_PORT=8320 SITE_ENV=production SITE_ENV_FILE=<DEPLOY_ROOT>/site.env docker compose -p openaiwill up -d --force-recreate --wait --wait-timeout 180`，随后用 `pnpm site:status` 确认正式站在报告数据版本。
 `site.env` 在而 `db.env` 丢了时，`pnpm db:setup` 会拒绝执行，提示先删 `site.env`。
 - **备份**：知识数据可以从本机重新发布；用户数据有每日自动备份（第 8 节）。整库手动备份（超级用户经容器内的套接字连接，不需要口令；在本机运行，文件落在本机，注意它含全部已发布数据和用户数据，不要提交）：
 
@@ -252,7 +254,7 @@ schema `app`：Better Auth 的 `user`、`session`、`account`、`verification` �
 | `oaw_site` | 只读 | 无任何权限 | 网站读取已发布的数据（`DATABASE_URL`） |
 | `oaw_app` | 无任何权限 | 拥有者，读写 | 网站的登录、提交、订阅和管理页（`APP_DATABASE_URL`）；`pnpm submissions:pull`、`pnpm admins:sync` |
 
-schema `app` 由超级用户在 `deploy/db/roles.sql` 里创建并交给 `oaw_app`；表由 `oaw_app` 自己建。`oaw_app` 的搜索路径是 `app`。`pnpm db:setup` 每次都会检查：用 `oaw_app` 读 `kg`、用 `oaw_site` 读 `app` 必须失败，否则中止。
+schema `app` 由超级用户在 `deploy/db/roles.sql` 里创建并交给 `oaw_app`；表由 `oaw_app` 自己建。`oaw_app` 的搜索路径是 `app`。`pnpm db:setup` 每次都会以超级用户查权限：`oaw_app` 对 `kg`、`oaw_site` 和 `oaw_kg_writer` 对 `app` 不得有 USAGE，`oaw_app` 对 `public` 不得有 CREATE，否则中止。
 
 ### 口令和设置在哪
 
@@ -271,7 +273,7 @@ schema `app` 由超级用户在 `deploy/db/roles.sql` 里创建并交给 `oaw_ap
 
 ### `pnpm db:setup` 对用户数据多做的事
 
-在原有步骤之外：建角色 `oaw_app` 和 schema `app`；以 `oaw_app` 套用 `db/app/*.sql`；在 `site.env` 里补上缺少的设置；建 `<DEPLOY_ROOT>/backups`（权限 700）并启动备份容器；检查 `oaw_app` 的口令和两个隔离条件；最后经 SSH 转发以 `oaw_app` 连接，把本机 `ADMIN_EMAILS` 同步进 `app.admins`，只打印个数：`administrators on the server: <n> on the list (+<增>, -<减>)`。本机 `ADMIN_EMAILS` 为空时只打印一行警告并跳过，数据库里的名单不动，命令不算失败。
+在原有步骤之外：建角色 `oaw_app` 和 schema `app`；以 `oaw_app` 套用 `db/app/*.sql`；在 `site.env` 里补上缺少的设置；建 `<DEPLOY_ROOT>/backups`（权限 700）并启动备份容器；检查 `oaw_app` 的口令和隔离条件，重启备份容器；最后经 SSH 转发以 `oaw_app` 连接，把本机 `ADMIN_EMAILS` 同步进 `app.admins`，只打印个数：`administrators on the server: <n> on the list (+<增>, -<减>)`。本机 `ADMIN_EMAILS` 为空时只打印一行警告并跳过，数据库里的名单不动，命令不算失败。
 
 ### `pnpm site:env`
 
@@ -295,23 +297,35 @@ pnpm admins:sync
 
 ### 备份
 
-- 备份容器 `openaiwill-db-backup` 启动时先做一份，之后每 24 小时一份：`pg_dump` 导出 schema `app`，压缩后写入 `<DEPLOY_ROOT>/backups/app-<UTC 时间>.sql.gz`。先写成 `.tmp`，导出成功且文件非空才改名；失败时删除 `.tmp`，在容器日志里写一行 `app backup failed`（`sudo docker logs openaiwill-db-backup`）。超过 14 天的 `app-*.sql.gz` 自动删除。只备份 `app`：`kg` 里的数据可以重新发布。
+- 备份容器 `openaiwill-db-backup` 启动时先做一份，之后每 24 小时一份：以 `oaw_app`（schema `app` 的拥有者，所以容器里没有超级用户口令，只有 `OAW_APP_PASSWORD`）用 `pg_dump` 导出 schema `app`，压缩后写入 `<DEPLOY_ROOT>/backups/app-<UTC 时间>.sql.gz`。先写成 `.tmp`，导出成功、`gzip -t` 通过且大于 500 字节才改名；否则删除 `.tmp`，在容器日志里写 `app backup failed; retrying in 5 minutes`，5 分钟后重试（成功后才等 24 小时）。每次循环开始先清掉遗留的 `.tmp`。超过 14 天的 `app-*.sql.gz` 在每次成功后自动删除。只备份 `app`：`kg` 里的数据可以重新发布。
+- `pnpm db:setup` 的最后一步重启这个容器，所以结构建好后立即会有第一份。确认：
+
+```bash
+ssh -i <密钥> <用户>@<地址> 'sudo ls -l <DEPLOY_ROOT>/backups; sudo docker logs --tail 5 openaiwill-db-backup'
+```
+
+预期：列出至少一个 `app-<时间>.sql.gz`，体积不是几十字节；日志里没有 `app backup failed`。首次启动时（结构还没建）日志里出现一次 `app backup failed; retrying in 5 minutes` 是正常的，随后重启会补上。之后每天确认最新一份不超过一天。
 - 备份文件属于 root、权限 600，读取要用 `sudo`；它含用户邮箱，不要提交、不要发给别人。备份和数据库在同一台服务器上，防不了服务器本身丢失；需要异地副本时定期拷到本机被忽略的位置：
 
 ```bash
-ssh -i <密钥> <用户>@<地址> 'sudo ls -l <DEPLOY_ROOT>/backups'
 ssh -i <密钥> <用户>@<地址> 'sudo cat <DEPLOY_ROOT>/backups/app-<时间>.sql.gz' > data/app-backup-<时间>.sql.gz
 ```
 
-预期：第一条列出备份文件，最新的一份不超过一天；第二条在本机得到一个非空文件。
+预期：在本机得到一个非空文件，`gzip -t data/app-backup-<时间>.sql.gz` 无输出。
 
-- 恢复：把备份导回，先清空 `app`（整个过程在一个事务里，导入失败时原来的 `app` 不变）：
+- 恢复（先清空 `app` 再导回；整个过程在一个事务里，导入失败时原来的 `app` 不变；用超级用户，备份里带着 `oaw_app` 作为拥有者，不需要再授权）。从服务器上的备份：
 
 ```bash
 ssh -i <密钥> <用户>@<地址> 'sudo gunzip -c <DEPLOY_ROOT>/backups/app-<时间>.sql.gz | sudo docker exec -i openaiwill-db psql -X -q -U postgres -d openaiwill -1 -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS app CASCADE" -f -'
 ```
 
-预期：无错误退出；备份里带有 `oaw_app` 作为表的拥有者，所以不需要再授权。恢复后运行 `pnpm admins:sync`，让管理员名单回到本机 `.env` 的内容。从本机副本恢复时，把 `sudo gunzip -c <路径>` 换成 `gunzip -c <本机文件> |` 经 `ssh ... 'sudo docker exec -i ...'` 管道输入。这个循环（导出、清理旧文件、失败时不留文件、导回）在本机用一次性的 `postgres:16-alpine` 容器验证过；服务器上的备份容器第一次运行后，用 `sudo ls -l` 和上面的恢复命令各确认一次。
+从本机上的副本：
+
+```bash
+gunzip -c data/app-backup-<时间>.sql.gz | ssh -i <密钥> <用户>@<地址> 'sudo docker exec -i openaiwill-db psql -X -q -U postgres -d openaiwill -1 -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS app CASCADE" -f -'
+```
+
+预期：两条都无错误退出。恢复后运行 `pnpm admins:sync`，让管理员名单回到本机 `.env` 的内容；再用 `pnpm db:setup` 的检查或登录一次确认。这个循环（以 `oaw_app` 导出、清理旧文件和遗留 `.tmp`、失败时不留文件并重试、两种形式导回）在本机用一次性的 `postgres:16-alpine` 容器验证过；服务器上的备份容器第一次运行后，用上面的确认命令看一次。
 
 ### `pnpm submissions:pull`
 
@@ -319,7 +333,7 @@ ssh -i <密钥> <用户>@<地址> 'sudo gunzip -c <DEPLOY_ROOT>/backups/app-<时
 pnpm submissions:pull
 ```
 
-预期：经 SSH 转发以 `oaw_app` 连接，在一个事务里取出状态为 `approved` 且还没有导入的提交，按（账号名，个人或机构）合并，写入本机 `data/submissions/approved-<UTC 时间>.json`（权限 600；文件在事务提交之前写好，写不成就回滚），再把这些行标为已导入。文件里每个账号有 `handle`（最早一条请求的大小写形式）、`account_kind`、`requests`（有几位读者提了）、`notes`、`approved_at`；不含任何提交者的姓名或邮箱。打印文件路径和账号数，以及 `add name and role for each person, then import with pnpm data:panel:import`。没有等待的提交时打印 `no approved submissions waiting`，不写文件。已导出的行不会再被导出（数据库触发器也不允许清除 `imported_at`），所以导出的文件留在本机 `data/submissions/`，不要删除，直到已导入。
+预期：经 SSH 转发以 `oaw_app` 连接，在一个事务里取出状态为 `approved` 且还没有导入的提交，按（账号名，个人或机构）合并，写入本机 `data/submissions/approved-<UTC 时间>.json`（权限 600；文件在事务提交之前写好，写不成就回滚），再把这些行标为已导入。文件用独占方式创建，同一秒内的两次导出不会互相覆盖（第二个文件名末尾加 `-1`）。文件里每个账号有 `handle`（最早一条请求的大小写形式）、`account_kind`、`requests`（有几位读者提了）、`notes`、`approved_at`；不含任何提交者的姓名或邮箱。打印文件路径和账号数，以及 `add name and role for each person, then import with pnpm data:panel:import`。没有等待的提交时打印 `no approved submissions waiting`，不写文件。如果提交这一步的结果不确定（比如连接在提交时断了），文件会保留，并打印 `commit not confirmed; file kept at <路径>; run pull again - if it reports nothing waiting, this file is the export`：再运行一次 `pnpm submissions:pull`，如果打印 `no approved submissions waiting`，说明提交其实成功了，这个文件就是导出；如果又写出一个新文件，说明上次没有提交，删除旧文件，以新文件为准。已导出的行不会再被导出（数据库触发器也不允许清除 `imported_at`），所以导出的文件留在本机 `data/submissions/`，不要删除，直到已导入。
 
 ### Google 控制台（需要本人操作）
 

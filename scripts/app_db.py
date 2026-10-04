@@ -202,38 +202,74 @@ def _pull_accounts(rows) -> list[dict]:
     return accounts
 
 
-def pull_from(conn, out_dir: Path | None = None) -> Path | None:
+def _write_exclusive(directory: Path, stem: str, text: str) -> Path:
+    """Write `text` to directory/<stem>.json, or <stem>-1.json, -2 ... when that name exists: the content goes to
+    a private temp file first and is hard-linked under the final name, which fails instead of replacing."""
+    tmp = directory / f".{stem}.{secrets.token_hex(4)}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        for number in range(0, 1000):
+            final = directory / (f"{stem}.json" if number == 0 else f"{stem}-{number}.json")
+            try:
+                os.link(tmp, final)
+                return final
+            except FileExistsError:
+                continue
+        raise AppError("too many export files with the same name")
+    finally:
+        os.unlink(tmp)
+
+
+def pull_from(conn, out_dir: Path | None = None, now: datetime | None = None) -> Path | None:
     """Write the approved, not yet imported submissions to out_dir/approved-<UTC stamp>.json and mark them
-    imported, in one transaction: the file is written before the commit, and removed again if anything fails
-    afterwards. Returns the file, or None when nothing was waiting. `conn` is a connection as oaw_app."""
+    imported, in one transaction: the file is written before the commit and removed again if anything fails
+    before the commit is attempted. If the commit itself fails with an unknown outcome the file is kept (it may
+    be the only copy of rows the database did mark). Returns the file, or None when nothing was waiting."""
     out_dir = SUBMISSIONS_DIR if out_dir is None else Path(out_dir)
     path = None
+    transaction = conn.transaction()
+    transaction.__enter__()
     try:
-        with conn.transaction():
-            rows = conn.execute(
-                "SELECT id, handle, display_handle, owner_kind, note, decided_at FROM app.submissions "
-                "WHERE status = 'approved' AND imported_at IS NULL ORDER BY created_at, id FOR UPDATE").fetchall()
-            if not rows:
-                print("no approved submissions waiting")
-                return None
+        rows = conn.execute(
+            "SELECT id, handle, display_handle, owner_kind, note, decided_at FROM app.submissions "
+            "WHERE status = 'approved' AND imported_at IS NULL ORDER BY created_at, id FOR UPDATE").fetchall()
+        if rows:
             accounts = _pull_accounts(rows)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc) if now is None else now
             out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-            path = out_dir / f"approved-{now.strftime('%Y%m%dT%H%M%SZ')}.json"
-            _write_atomic(path, json.dumps({"pulled_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "accounts": accounts},
-                                           ensure_ascii=False, indent=2) + "\n")
+            path = _write_exclusive(
+                out_dir, f"approved-{now.strftime('%Y%m%dT%H%M%SZ')}",
+                json.dumps({"pulled_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "accounts": accounts},
+                           ensure_ascii=False, indent=2) + "\n")
             ids = [row["id"] for row in rows]
             changed = conn.execute("UPDATE app.submissions SET imported_at = now() WHERE id = ANY(%s) AND imported_at IS NULL",
                                    (ids,)).rowcount
             if changed != len(ids):
                 raise AppError("the submissions changed while they were being pulled; nothing was imported")
+    except BaseException as error:
+        try:
+            transaction.__exit__(type(error), error, error.__traceback__)  # roll back
+        finally:
+            if path is not None:
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
+        raise
+    try:
+        transaction.__exit__(None, None, None)  # commit
     except BaseException:
         if path is not None:
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
+            print(f"commit not confirmed; file kept at {path}; run pull again - if it reports nothing waiting, "
+                  "this file is the export")
         raise
+    if not rows:
+        print("no approved submissions waiting")
+        return None
     try:
         shown = path.relative_to(ROOT)
     except ValueError:

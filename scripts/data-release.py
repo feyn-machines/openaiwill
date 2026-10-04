@@ -132,6 +132,9 @@ def main(argv=None):
     except subprocess.CalledProcessError as error:
         print(f"error: a command on the server failed with status {error.returncode}", file=sys.stderr)
         return 1
+    except psycopg.Error as error:
+        print(f"error: {server_db.first_line(error)}", file=sys.stderr)
+        return 1
     except (kg.KgError, psycopg.Error, RuntimeError, OSError, ValueError) as error:
         print(f"error: {' '.join(str(error).split())}", file=sys.stderr)
         return 1

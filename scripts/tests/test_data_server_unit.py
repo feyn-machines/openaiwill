@@ -112,7 +112,7 @@ class SetupScriptTest(unittest.TestCase):
         self.assertNotRegex(script, r"PGPASSWORD=[^\"]")
         self.assertNotIn("set -x", script)
         self.assertNotIn(" -e PGPASSWORD", script)
-        self.assertEqual(script.count("--env-file"), 11)
+        self.assertEqual(script.count("--env-file"), 11)  # 3 psql steps + app psql + 4 checks + superuser privilege check + restart + up
 
     def test_every_remote_value_is_quoted_from_the_deploy_root(self):
         script = build({**TARGET, "DEPLOY_ROOT": "/opt/my site"})
@@ -302,6 +302,24 @@ class AdminSyncAfterSetupTest(unittest.TestCase):
         self.assertIn("ADMIN_EMAILS", out)
 
 
+class OneLineErrorTest(unittest.TestCase):
+    def test_only_the_first_line_of_a_database_error_is_shown(self):
+        self.assertEqual(server_db.first_line(RuntimeError("duplicate key\nDETAIL: Key (x)=(secret) exists.")), "duplicate key")
+        self.assertEqual(server_db.first_line(RuntimeError("")), "RuntimeError")
+
+    def test_the_release_command_uses_it_for_database_errors(self):
+        text = (server_db.ROOT / "scripts" / "data-release.py").read_text()
+        self.assertIn("except psycopg.Error as error:", text)
+        self.assertIn("server_db.first_line(error)", text)
+
+
+class AppSchemaFileTest(unittest.TestCase):
+    def test_the_trigger_is_replaced_in_place_never_dropped(self):
+        text = (server_db.ROOT / "db" / "app" / "001_app.sql").read_text()
+        self.assertIn("CREATE OR REPLACE TRIGGER submissions_decided_is_final", text)
+        self.assertNotIn("DROP TRIGGER", text)
+
+
 class ReportNeverFailsTest(unittest.TestCase):
     def test_every_probe_failure_is_a_note_not_an_error(self):
         original = server_db._report_production
@@ -391,15 +409,45 @@ class AppSetupScriptTest(unittest.TestCase):
         self.assertIn("grep -q '^BETTER_AUTH_SECRET=' /opt/openaiwill/site.env", script)
         self.assertIn("grep -q '^BETTER_AUTH_URL=' /opt/openaiwill/site.env", script)
 
-    def test_isolation_between_the_app_and_the_site_role_is_asserted(self):
+    def test_isolation_is_asserted_positively_as_the_superuser(self):
         script = build()
-        app_to_kg = [l for l in script.splitlines() if "-U oaw_app" in l and "kg.releases" in l]
-        site_to_app = [l for l in script.splitlines() if "-U oaw_site" in l and "app.submissions" in l]
-        self.assertEqual((len(app_to_kg), len(site_to_app)), (1, 1))
-        for line in app_to_kg + site_to_app:
-            self.assertTrue(line.startswith("if sudo docker exec"), line)
-            self.assertIn("exit 1", line)
-            self.assertIn('-h "$ip"', line)
+        lines = [l for l in script.splitlines() if "has_schema_privilege" in l]
+        self.assertEqual(len(lines), 1)
+        line = lines[0]
+        for part in ("-U postgres", "('oaw_app','kg','USAGE')", "('oaw_site','app','USAGE')",
+                     "('oaw_kg_writer','app','USAGE')", "('oaw_app','public','CREATE')"):
+            self.assertIn(part, line)
+        self.assertNotIn(" -h ", line)
+        self.assertIn("isolation broken:", script)
+        # No longer "any failure counts as isolation".
+        self.assertNotIn("SELECT 1 FROM kg.releases", script)
+        self.assertNotIn("SELECT 1 FROM app.submissions", script)
+
+    def test_existing_passwords_are_validated_before_anything_changes(self):
+        script = build()
+        check = script.index("^[0-9a-f]{48}$")
+        self.assertLess(check, script.index("sudo install"))
+        self.assertLess(check, script.index("a=$(newpw)"))
+        self.assertLess(check, script.index(">> /opt/openaiwill/db/db.env"))
+
+    def test_a_missing_final_newline_is_repaired_before_every_append(self):
+        script = build()
+        self.assertIn('[ -z "$(tail -c1 "$1")" ] || echo >> "$1"', script)
+        self.assertLess(script.index("endnl /opt/openaiwill/db/db.env"), script.index(">> /opt/openaiwill/db/db.env"))
+        self.assertLess(script.index("endnl /opt/openaiwill/site.env"), script.index(">> /opt/openaiwill/site.env"))
+
+    def test_the_backup_service_is_restarted_after_the_schema_exists(self):
+        script = build()
+        restart = "sudo docker compose -p openaiwill-db --env-file db.env restart backup </dev/null"
+        self.assertIn(restart, script)
+        self.assertGreater(script.index(restart), script.index("-U oaw_app -d openaiwill < 001_app.sql"))
+        self.assertLess(script.index(restart), script.index("echo 'database ready"))
+
+    def test_a_failed_grep_is_not_hidden_and_the_temp_file_is_removed_on_exit(self):
+        script = build()
+        self.assertNotIn("|| true; }", script)
+        self.assertIn("""> "$tmp" || [ $? -eq 1 ]""", script)
+        self.assertIn("""trap 'rm -f "$tmp"' EXIT""", script)
 
 
 class SetupScriptRunTest(unittest.TestCase):
@@ -415,12 +463,11 @@ case "$1" in
     case "$last" in
       *not-the-password*) exit 1;;
     esac
-    if [ -z "${FAKE_ISOLATION_BROKEN:-}" ]; then
-      case "$last" in
-        *"-U oaw_app"*kg.releases*) exit 1;;
-        *"-U oaw_site"*app.submissions*) exit 1;;
-      esac
-    fi
+    case "$last" in
+      *has_schema_privilege*)
+        if [ -n "${FAKE_ISOLATION_BROKEN:-}" ]; then echo "oaw_app kg"; fi
+        exit 0;;
+    esac
     cat >/dev/null 2>&1 || true
     echo 0;;
 esac
@@ -512,10 +559,49 @@ esac
         self.run_script()
         self.assertEqual(self.site_env.read_text(), text + "GOOGLE_CLIENT_ID=kept\n")
 
+    def test_files_without_a_final_newline_are_not_glued(self):
+        (self.root / "db").mkdir(parents=True)
+        old_db = f"POSTGRES_PASSWORD={'a' * 48}\nOAW_KG_WRITER_PASSWORD={'b' * 48}\nOAW_SITE_PASSWORD={'c' * 48}"
+        old_site = f"DATABASE_URL=postgres://oaw_site:{'c' * 48}@openaiwill-db:5432/openaiwill\nEXTRA=keep me"
+        self.db_env.write_text(old_db)
+        self.site_env.write_text(old_site)
+        done = self.run_script()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        db_text, site_text = self.db_env.read_text(), self.site_env.read_text()
+        self.assertTrue(db_text.startswith(old_db + "\n"))
+        self.assertTrue(site_text.startswith(old_site + "\n"))
+        db = self.env(self.db_env)
+        self.assertEqual((db["POSTGRES_PASSWORD"], db["OAW_KG_WRITER_PASSWORD"], db["OAW_SITE_PASSWORD"]),
+                         ("a" * 48, "b" * 48, "c" * 48))
+        self.assertRegex(db["OAW_APP_PASSWORD"], r"[0-9a-f]{48}")
+        site = self.env(self.site_env)
+        self.assertEqual(site["EXTRA"], "keep me")
+        self.assertEqual(set(site) - {"DATABASE_URL", "EXTRA"}, {"APP_DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL"})
+        for line in db_text.splitlines() + site_text.splitlines():
+            self.assertEqual(len(re.findall(r"[A-Z_]+=", line.split("@")[0])), 1, line)
+
+    def test_a_glued_or_malformed_password_is_refused_before_anything_changes(self):
+        (self.root / "db").mkdir(parents=True)
+        good = f"POSTGRES_PASSWORD={'a' * 48}\nOAW_KG_WRITER_PASSWORD={'b' * 48}\n"
+        for bad in (f"OAW_SITE_PASSWORD={'c' * 48}OAW_APP_PASSWORD={'d' * 48}\n", "OAW_SITE_PASSWORD=\n",
+                    "OAW_SITE_PASSWORD=short\n", f"OAW_SITE_PASSWORD={'g' * 48}\n", "",
+                    f"OAW_SITE_PASSWORD={'c' * 48}\nOAW_SITE_PASSWORD={'c' * 48}\n"):
+            with self.subTest(bad=bad[:30]):
+                self.db_env.write_text(good + bad)
+                before = self.db_env.read_bytes()
+                done = self.run_script()
+                self.assertEqual(done.returncode, 1)
+                self.assertEqual(len(done.stderr.strip().splitlines()), 1)
+                self.assertIn("OAW_SITE_PASSWORD", done.stderr)
+                self.assertNotIn("c" * 48, done.stderr)
+                self.assertEqual(self.db_env.read_bytes(), before)
+                self.assertFalse((self.root / "backups").exists())
+                self.assertFalse(self.site_env.exists())
+
     def test_a_broken_isolation_stops_setup_with_one_line(self):
         done = self.run_script(FAKE_ISOLATION_BROKEN="1")
         self.assertEqual(done.returncode, 1)
-        self.assertIn("isolation", done.stderr)
+        self.assertIn("isolation broken: oaw_app kg", done.stderr)
         self.assertEqual(len(done.stderr.strip().splitlines()), 1)
 
 
@@ -537,7 +623,7 @@ class SiteRoleFilesTest(unittest.TestCase):
     def test_the_backup_service_dumps_schema_app_daily_and_keeps_14_days(self):
         import json
         done = subprocess.run(["docker", "compose", "-f", str(server_db.DEPLOY_DB / "compose.yml"), "config", "--format", "json"],
-                              capture_output=True, text=True, env={**__import__("os").environ, "POSTGRES_PASSWORD": "x"})
+                              capture_output=True, text=True, env={**__import__("os").environ, "POSTGRES_PASSWORD": "pg", "OAW_APP_PASSWORD": "x"})
         if done.returncode != 0:
             self.skipTest("docker compose is not available")
         service = json.loads(done.stdout)["services"]["backup"]
@@ -548,12 +634,16 @@ class SiteRoleFilesTest(unittest.TestCase):
         volume = service["volumes"][0]
         self.assertEqual((volume["target"], Path(volume["source"]).name), ("/backups", "backups"))
         self.assertEqual(Path(volume["source"]).parent.name, "deploy")  # ../backups relative to deploy/db
-        self.assertEqual(service["environment"]["PGPASSWORD"], "x")
+        self.assertEqual(service["environment"], {"PGPASSWORD": "x"})  # the app password only, never the superuser's
         text = " ".join(service["command"])
-        for part in ("set -o pipefail", "umask 077", "pg_dump -h openaiwill-db -U postgres -d openaiwill -n app", "gzip",
-                     "sleep 86400", "-mtime +14", "-delete", "app-*.sql.gz", "[ -s "):
+        for part in ("set -o pipefail", "umask 077", "pg_dump -h openaiwill-db -U oaw_app -d openaiwill -n app", "gzip",
+                     "sleep 86400", "sleep 300", "-mtime +14", "-delete", "app-*.sql.gz", "gzip -t", "rm -f /backups/app-*.sql.gz.tmp"):
             self.assertIn(part, text)
         self.assertLess(text.index(".tmp"), text.index("mv "))
+        self.assertLess(text.index("gzip -t"), text.index("mv "))
+        self.assertNotIn("-U postgres", text)
+        # a failed dump is retried in five minutes, a good one in a day
+        self.assertNotIn("[ -s ", text)
 
     def test_dollar_signs_are_escaped_for_compose(self):
         self.assertNotRegex(self.compose, r"(?<!\$)\$\((?!\$)")

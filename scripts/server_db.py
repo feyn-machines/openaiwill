@@ -45,6 +45,12 @@ def parse_env(text: str) -> dict[str, str]:
     return values
 
 
+def first_line(error: Exception) -> str:
+    """One line of an error for the terminal: a database error's DETAIL lines can quote row values."""
+    text = str(error).strip()
+    return text.splitlines()[0] if text else type(error).__name__
+
+
 def checked_password(value: str, key: str = "OAW_KG_WRITER_PASSWORD") -> str:
     """A password read from the server. A malformed one is refused without echoing any value."""
     value = value.strip()
@@ -116,6 +122,16 @@ def setup_script(target: dict, compose_text: str, roles_sql: str, schema_sql: st
     app_apply = "".join(f"{psql} -U {APP_ROLE} -d {DB_NAME} < {name}\n" for name in app_sql)
     wrong = check.format(env="db.env", password="not-the-password", role=SITE_ROLE, db=DB_NAME, sql="SELECT 1")
     return f"""umask 077
+endnl() {{ [ -z "$(tail -c1 "$1")" ] || echo >> "$1"; }}
+if [ -f {env_file} ]; then
+  for k in POSTGRES_PASSWORD OAW_KG_WRITER_PASSWORD OAW_SITE_PASSWORD OAW_APP_PASSWORD; do
+    v=$(sed -n "s/^$k=//p" {env_file})
+    if [ -z "$v" ] && [ "$k" = OAW_APP_PASSWORD ]; then continue; fi
+    if [ "$(printf '%s\\n' "$v" | wc -l)" -ne 1 ] || ! printf '%s' "$v" | grep -Eq '^[0-9a-f]{{48}}$'; then
+      echo "db.env has an unusable $k; nothing was changed" >&2; exit 1
+    fi
+  done
+fi
 sudo install -d -m 755 -o "$(id -un)" -g "$(id -gn)" {root} {db} </dev/null
 sudo install -d -m 700 -o "$(id -un)" -g "$(id -gn)" {backups} </dev/null
 sudo docker network inspect openaiwill >/dev/null 2>&1 </dev/null || sudo docker network create openaiwill >/dev/null </dev/null
@@ -128,6 +144,7 @@ if [ ! -f {env_file} ]; then
   echo 'generated the database passwords on the server'
 fi
 if ! grep -q '^OAW_APP_PASSWORD=' {env_file}; then
+  endnl {env_file}
   e=$(newpw)
   printf 'OAW_APP_PASSWORD=%s\\n' "$e" >> {env_file}
   echo 'added the app password to db.env'
@@ -139,6 +156,7 @@ if [ ! -f {site_env} ]; then
   printf 'DATABASE_URL=postgres://{SITE_ROLE}:%s@openaiwill-db:5432/{DB_NAME}\\n' "$pw" > {site_env}
   echo 'wrote site.env'
 fi
+endnl {site_env}
 apw=$(sed -n 's/^OAW_APP_PASSWORD=//p' {env_file})
 [ -n "$apw" ] || {{ echo 'db.env has no OAW_APP_PASSWORD' >&2; exit 1; }}
 want="postgres://{APP_ROLE}:${{apw}}@openaiwill-db:5432/{DB_NAME}"
@@ -148,7 +166,8 @@ if [ -z "$cur" ]; then
   echo 'added APP_DATABASE_URL to site.env'
 elif [ "$cur" != "$want" ]; then
   tmp=$(mktemp {site_env}.XXXXXX)
-  {{ grep -v '^APP_DATABASE_URL=' {site_env} || true; }} > "$tmp"
+  trap 'rm -f "$tmp"' EXIT
+  grep -v '^APP_DATABASE_URL=' {site_env} > "$tmp" || [ $? -eq 1 ]
   printf 'APP_DATABASE_URL=%s\\n' "$want" >> "$tmp"
   chmod 600 "$tmp"
   mv "$tmp" {site_env}
@@ -173,9 +192,10 @@ sudo docker compose -p openaiwill-db --env-file db.env up -d --wait --wait-timeo
 n=$({check.format(env='db.env', password='$OAW_SITE_PASSWORD', role=SITE_ROLE, db=DB_NAME, sql='SELECT count(*) FROM kg.releases')})
 if {wrong} >/dev/null 2>&1; then echo 'password authentication is not being enforced on the container network' >&2; exit 1; fi
 {check.format(env='db.env', password='$OAW_APP_PASSWORD', role=APP_ROLE, db=DB_NAME, sql='SELECT count(*) FROM app.submissions')} >/dev/null
-if {check.format(env='db.env', password='$OAW_APP_PASSWORD', role=APP_ROLE, db=DB_NAME, sql='SELECT 1 FROM kg.releases')} >/dev/null 2>&1; then echo 'isolation broken: the app role can read kg' >&2; exit 1; fi
-if {check.format(env='db.env', password='$OAW_SITE_PASSWORD', role=SITE_ROLE, db=DB_NAME, sql='SELECT 1 FROM app.submissions')} >/dev/null 2>&1; then echo 'isolation broken: the site role can read app' >&2; exit 1; fi
+viol=$({psql} -U postgres -d {DB_NAME} -tA -c "SELECT r || ' ' || s FROM (VALUES ('oaw_app','kg','USAGE'),('oaw_site','app','USAGE'),('oaw_kg_writer','app','USAGE'),('oaw_app','public','CREATE')) AS t(r,s,p) WHERE has_schema_privilege(r,s,p)" </dev/null)
+if [ -n "$viol" ]; then echo "isolation broken: $(printf '%s' "$viol" | tr '\\n' ',')" >&2; exit 1; fi
 echo "the three roles authenticate with their passwords over the container network, a wrong password is refused and neither the app role nor the site role reaches the other's schema; releases in kg: $n"
+sudo docker compose -p openaiwill-db --env-file db.env restart backup </dev/null
 echo 'database ready (127.0.0.1:{DB_PORT} on the server, network openaiwill)'
 """
 

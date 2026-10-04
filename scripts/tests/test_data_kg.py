@@ -294,11 +294,11 @@ class CliTest(KgBase):
 
     def test_connection_failure_is_one_line_exit_1(self):
         err = io.StringIO()
-        refused = psycopg.OperationalError("connection refused\nsecond line")
+        refused = psycopg.OperationalError("connection refused\nDETAIL: second line")
         with mock.patch.object(cli, "connect", side_effect=refused), redirect_stderr(err), redirect_stdout(io.StringIO()):
             code = cli.main(["status"])
         self.assertEqual(code, 1)
-        self.assertEqual(err.getvalue(), "error: connection refused second line\n")
+        self.assertEqual(err.getvalue(), "error: connection refused\n")
 
     def test_missing_password_file_is_one_line_exit_1(self):
         err = io.StringIO()

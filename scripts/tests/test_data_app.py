@@ -241,6 +241,13 @@ class Pull(AppBase):
             path = app_db.pull_from(self.conn, self.dir)
         return path, out.getvalue()
 
+    def run_pull_at(self, now):
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            path = app_db.pull_from(self.conn, self.dir, now=now)
+        return path, out.getvalue()
+
     def test_requests_are_grouped_by_account_and_the_earliest_display_form_is_kept(self):
         import json
         self.approved("u1", "openai", "OpenAI", note="first note")
@@ -312,6 +319,53 @@ class Pull(AppBase):
         with self.assertRaises(OSError):
             app_db.pull_from(self.conn, self.dir)
         self.assertEqual(self.conn.execute("SELECT count(*) AS n FROM app.submissions WHERE imported_at IS NOT NULL").fetchone()["n"], 0)
+
+    def test_an_unknown_commit_outcome_keeps_the_file_and_says_so(self):
+        import contextlib
+        import io
+        self.approved("u1", "openai")
+        real = self.conn
+
+        class FailingCommit:
+            def __init__(self, inner):
+                self.inner = inner
+
+            def __enter__(self):
+                return self.inner.__enter__()
+
+            def __exit__(self, kind, error, trace):
+                if kind is None:
+                    self.inner.__exit__(RuntimeError, RuntimeError("x"), None)  # roll back for real
+                    raise psycopg.OperationalError("connection lost during commit")
+                return self.inner.__exit__(kind, error, trace)
+
+        class Proxy:
+            execute = staticmethod(real.execute)
+
+            @staticmethod
+            def transaction():
+                return FailingCommit(real.transaction())
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(psycopg.OperationalError):
+            app_db.pull_from(Proxy, self.dir)
+        self.assertEqual(len(self.files()), 1)
+        self.assertIn("commit not confirmed; file kept", out.getvalue())
+        self.assertIn("run pull again", out.getvalue())
+
+    def test_two_pulls_in_the_same_second_never_overwrite(self):
+        import json
+        from datetime import datetime, timezone
+        now = datetime(2026, 10, 4, 1, 2, 3, tzinfo=timezone.utc)
+        self.approved("u1", "openai")
+        first, _ = self.run_pull_at(now)
+        self.approved("u2", "anthropicai")
+        second, _ = self.run_pull_at(now)
+        self.assertNotEqual(first, second)
+        self.assertEqual(first.name, "approved-20261004T010203Z.json")
+        self.assertEqual(second.name, "approved-20261004T010203Z-1.json")
+        self.assertEqual([a["handle"] for a in json.loads(first.read_text())["accounts"]], ["openai"])
+        self.assertEqual([a["handle"] for a in json.loads(second.read_text())["accounts"]], ["anthropicai"])
 
     def test_a_failed_update_removes_the_file_again(self):
         self.approved("u1", "openai")

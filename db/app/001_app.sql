@@ -101,8 +101,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END $$;
-DROP TRIGGER IF EXISTS submissions_decided_is_final ON app.submissions;
-CREATE TRIGGER submissions_decided_is_final BEFORE UPDATE ON app.submissions
+CREATE OR REPLACE TRIGGER submissions_decided_is_final BEFORE UPDATE ON app.submissions
     FOR EACH ROW EXECUTE FUNCTION app.submissions_decided_is_final();
 
 -- What a reader asked to be told about. Unsubscribing keeps the row and dates it.

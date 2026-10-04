@@ -472,6 +472,25 @@ class SiteEnvTest(unittest.TestCase):
             subprocess.run(["bash", "-euo", "pipefail", "-s"], input=script, text=True, check=True)
             self.assertEqual((root / "site.env").read_text(), first)
 
+    def test_an_unreadable_site_env_is_a_failure_and_leaves_no_temp_file(self):
+        import os
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            site = root / "site.env"
+            site.write_text("A=1\n")
+            site.chmod(0)
+            if os.access(site, os.R_OK):
+                self.skipTest("running as a user who can read mode 000 files")
+            script = release.site_env_script({**TARGET, "DEPLOY_ROOT": str(root)},
+                                             {"GOOGLE_CLIENT_ID": self.ID, "GOOGLE_CLIENT_SECRET": self.SECRET})
+            done = subprocess.run(["bash", "-euo", "pipefail", "-s"], input=script, text=True, capture_output=True)
+            self.assertNotEqual(done.returncode, 0)
+            leftovers = [p.name for p in root.iterdir()]
+            site.chmod(0o600)
+            self.assertEqual(leftovers, ["site.env"])
+        self.assertNotIn("|| true", script)
+
     def test_a_missing_site_env_is_an_error_not_a_new_file(self):
         done, text, _, _, _ = self.run_script(None)
         self.assertEqual(done.returncode, 1)
