@@ -81,7 +81,7 @@ ssh -i <密钥> <用户>@<地址> 'rm -rf <DEPLOY_ROOT>/releases/<id>; sudo dock
 
 1. 确认 `openaiwill.com` 的 DNS 托管在运行这条 Tunnel 的同一个 Cloudflare 账号下；不在则先把域名的 NS 改过去。
 2. 在 Tunnel 中添加公开主机名 `openaiwill.com` → `http://localhost:8320`，以及 `www.openaiwill.com` → 同一地址。Cloudflare 自动建立 CNAME，不要手工加 A 记录。（服务器上的 Tunnel 已按此配置；这一步只在重建时需要。）
-3. 加重定向规则：`www.openaiwill.com` 永久（301）跳转到 `https://openaiwill.com`。
+3. `www.openaiwill.com` 到 `https://openaiwill.com` 的跳转现在由网站自己完成（对任何路径和查询串返回 308，Location 是固定的 `https://openaiwill.com` 加原路径，只认这一个 www 主机名；`/api/*` 也一样，`/healthz` 和静态文件除外）。Cloudflare 上的 301 重定向规则因此是可选的：加了也可以，`pnpm site:promote` 的公开检查对 `https://www.openaiwill.com/` 接受 301 或 308 指向主域名；www 地址解析不到时该项不算失败。
 4. 关闭"阻止 AI 爬虫"（Block AI bots）和托管的 `robots.txt`。开着会覆盖站点自己的爬虫规则，GEO 部分的工作等于白做。
 5. 不缓存 HTML：不要开启"Cache Everything"。语言跳转依赖源站响应，页面按请求渲染，数据发布后约 30 秒内变化；被边缘缓存的 HTML 无法即时更新。只缓存 `/_next/static/`（默认如此）。
 
@@ -131,7 +131,7 @@ pnpm site:release
 pnpm site:promote
 ```
 
-预期：先在服务器上确认数据库可连（以 `oaw_site` 经容器网络地址）且有生效的数据版本，否则一行报错并停止，不动正式服务（`the database does not accept connections as oaw_site; production was not touched` 或 `the database has no active data release (pnpm data:promote); production was not touched`，`pnpm site:rollback` 同样先做这个检查）；校验候选仍健康；把它启动为正式服务并确认健康；成功后记录 `previous` 和 `current`，打印 `production is now <id>`，关闭候选，清理超出保留数的旧版本（保留最新 5 个，`current` 与 `previous` 受保护）；随后对 `https://openaiwill.com` 做公开冒烟检查（请求带 `User-Agent: openaiwill-release/1.0`；`/healthz` 报告新版本号、语言跳转、客户端导航请求、IndexNow 密钥文件、404、sitemap 中各类页面各一页、正式环境不带 `X-Robots-Tag`），通过后向 IndexNow 提交 sitemap 中的地址并打印状态码。公开地址解析不到或连不上时，检查结果只列出一行 `<地址> is not reachable: <原因>`。
+预期：先在服务器上确认数据库可连（以 `oaw_site` 经容器网络地址）且有生效的数据版本，否则一行报错并停止，不动正式服务（`the database does not accept connections as oaw_site; production was not touched` 或 `the database has no active data release (pnpm data:promote); production was not touched`，`pnpm site:rollback` 同样先做这个检查）；校验候选仍健康；把它启动为正式服务并确认健康；成功后记录 `previous` 和 `current`，打印 `production is now <id>`，关闭候选，清理超出保留数的旧版本（保留最新 5 个，`current` 与 `previous` 受保护）；随后对 `https://openaiwill.com` 做公开冒烟检查（请求带 `User-Agent: openaiwill-release/1.0`；`/healthz` 报告新版本号、语言跳转、客户端导航请求、IndexNow 密钥文件、404、sitemap 中各类页面各一页、正式环境不带 `X-Robots-Tag`，以及 `https://www.openaiwill.com/` 跳转到主域名），通过后向 IndexNow 提交 sitemap 中的地址并打印状态码。公开地址解析不到或连不上时，检查结果只列出一行 `<地址> is not reachable: <原因>`。
 
 只想验证构建而不上传：
 
@@ -283,7 +283,7 @@ pnpm site:env
 
 预期：打印 `set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET in site.env` 和 `restart the site for this to take effect: pnpm site:release && pnpm site:promote`。只设置这两个键，`site.env` 里的其他行不动，权限保持 600；值经标准输入发送，不出现在命令行或输出里。任一个值在本机缺失，或含空白、引号、`$`、`#`、反斜杠、反引号、换行，命令一行报错并退出，不连服务器。设置只在网站重启后生效，所以接着发布代码。
 
-`pnpm site:release` 的候选检查会读 `site.env` 的键名（不读值）：五项设置都在时，候选的 `/api/me` 必须报告 `enabled: true`，否则候选检查失败，提示 `sign-in is configured but not answering`；设置不齐时不检查（功能本来就关着）。
+`pnpm site:release` 的候选检查会读 `site.env` 的键名（不读值）：五项设置都在时，候选的 `/api/me` 必须报告 `enabled: true`，否则候选检查失败，提示 `sign-in is configured but not answering`；设置不齐时不检查（功能本来就关着）。`/healthz` 还带一个 `app` 字段：登录功能未开启时是 `{"enabled": false}`；开启时是 `{"enabled": true, "ok": true|false}`，`ok` 表示用户数据库在 3 秒内答复了 `SELECT 1 FROM app.admins LIMIT 1`（失败原因只写进容器日志，不出现在响应里）。用户数据库不通时 `/healthz` 仍返回 200，公开页面照常服务；但五项设置都在而 `app.ok` 为 false 的候选会被候选检查拒绝，提示 `sign-in is configured but its database is not answering`。
 
 ### 修改管理员名单
 
@@ -294,6 +294,18 @@ pnpm admins:sync
 ```
 
 预期：打印 `administrators on the server: <n> on the list (+<增>, -<减>)`，立即生效，不需要发布。名单为空时报错并保持原样（不会清空管理员）。本机数据库用 `data/runtime/venv/bin/python scripts/app-db.py admins --target local`。
+
+### 按邮箱删除一个人的数据
+
+隐私页承诺可以应要求删除。删除 `app."user"` 里的这一行，会按外键级联删除他的会话、登录帐号（含加密保存的 Google 令牌）、提交和订阅；他审核过别人的提交时，那些行的 `decided_by` 置空，其余不变。用超级用户经容器内的套接字连接（不需要口令），邮箱用 psql 变量传入，不拼进命令行；`<邮箱>` 换成对方的地址：
+
+```bash
+ssh -i <密钥> <用户>@<地址> 'sudo docker exec -i openaiwill-db psql -X -q -U postgres -d openaiwill -v ON_ERROR_STOP=1 -v "email=<邮箱>"' <<'SQL'
+DELETE FROM app."user" WHERE lower(email) = lower(:'email') RETURNING id;
+SQL
+```
+
+预期：打印被删除行的 `id`（一行）；没有输出表示没有这个邮箱。先用同样的方式把 `DELETE` 换成 `SELECT id FROM app."user" WHERE lower(email) = lower(:'email');` 确认是同一个人。数据库里立即消失；已经写入的每日备份里还有，备份在 14 天后自动删除（见下面的"备份"），所以对方的数据最迟在 14 天后从服务器上完全消失。恢复备份时要重新执行这一步，不要把已删除的人带回来。
 
 ### 备份
 

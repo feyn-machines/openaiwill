@@ -400,6 +400,19 @@ def sign_in_failures(keys: list[str], read_me) -> list[str]:
     return [] if enabled else ["sign-in is configured but not answering"]
 
 
+def app_database_failures(keys: list[str], health_body: str) -> list[str]:
+    """With every sign-in setting on the server, /healthz must say the user database answers (`app.ok`).
+    /healthz stays 200 when it does not, so the public site survives; a candidate with it down is not promoted."""
+    if not all(key in keys for key in APP_SETTINGS):
+        return []
+    try:
+        app = json.loads(health_body).get("app")
+    except (ValueError, AttributeError):
+        app = None
+    ok = isinstance(app, dict) and app.get("ok") is True
+    return [] if ok else ["sign-in is configured but its database is not answering"]
+
+
 def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
     """Smoke-test the candidate on the server through an SSH forward, the way a reviewer would see it.
     Returns the failures and the data release the candidate is serving."""
@@ -412,7 +425,7 @@ def candidate_failures(target: dict, release: str) -> tuple[list[str], str]:
         served = health_data(body).get("releaseId") or ""
         try:
             keys = remote(target, site_env_keys_script(target), capture=True).split()
-            sign_in = sign_in_failures(keys, lambda: fetch(base + "/api/me")[2])
+            sign_in = sign_in_failures(keys, lambda: fetch(base + "/api/me")[2]) + app_database_failures(keys, body)
         except subprocess.CalledProcessError:
             sign_in = ["could not read the site settings on the server"]
         return (smoke(base, release) + data_release_failures(body) + indexability(base, indexable=False) + sign_in), served
@@ -523,11 +536,32 @@ def snapshot_dir_for_smoke() -> Path | None:
     return SNAPSHOT if (SNAPSHOT / "manifest.json").is_file() else None
 
 
+STATIC_WHITEPAPER = ("en", "zh-CN")
+NO_SIGN_IN_AT_BUILD = "the build machine lacks the five sign-in settings; run `pnpm app:setup` and check .env"
+
+
+def static_sign_in_failures(next_dir: Path) -> list[str]:
+    """The whitepaper is the one page built ahead; its layout carries the sign-in menu only when the build
+    machine has the five sign-in settings. A release built without them would hide sign-in on that page."""
+    for language in STATIC_WHITEPAPER:
+        page = next_dir / "server" / "app" / language / "whitepaper.html"
+        try:
+            if "data-account-menu" in page.read_text(encoding="utf-8"):
+                continue
+        except OSError:
+            pass
+        return [NO_SIGN_IN_AT_BUILD]
+    return []
+
+
 def build() -> str:
     release = build_release_id()
     if release.endswith("-dirty"):
         print("warning: uncommitted changes; this release cannot be reproduced from a commit", file=sys.stderr)
     run(["pnpm", "check"], env={**os.environ, "RELEASE_ID": release})
+    missing = static_sign_in_failures(ROOT / ".next")
+    if missing:
+        raise ReleaseError(missing[0])
 
     staged = STAGING / release
     shutil.rmtree(STAGING, ignore_errors=True)
@@ -695,6 +729,20 @@ def public_check_message(release: str, failures: list[str]) -> str:
             "page itself is wrong), then run `pnpm site:indexnow`.")
 
 
+def www_redirect_failures(fetcher=fetch) -> list[str]:
+    """www.<site> must send readers to the apex (the site does it itself; a Cloudflare rule may too, with a 301).
+    A www address that does not answer is not a failure here: it may simply not be in DNS."""
+    www = SITE_URL.replace("https://", "https://www.", 1)
+    try:
+        code, headers, _ = fetcher(www + "/")
+    except ReleaseError:
+        return []
+    where = headers.get("Location")
+    if code in (301, 308) and where in (SITE_URL, SITE_URL + "/"):
+        return []
+    return [f"{www}/: status {code} Location {where!r}, expected 308 to {SITE_URL}"]
+
+
 def promote_command() -> None:
     target = load_target()
     release = remote_id(target, "candidate")
@@ -714,6 +762,7 @@ def promote_command() -> None:
     failures = smoke(SITE_URL, release)
     if not any("is not reachable" in failure for failure in failures):
         failures += indexability(SITE_URL, indexable=True)
+        failures += www_redirect_failures()
     if failures:
         raise ReleaseError(public_check_message(release, failures))
     notify_indexnow()

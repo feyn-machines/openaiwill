@@ -126,7 +126,9 @@ endnl() {{ [ -z "$(tail -c1 "$1")" ] || echo >> "$1"; }}
 if [ -f {env_file} ]; then
   for k in POSTGRES_PASSWORD OAW_KG_WRITER_PASSWORD OAW_SITE_PASSWORD OAW_APP_PASSWORD; do
     v=$(sed -n "s/^$k=//p" {env_file})
-    if [ -z "$v" ] && [ "$k" = OAW_APP_PASSWORD ]; then continue; fi
+    # A db.env from before the app role has no OAW_APP_PASSWORD line, and gets one below. A line that is
+    # present but empty is an unusable password, not a missing one.
+    if [ "$k" = OAW_APP_PASSWORD ] && ! grep -q '^OAW_APP_PASSWORD=' {env_file}; then continue; fi
     if [ "$(printf '%s\\n' "$v" | wc -l)" -ne 1 ] || ! printf '%s' "$v" | grep -Eq '^[0-9a-f]{{48}}$'; then
       echo "db.env has an unusable $k; nothing was changed" >&2; exit 1
     fi

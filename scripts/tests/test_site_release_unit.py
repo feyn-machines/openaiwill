@@ -587,6 +587,70 @@ class SignInCandidateTest(unittest.TestCase):
         self.assertEqual(out.split(), ["A_B", "GOOGLE_CLIENT_SECRET"])
 
 
+class AppDatabaseCandidateTest(unittest.TestCase):
+    ALL = list(release.APP_SETTINGS)
+    MESSAGE = ["sign-in is configured but its database is not answering"]
+
+    def test_without_the_settings_nothing_is_asked(self):
+        self.assertEqual(release.app_database_failures(["DATABASE_URL"], "{}"), [])
+        self.assertEqual(release.app_database_failures(self.ALL[:4], '{"app": {"enabled": false}}'), [])
+
+    def test_configured_and_ok_passes(self):
+        self.assertEqual(release.app_database_failures(self.ALL, '{"ok": true, "app": {"enabled": true, "ok": true}}'), [])
+
+    def test_configured_but_not_ok_or_not_reported_fails(self):
+        for body in ('{"app": {"enabled": true, "ok": false}}', '{"app": {"enabled": false}}', '{"ok": true}',
+                     "not json", "[]", '{"app": "ok"}'):
+            self.assertEqual(release.app_database_failures(self.ALL, body), self.MESSAGE, body)
+
+
+class WwwRedirectTest(unittest.TestCase):
+    def check(self, code, location):
+        return release.www_redirect_failures(lambda url: (code, {"Location": location} if location else {}, ""))
+
+    def test_a_redirect_to_the_apex_passes(self):
+        self.assertEqual(self.check(308, "https://openaiwill.com/"), [])
+        self.assertEqual(self.check(308, "https://openaiwill.com"), [])
+        self.assertEqual(self.check(301, "https://openaiwill.com/"), [])
+
+    def test_serving_the_site_or_redirecting_elsewhere_fails(self):
+        self.assertEqual(len(self.check(200, None)), 1)
+        self.assertEqual(len(self.check(308, "https://evil.example/")), 1)
+
+    def test_a_www_address_that_does_not_answer_is_not_a_failure(self):
+        def down(url):
+            raise release.ReleaseError("no answer")
+        self.assertEqual(release.www_redirect_failures(down), [])
+
+    def test_it_asks_the_www_address(self):
+        asked = []
+        release.www_redirect_failures(lambda url: asked.append(url) or (308, {"Location": "https://openaiwill.com/"}, ""))
+        self.assertEqual(asked, ["https://www.openaiwill.com/"])
+
+
+class StaticSignInTest(unittest.TestCase):
+    def pages(self, tmp, en, zh):
+        for language, text in (("en", en), ("zh-CN", zh)):
+            page = Path(tmp) / "server" / "app" / language / "whitepaper.html"
+            page.parent.mkdir(parents=True, exist_ok=True)
+            if text is not None:
+                page.write_text(text)
+
+    def test_both_pages_with_the_menu_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.pages(tmp, "<div data-account-menu></div>", "<div data-account-menu></div>")
+            self.assertEqual(release.static_sign_in_failures(Path(tmp)), [])
+
+    def test_a_page_without_the_menu_or_missing_fails_with_one_line(self):
+        for en, zh in (("<p>x</p>", "<div data-account-menu></div>"), ("<div data-account-menu></div>", "<p>x</p>"), (None, None)):
+            with tempfile.TemporaryDirectory() as tmp:
+                self.pages(tmp, en, zh)
+                failures = release.static_sign_in_failures(Path(tmp))
+                self.assertEqual(failures, [release.NO_SIGN_IN_AT_BUILD])
+                self.assertIn("pnpm app:setup", failures[0])
+                self.assertNotIn("\n", failures[0])
+
+
 class CommandsTest(unittest.TestCase):
     def test_env_is_a_command_and_a_package_script(self):
         import subprocess

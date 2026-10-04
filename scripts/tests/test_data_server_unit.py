@@ -580,6 +580,24 @@ esac
         for line in db_text.splitlines() + site_text.splitlines():
             self.assertEqual(len(re.findall(r"[A-Z_]+=", line.split("@")[0])), 1, line)
 
+    def test_an_empty_app_password_line_is_refused_but_a_missing_one_is_added(self):
+        (self.root / "db").mkdir(parents=True)
+        base = f"POSTGRES_PASSWORD={'a' * 48}\nOAW_KG_WRITER_PASSWORD={'b' * 48}\nOAW_SITE_PASSWORD={'c' * 48}\n"
+        for line in ("OAW_APP_PASSWORD=\n", "OAW_APP_PASSWORD=short\n"):
+            with self.subTest(line=line):
+                self.db_env.write_text(base + line)
+                before = self.db_env.read_bytes()
+                done = self.run_script()
+                self.assertEqual(done.returncode, 1)
+                self.assertEqual(len(done.stderr.strip().splitlines()), 1)
+                self.assertIn("OAW_APP_PASSWORD", done.stderr)
+                self.assertEqual(self.db_env.read_bytes(), before)
+                self.assertFalse((self.root / "backups").exists())
+        self.db_env.write_text(base)
+        done = self.run_script()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertRegex(self.env(self.db_env)["OAW_APP_PASSWORD"], r"[0-9a-f]{48}")
+
     def test_a_glued_or_malformed_password_is_refused_before_anything_changes(self):
         (self.root / "db").mkdir(parents=True)
         good = f"POSTGRES_PASSWORD={'a' * 48}\nOAW_KG_WRITER_PASSWORD={'b' * 48}\n"
