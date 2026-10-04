@@ -34,7 +34,10 @@ export function Decide({ handle, ownerKind, language }: { handle: string; ownerK
         return;
       }
       const body = (await response.json()) as { changed?: number };
-      if (body.changed === 0) setLine(c.already);
+      if (body.changed === 0) {
+        setLine(c.already);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
       router.refresh();
     } catch {
       setLine(c.failed);

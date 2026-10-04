@@ -1,7 +1,7 @@
 import { json, notFound, readJson, sameOrigin } from "@/lib/api";
 import { appEnabled } from "@/lib/app-config";
 import { decide } from "@/lib/app-store";
-import { appPool, currentUser, isAdminUser } from "@/lib/auth";
+import { adminOrNull, appPool } from "@/lib/auth";
 import { OWNER_KINDS, type OwnerKind } from "@/lib/handles";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,8 @@ const MAX_REASON = 280;
 
 export async function POST(request: Request) {
   if (!appEnabled()) return notFound();
-  const user = await currentUser(request);
-  if (!user || !(await isAdminUser(user))) return notFound();
+  const user = await adminOrNull(request);
+  if (!user) return notFound();
   if (!sameOrigin(request)) return json({ error: "origin" }, 403);
 
   const read = await readJson(request, MAX_BODY);

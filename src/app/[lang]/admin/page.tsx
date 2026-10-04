@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { PageHeader, bilingual, dataStyles as d, formatNumber, isoDate } from "@/components/data-page";
 import { appEnabled } from "@/lib/app-config";
 import { adminGroups, subscriberCounts, type AdminGroup } from "@/lib/app-store";
-import { appPool, currentUser, isAdminUser } from "@/lib/auth";
+import { adminOrNull, appPool } from "@/lib/auth";
 import { getLocale } from "@/lib/locale";
 import { Decide } from "./decide";
 import s from "./admin.module.css";
@@ -62,8 +62,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const { language } = await getLocale();
   const c = copy[language];
   if (!appEnabled()) notFound();
-  const user = await currentUser(new Request("http://internal/", { headers: await headers() }));
-  if (!user || !(await isAdminUser(user))) notFound();
+  if (!(await adminOrNull(new Request("http://internal/", { headers: await headers() })))) notFound();
 
   const view = (await searchParams).view === "decided" ? "decided" : "pending";
   const db = appPool();

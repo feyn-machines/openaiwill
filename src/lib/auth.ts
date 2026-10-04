@@ -72,3 +72,18 @@ export async function isAdminUser(user: { email?: string | null; emailVerified?:
   const { rowCount } = await appPool().query("SELECT 1 FROM app.admins WHERE email = lower($1)", [user.email.trim()]);
   return (rowCount ?? 0) > 0;
 }
+
+/**
+ * The signed-in administrator of this request, or null: signed out, not an administrator, or the
+ * check failed. A failure is logged and answered like "no", so a signed-in reader cannot tell it from a 404.
+ */
+export async function adminOrNull(request: Request): Promise<SessionUser | null> {
+  const user = await currentUser(request);
+  if (!user) return null;
+  try {
+    return (await isAdminUser(user)) ? user : null;
+  } catch (error) {
+    console.error(`[auth] administrator check failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    return null;
+  }
+}

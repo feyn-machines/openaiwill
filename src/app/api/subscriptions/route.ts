@@ -23,7 +23,8 @@ export async function PUT(request: Request) {
     return json({ error: "invalid" }, 400);
   }
   try {
-    return json({ subscriptions: await setSubscriptions(appPool(), { userId: user.id, language, updates, weekly }) });
+    const saved = await setSubscriptions(appPool(), { userId: user.id, language, updates, weekly });
+    return saved ? json({ subscriptions: saved }) : json({ error: "signed_out" }, 401);
   } catch (error) {
     console.error(`[subscriptions] save failed: ${error instanceof Error ? error.message : "unknown error"}`);
     return json({ error: "unavailable" }, 503);

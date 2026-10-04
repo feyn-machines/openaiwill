@@ -307,3 +307,21 @@ test("subscriber counts count a user once and skip the unsubscribed", { skip: SK
   assert.equal(second.language, "zh-CN");
   assert.match(second.subscribedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
+
+test("saving subscriptions for a user that does not exist is a handled null, and writes nothing", { skip: SKIP }, async () => {
+  assert.equal(await store.setSubscriptions(pool, sub("no-such-user", { updates: true })), null);
+  const { rows } = await pool.query("SELECT 1 FROM app.subscriptions WHERE user_id = 'no-such-user'");
+  assert.equal(rows.length, 0);
+});
+
+test("a group shows the display spelling of its earliest request", { skip: SKIP }, async () => {
+  const token = randomBytes(3).toString("hex");
+  const first = await user();
+  const second = await user();
+  await store.createSubmission(pool, input(first, `Case${token}`));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  await store.createSubmission(pool, input(second, `CASE${token}`));
+  const group = (await store.adminGroups(pool, "pending")).find((g) => g.handle === `case${token}`);
+  assert.equal(group.count, 2);
+  assert.equal(group.displayHandle, `Case${token}`);
+});

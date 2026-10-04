@@ -6,7 +6,8 @@ export type Me = {
   enabled: boolean;
   user: { name: string; email: string; image: string | null } | null;
   admin: boolean;
-  subscriptions: { updates: boolean; weekly: boolean };
+  /** null when the lookup failed: the state is unknown, not "subscribed to nothing". */
+  subscriptions: { updates: boolean; weekly: boolean } | null;
 };
 
 type Snapshot = { state: "loading" | "ready"; me: Me };

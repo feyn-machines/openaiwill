@@ -57,7 +57,8 @@ export function Subscribe({
 
   if (!enabled || state === "loading" || !me.enabled) return null;
 
-  const active = me.subscriptions.updates || me.subscriptions.weekly;
+  const known = me.subscriptions;
+  const active = known !== null && (known.updates || known.weekly);
 
   function open() {
     if (!me.user) {
@@ -65,9 +66,9 @@ export function Subscribe({
       return;
     }
     onOpen?.();
-    setUpdates(me.subscriptions.updates);
-    setWeekly(me.subscriptions.weekly);
-    setLine("");
+    setUpdates(known?.updates ?? false);
+    setWeekly(known?.weekly ?? false);
+    setLine(known ? "" : c.failed);
     dialog.current?.showModal();
   }
 
@@ -102,9 +103,10 @@ export function Subscribe({
         {active ? c.subscribed : c.subscribe}
       </button>
       {createPortal(
-        <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onClose={() => opener.current?.focus()}>
+        <dialog ref={dialog} className={styles.dialog} aria-labelledby={titleId} onClose={() => (variant === "menu" ? document.querySelector<HTMLElement>("[data-account-menu] summary") : opener.current)?.focus()}>
           <form className={styles.form} onSubmit={save}>
             <h3 id={titleId} className={styles.dialogTitle}>{c.subscribe}</h3>
+            {known ? (<>
             <label className={styles.check}>
               <input type="checkbox" checked={updates} onChange={(event) => { setUpdates(event.target.checked); setLine(""); }} />
               <span>{c.updates}</span>
@@ -113,10 +115,11 @@ export function Subscribe({
               <input type="checkbox" checked={weekly} onChange={(event) => { setWeekly(event.target.checked); setLine(""); }} />
               <span>{c.weekly}</span>
             </label>
+            </>) : null}
             <p className={styles.line} role="status" aria-live="polite">{line}</p>
             <div className={styles.actions}>
               <button type="button" className={styles.submitButton} onClick={() => dialog.current?.close()}>{c.cancel}</button>
-              <button type="submit" className={`${styles.submitButton} ${styles.primary}`} disabled={busy}>{c.save}</button>
+              {known ? <button type="submit" className={`${styles.submitButton} ${styles.primary}`} disabled={busy}>{c.save}</button> : null}
             </div>
           </form>
         </dialog>,

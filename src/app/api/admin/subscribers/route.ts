@@ -1,15 +1,15 @@
 import { NO_STORE_HEADERS, json, notFound } from "@/lib/api";
 import { appEnabled } from "@/lib/app-config";
 import { subscriberRows } from "@/lib/app-store";
-import { appPool, currentUser, isAdminUser } from "@/lib/auth";
+import { adminOrNull, appPool } from "@/lib/auth";
 import { csv } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   if (!appEnabled()) return notFound();
-  const user = await currentUser(request);
-  if (!user || !(await isAdminUser(user))) return notFound();
+  const user = await adminOrNull(request);
+  if (!user) return notFound();
   try {
     const rows = await subscriberRows(appPool());
     const body = csv([

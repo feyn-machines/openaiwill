@@ -129,10 +129,15 @@ export async function getSubscriptions(db: Pool, userId: string): Promise<Subscr
 export async function setSubscriptions(
   db: Pool,
   input: { userId: string; language: "en" | "zh-CN"; updates: boolean; weekly: boolean },
-): Promise<Subscriptions> {
+): Promise<Subscriptions | null> {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    const locked = await client.query('SELECT 1 FROM app."user" WHERE id = $1 FOR UPDATE', [input.userId]);
+    if (locked.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
     for (const topic of TOPICS) {
       if (input[topic]) {
         await client.query(
@@ -150,14 +155,19 @@ export async function setSubscriptions(
         );
       }
     }
+    const { rows } = await client.query<{ topic: Topic }>(
+      "SELECT topic FROM app.subscriptions WHERE user_id = $1 AND unsubscribed_at IS NULL",
+      [input.userId],
+    );
     await client.query("COMMIT");
+    const active = new Set(rows.map((row) => row.topic));
+    return { updates: active.has("updates"), weekly: active.has("weekly") };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   } finally {
     client.release();
   }
-  return getSubscriptions(db, input.userId);
 }
 
 export type AdminGroup = {
@@ -197,7 +207,7 @@ const MAX_DECIDED_GROUPS = 200;
 export async function adminGroups(db: Pool, view: "pending" | "decided"): Promise<AdminGroup[]> {
   const pending = view === "pending";
   const { rows } = await db.query<GroupRow>(
-    `SELECT s.handle, min(s.display_handle) AS display_handle, s.owner_kind, s.status,
+    `SELECT s.handle, (array_agg(s.display_handle ORDER BY s.created_at, s.id))[1] AS display_handle, s.owner_kind, s.status,
             count(*)::int AS count, min(s.created_at) AS first_at,
             s.decided_at, min(d.email) AS decided_by, min(s.decision_reason) AS reason, min(s.imported_at) AS imported_at,
             json_agg(json_build_object('name', u.name, 'email', u.email, 'note', s.note, 'createdAt', s.created_at)
@@ -207,7 +217,7 @@ export async function adminGroups(db: Pool, view: "pending" | "decided"): Promis
        LEFT JOIN app."user" d ON d.id = s.decided_by
       WHERE s.platform = 'x' AND ${pending ? "s.status = 'pending'" : "s.status <> 'pending'"}
       GROUP BY s.handle, s.owner_kind, s.status, s.decided_at
-      ORDER BY ${pending ? "min(s.created_at), s.handle" : "s.decided_at DESC, s.handle"}
+      ORDER BY ${pending ? "min(s.created_at), s.handle, s.owner_kind" : "s.decided_at DESC, s.handle, s.owner_kind, s.status"}
       ${pending ? "" : `LIMIT ${MAX_DECIDED_GROUPS}`}`,
   );
   return rows.map((row) => ({

@@ -17,11 +17,12 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error(`[auth] administrator lookup failed: ${error instanceof Error ? error.message : "unknown error"}`);
   }
-  let subscriptions = NONE;
+  let subscriptions: typeof NONE | null = NONE;
   try {
     subscriptions = await getSubscriptions(appPool(), user.id);
   } catch (error) {
     console.error(`[subscriptions] lookup failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    subscriptions = null;
   }
   return json({ enabled: true, user: { name: user.name, email: user.email, image: user.image }, admin, subscriptions });
 }
