@@ -283,7 +283,7 @@ pnpm site:env
 
 预期：打印 `set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET in site.env` 和 `restart the site for this to take effect: pnpm site:release && pnpm site:promote`。只设置这两个键，`site.env` 里的其他行不动，权限保持 600；值经标准输入发送，不出现在命令行或输出里。任一个值在本机缺失，或含空白、引号、`$`、`#`、反斜杠、反引号、换行，命令一行报错并退出，不连服务器。设置只在网站重启后生效，所以接着发布代码。
 
-`pnpm site:release` 的候选检查会读 `site.env` 的键名（不读值）：五项设置都在时，候选的 `/api/me` 必须报告 `enabled: true`，否则候选检查失败，提示 `sign-in is configured but not answering`；设置不齐时不检查（功能本来就关着）。`/healthz` 还带一个 `app` 字段：登录功能未开启时是 `{"enabled": false}`；开启时是 `{"enabled": true, "ok": true|false}`，`ok` 表示用户数据库在 3 秒内答复了 `SELECT 1 FROM app.admins LIMIT 1`（失败原因只写进容器日志，不出现在响应里）。用户数据库不通时 `/healthz` 仍返回 200，公开页面照常服务；但五项设置都在而 `app.ok` 为 false 的候选会被候选检查拒绝，提示 `sign-in is configured but its database is not answering`。
+`pnpm site:release` 的候选检查会读 `site.env` 的键名（不读值）：五项设置都在时，候选的 `/api/me` 必须报告 `enabled: true`，否则候选检查失败，提示 `sign-in is configured but not answering`；设置不齐时不检查（功能本来就关着）。`/healthz` 还带一个 `app` 字段：登录功能未开启时是 `{"enabled": false}`；开启时是 `{"enabled": true, "ok": true|false}`，`ok` 表示用户数据库在 1 秒内答复了 `SELECT 1 FROM app.admins LIMIT 1`（失败原因只写进容器日志，不出现在响应里）。用户数据库不通时 `/healthz` 仍返回 200，公开页面照常服务；但五项设置都在而 `app.ok` 为 false 的候选会被候选检查拒绝，提示 `sign-in is configured but its database is not answering`。
 
 ### 修改管理员名单
 
@@ -297,7 +297,7 @@ pnpm admins:sync
 
 ### 按邮箱删除一个人的数据
 
-隐私页承诺可以应要求删除。删除 `app."user"` 里的这一行，会按外键级联删除他的会话、登录帐号（含加密保存的 Google 令牌）、提交和订阅；他审核过别人的提交时，那些行的 `decided_by` 置空，其余不变。用超级用户经容器内的套接字连接（不需要口令），邮箱用 psql 变量传入，不拼进命令行；`<邮箱>` 换成对方的地址：
+隐私页承诺可以应要求删除。删除 `app."user"` 里的这一行，会按外键级联删除他的会话、登录帐号（含 Google 的登录令牌）、提交和订阅；他审核过别人的提交时，那些行的 `decided_by` 置空，其余不变。用超级用户经容器内的套接字连接（不需要口令），邮箱用 psql 变量传入，不拼进 SQL 文本（它会出现在这条命令的参数里）；`<邮箱>` 换成对方的地址：
 
 ```bash
 ssh -i <密钥> <用户>@<地址> 'sudo docker exec -i openaiwill-db psql -X -q -U postgres -d openaiwill -v ON_ERROR_STOP=1 -v "email=<邮箱>"' <<'SQL'

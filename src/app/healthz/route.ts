@@ -4,7 +4,8 @@ import { dataRelease } from "@/lib/snapshot";
 
 export const dynamic = "force-dynamic";
 
-const APP_CHECK_MS = 3000;
+// Well under the container healthcheck's 3 s timeout: a user database that hangs must not make the container unhealthy.
+const APP_CHECK_MS = 1000;
 
 /** Whether the user database answers. Only the message of a failure is logged; the answer is a boolean. */
 async function appHealth(): Promise<{ enabled: false } | { enabled: true; ok: boolean }> {

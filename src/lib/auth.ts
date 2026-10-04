@@ -42,7 +42,8 @@ function build() {
       google: { clientId: process.env.GOOGLE_CLIENT_ID as string, clientSecret: process.env.GOOGLE_CLIENT_SECRET as string },
     },
     session: { expiresIn: 60 * 60 * 24 * 30 },
-    // Stored Google tokens are encrypted with the secret (account.encryptOAuthTokens; the columns are text).
+    // The access and refresh tokens are stored encrypted with the secret (the columns are text). Better Auth
+    // 1.7.7 stores the ID token as received, so the privacy page does not claim the tokens are encrypted.
     account: { encryptOAuthTokens: true },
     // Without a per-call errorCallbackURL (state lost, expired) the reader still lands on our own page.
     onAPIError: { errorURL: "/?signin=failed" },

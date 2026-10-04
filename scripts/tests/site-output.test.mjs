@@ -153,14 +153,17 @@ test("www.openaiwill.com is sent to the apex with the same path and query", asyn
     assert.equal(answer.status, 308, path);
     assert.equal(answer.location, `${SITE}${path}`, path);
   }
-  // Behind the tunnel the public name can arrive in X-Forwarded-Host; the case of a host name does not matter.
-  assert.equal((await getWithHeaders(site.base, "/voices", { "x-forwarded-host": "www.openaiwill.com" })).location, `${SITE}/voices`);
-  assert.equal((await getWithHeaders(site.base, "/voices", { host: "WWW.OpenAIWill.com" })).status, 308);
+  // The case of a host name does not matter; a port or a trailing dot names the same host.
+  for (const host of ["WWW.OpenAIWill.com", "www.openaiwill.com:443", "www.openaiwill.com:8080", "www.openaiwill.com."]) {
+    const answer = await getWithHeaders(site.base, "/voices", { host });
+    assert.equal(answer.status, 308, host);
+    assert.equal(answer.location, `${SITE}/voices`, host);
+  }
 });
 
 test("only the one www host is redirected, and the Location is always the fixed apex origin", async () => {
   for (const host of ["openaiwill.com", "127.0.0.1", new URL(site.base).host, "www.openaiwill.com.evil.example", "evil-www.openaiwill.com",
-    "www.openaiwill.com:8080", "wwww.openaiwill.com", "sub.www.openaiwill.com", "www.openaiwill.com@evil.example", "evil.example"]) {
+    "wwww.openaiwill.com", "sub.www.openaiwill.com", "www.openaiwill.com@evil.example", "evil.example"]) {
     const answer = await getWithHeaders(site.base, "/markets", { host });
     assert.equal(answer.status, 200, host);
     assert.equal(answer.location, null, host);
@@ -180,9 +183,12 @@ test("only the one www host is redirected, and the Location is always the fixed 
     assert.equal(answer.status, 308, path);
     assert.ok(answer.location.startsWith("/") && !answer.location.startsWith("//"), `${path} -> ${answer.location}`);
   }
-  // A forwarded host that is not www does not hide a www Host, and a www forwarded host alone is enough.
-  const mixed = await getWithHeaders(site.base, "/voices", { host: "127.0.0.1", "x-forwarded-host": "evil.example" });
-  assert.equal(mixed.status, 200);
+  // Only the Host header decides: a client-sent X-Forwarded-Host cannot redirect an apex request (to itself, in a loop).
+  for (const forwarded of ["www.openaiwill.com", "evil.example"]) {
+    const answer = await getWithHeaders(site.base, "/voices", { host: "openaiwill.com", "x-forwarded-host": forwarded });
+    assert.equal(answer.status, 200, forwarded);
+    assert.equal(answer.location, null, forwarded);
+  }
 });
 
 test("a sign-in failure marker does not make another indexable address", async () => {

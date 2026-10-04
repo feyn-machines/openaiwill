@@ -36,9 +36,9 @@ function passThrough() {
  */
 export function proxy(request: NextRequest) {
   // www.<site> is sent to the apex before anything else: cookies and the sign-in origin check belong to
-  // the apex. Behind the tunnel the app sees the public Host (or X-Forwarded-Host). The Location is the
+  // the apex. Behind the tunnel the app sees the public Host. The Location is the
   // fixed apex origin plus this request's own path and query, never a value taken from a header.
-  if (isWwwHost(request.headers.get("x-forwarded-host")) || isWwwHost(request.headers.get("host"))) {
+  if (isWwwHost(request.headers.get("host"))) {
     return NextResponse.redirect(apexLocation(request.nextUrl.pathname, request.nextUrl.search), 308);
   }
   // `/api/*` reaches this function only for the redirect above; it has no language.
