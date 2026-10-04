@@ -36,6 +36,25 @@
 
 ---
 
+## Amendment A (owner decision 2026-10-04): administrators live in the database
+
+The owner asked for the administrator addresses to be written to the database and deployed automatically. This overrides every mention of an `ADMIN_EMAILS` environment variable **read by the site** in the tasks below.
+
+- **Source of the list:** `ADMIN_EMAILS` in the local, ignored `.env` (comma separated). The addresses never enter a tracked file, a test, a log line or command output (print counts only). Tests use `@example.com` addresses.
+- **Table (Task 2, in `db/app/001_app.sql`):**
+  ```sql
+  -- Who may review submissions. Synced from the owner's local ADMIN_EMAILS by setup; never edited by the site.
+  CREATE TABLE IF NOT EXISTS app.admins (
+      email    text        PRIMARY KEY CHECK (email = lower(btrim(email)) AND position('@' in email) > 1),
+      added_at timestamptz NOT NULL DEFAULT now()
+  );
+  ```
+- **Python (Task 2, `scripts/app_db.py`):** `read_admin_emails(paths=(ROOT/".env", ROOT/".env.local")) -> list[str]` (later file wins; trimmed, lower-cased, de-duplicated, entries without `@` dropped; only the `ADMIN_EMAILS` line is parsed, nothing else is read into memory beyond the line scan); `sync_admins(conn, emails: list[str]) -> tuple[int, int]` makes the table equal to the list in one transaction and returns `(added, removed)`; an empty list raises `AppError("ADMIN_EMAILS is empty; the administrator list was left unchanged")`. `setup_local()` calls it and prints `administrators: N on the list (+a, -r)`. Database tests: sync adds, removes, is a no-op when equal, refuses an empty list, stores lower-case.
+- **Site (Task 1 code changes, done in Task 2's commit or Task 3's — whichever task first needs it; Task 2 does it):** in `src/lib/app-config.ts` remove `adminEmails` and change `isAdmin` to `isAdmin(user, admins: readonly string[]): boolean` (verified address, case-insensitive membership); update `scripts/tests/test_app_rules_unit.mjs` accordingly. In Task 3, `src/lib/auth.ts` adds `isAdminUser(user): Promise<boolean>` = `user?.emailVerified === true` and a row in `app.admins` for `lower(email)` (one indexed query per check, no cache — so a list change takes effect at once). `/api/me`, the admin page and the admin endpoints use `isAdminUser`.
+- **Server (Task 8):** `pnpm db:setup`, after its setup script, opens the SSH forward as `oaw_app` and runs `sync_admins` with the local list (skipped with a one-line warning when the list is empty). `pnpm site:env` uploads only the two Google values. Add `"admins:sync"` package script (`scripts/app-db.py admins --target server|local`, default server) for changing the list later without a release.
+
+---
+
 ## File Structure
 
 | File | Responsibility |

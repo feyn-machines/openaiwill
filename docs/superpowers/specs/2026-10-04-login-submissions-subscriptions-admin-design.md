@@ -78,7 +78,7 @@ Google 要求登录应用在品牌页面填好应用首页和隐私权政策链�
 ## 管理员后台
 
 - 地址 `/admin`（中文 `/zh-CN/admin`）。不进站点地图，`robots.txt` 禁止，页面带 `noindex`。未登录或非管理员访问返回 404。
-- 管理员是环境变量 `ADMIN_EMAILS` 里的邮箱名单（逗号分隔，比较时不分大小写），且该 Google 邮箱须已验证。改名单不改代码。
+- 管理员名单存在数据库表 `app.admins` 里（用户 2026-10-04 决定：写到库里，部署时自动带上去）。名单的来源是本机被忽略的 `.env` 中的 `ADMIN_EMAILS`（逗号分隔）；`pnpm db:setup` 和本机的 `pnpm app:setup` 每次运行都把表同步成这份名单（多的删、少的加；名单为空时拒绝同步，表不变）。邮箱不写进 Git（仓库是公开的）。判断管理员时比较不分大小写，且该 Google 邮箱须已验证。改名单不改代码，也不用重新发布网站。
 - 权限在服务端每次请求时检查；界面上隐藏入口不算权限控制。
 - 申请列表：
   - 待审核在前，可切换查看已处理的。
@@ -94,6 +94,7 @@ Google 要求登录应用在品牌页面填好应用首页和隐私权政策链�
 
 - Better Auth 的表：用户、会话、第三方帐号、验证。
 - `app.submissions`：编号、用户、平台（`x`）、规范化后的用户名、类型、理由、状态、处理人、处理原因、处理时间、创建时间、导入本机的时间。同一用户对同一平台和用户名只能有一条。
+- `app.admins`：管理员邮箱（小写）、加入时间。
 - `app.subscriptions`：用户、类别（`updates`、`weekly`）、语言、订阅时间、退订时间。同一用户每类一条。
 
 数据库身份：
@@ -136,7 +137,7 @@ Google 要求登录应用在品牌页面填好应用首页和隐私权政策链�
 需要用户做的：
 
 - 在 Google 后台为该登录应用登记回调地址 `https://openaiwill.com/api/auth/callback/google`，本机调试另加 `http://localhost:3456/api/auth/callback/google`。
-- 提供管理员的 Google 邮箱。
+- 管理员的 Google 邮箱已由用户提供，记在本机 `.env`。
 - 开发期间把自己的 Google 邮箱加入该应用的测试用户名单；两个页面上线后在品牌页面填入 `https://openaiwill.com`、`https://openaiwill.com/privacy`、`https://openaiwill.com/terms`，再发布应用。不上传徽标（上传会触发品牌验证）。
 
 ## 验证
