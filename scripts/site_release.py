@@ -216,6 +216,18 @@ def smoke(base: str, release: str | None, with_data: bool = True) -> list[str]:
     expect("/markets/no-such-market", 404)
     expect("/zh-CN/updates/no-such-update", 404)
     expect("/no-such-page", 404)
+    for legal in ("/privacy", "/zh-CN/privacy", "/terms", "/zh-CN/terms"):
+        expect(legal, 200)
+    # The admin page answers 404 to anyone who is not a signed-in administrator.
+    expect("/admin", 404)
+    # The session endpoint is outside the language rules and always says whether sign-in is on.
+    me = expect("/api/me", 200)
+    try:
+        enabled_reported = "enabled" in json.loads(me)
+    except (ValueError, TypeError):
+        enabled_reported = False
+    if not enabled_reported:
+        failures.append("/api/me: body is not JSON with an 'enabled' key")
     for label, pattern in detail_patterns(with_data).items():
         match = re.search(rf"<loc>{re.escape(SITE_URL)}({pattern})</loc>", sitemap)
         if match:

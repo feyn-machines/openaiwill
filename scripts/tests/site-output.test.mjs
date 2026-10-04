@@ -13,7 +13,8 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const STANDALONE = join(ROOT, ".next", "standalone");
 const SNAPSHOT_DIR = join(ROOT, "datasets", "published", "latest");
 const HAS_SNAPSHOT = existsSync(join(SNAPSHOT_DIR, "manifest.json"));
-const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/whitepaper"];
+const LEGAL = ["/privacy", "/terms"];
+const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/whitepaper", ...LEGAL];
 
 const freePort = () =>
   new Promise((resolve, reject) => {
@@ -254,7 +255,8 @@ test("every data page asks to be rendered per request, so none is baked into the
     entry.isDirectory() ? walk(join(dir, entry.name)) : entry.name === "page.tsx" ? [join(dir, entry.name)] : []);
   for (const file of walk(join(ROOT, "src", "app", "[lang]"))) {
     const text = readFileSync(file, "utf8");
-    if (file.includes("whitepaper")) assert.match(text, /export const dynamic = "force-static"/, file);
+    // The whitepaper and the legal pages read no data release.
+    if (/[\\/](whitepaper|privacy|terms)[\\/]/.test(file)) assert.match(text, /export const dynamic = "force-static"/, file);
     else assert.match(text, /export const dynamic = "force-dynamic"/, file);
   }
 });
@@ -318,7 +320,9 @@ test("every page links to the project's accounts in the header and in the footer
     for (const path of FIXED) {
       const links = anchors(html(language, path));
       for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]) {
-        assert.equal(links.filter((link) => link === url).length, 2, `${language}${path}: ${url} should appear in header and footer`);
+        // The legal pages also name X and Discord once, as the way to reach us.
+        const contact = LEGAL.includes(path) && !url.includes("github") ? 1 : 0;
+        assert.equal(links.filter((link) => link === url).length, 2 + contact, `${language}${path}: ${url} should appear in header and footer`);
       }
     }
   }
@@ -353,6 +357,44 @@ test("no Dataset JSON-LD description claims a share", () => {
       if (HAS_SNAPSHOT) assert.ok(datasets.length > 0, `${language}${path} has no Dataset`);
       for (const d of datasets) assert.doesNotMatch(d.description ?? "", BANNED_CLAIMS, `${language}${path}`);
     }
+  }
+});
+
+test("the privacy and terms pages say what is stored and how to ask for deletion, and make no forbidden claim", () => {
+  const text = (page) => page.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ");
+  for (const language of ["en", "zh-CN"]) {
+    const privacy = text(html(language, "/privacy"));
+    assert.match(privacy, language === "en" ? /email address/ : /邮箱/);
+    assert.match(privacy, language === "en" ? /deleted/ : /删除/);
+    assert.match(privacy, language === "en" ? /14 days/ : /14 天/);
+    const terms = text(html(language, "/terms"));
+    assert.match(terms, language === "en" ? /not been reviewed/ : /未经审核/);
+    for (const page of [privacy, terms]) {
+      assert.doesNotMatch(page, BANNED_CLAIMS);
+      assert.doesNotMatch(page, language === "en" ? /platform/i : /平台/);
+      assert.doesNotMatch(page, /[\w.+-]+@[\w-]+\.[a-z]{2,}/i, "no e-mail address");
+    }
+    for (const path of LEGAL) {
+      assert.match(html(language, path), /<h1[^>]*>[^<]+<\/h1>/);
+    }
+  }
+});
+
+test("every page's footer links to the privacy and terms pages in its own language", () => {
+  for (const language of ["en", "zh-CN"]) {
+    const prefix = language === "en" ? "" : "/zh-CN";
+    for (const path of FIXED) {
+      const links = anchors(html(language, path));
+      for (const legal of LEGAL) assert.ok(links.includes(`${prefix}${legal}`), `${language}${path} lacks ${prefix}${legal}`);
+    }
+  }
+});
+
+test("the privacy and terms pages are in the sitemap", () => {
+  const locs = [...body("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  for (const legal of LEGAL) {
+    assert.ok(locs.includes(`${SITE}${legal}`), legal);
+    assert.ok(locs.includes(`${SITE}/zh-CN${legal}`), `zh-CN${legal}`);
   }
 });
 

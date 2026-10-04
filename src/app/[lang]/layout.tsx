@@ -18,12 +18,16 @@ const copy = bilingual({
     footerBrand: "openaiwill · Before you build.",
     footerNote: "Evidence first. Opinions that can change.",
     socialLinks: "openaiwill elsewhere",
+    privacy: "Privacy",
+    terms: "Terms",
   },
   "zh-CN": {
     brandLabel: "openaiwill 首页",
     footerBrand: "openaiwill · 在动手之前。",
     footerNote: "以证据为先，判断随事实更新。",
     socialLinks: "openaiwill 的其他地址",
+    privacy: "隐私",
+    terms: "条款",
   },
 });
 
@@ -100,6 +104,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <span>{c.footerNote}</span>
           <Subscribe language={language} enabled={appEnabled()} />
           <div className="footer-links">
+            <Link href={href(language, "/privacy")}>{c.privacy}</Link>
+            <Link href={href(language, "/terms")}>{c.terms}</Link>
             {SOCIAL_LINKS.map((link) => (
               <a key={link.href} href={link.href} rel="noopener">{link.label}</a>
             ))}

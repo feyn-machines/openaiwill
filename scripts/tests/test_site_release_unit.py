@@ -183,6 +183,43 @@ class PublicCheckMessageTest(unittest.TestCase):
         self.assertIn("production IS switched", message)
 
 
+class SmokeAskedForTest(unittest.TestCase):
+    def run_smoke(self, me_body):
+        asked = []
+
+        def fake_fetch(url, cookie=None, headers=None):
+            path = url.removeprefix("http://smoke.invalid")
+            asked.append(path)
+            if path == "/admin":
+                return 404, {}, ""
+            if path == "/api/me":
+                return 200, {}, me_body
+            return 200, {}, "lang=\"en\" lang=\"zh-CN\" Sitemap: # openaiwill <urlset"
+
+        original = release.fetch
+        release.fetch = fake_fetch
+        try:
+            failures = release.smoke("http://smoke.invalid", None, with_data=False)
+        finally:
+            release.fetch = original
+        return asked, failures
+
+    def test_the_legal_pages_the_admin_and_the_session_endpoint_are_asked_for(self):
+        asked, _ = self.run_smoke('{"enabled": false, "user": null}')
+        for path in ("/privacy", "/zh-CN/privacy", "/terms", "/zh-CN/terms", "/admin", "/api/me"):
+            self.assertIn(path, asked)
+
+    def test_a_session_answer_without_the_enabled_key_is_a_failure(self):
+        _, failures = self.run_smoke('{"user": null}')
+        self.assertTrue(any(f.startswith("/api/me") for f in failures), failures)
+        _, failures = self.run_smoke("not json")
+        self.assertTrue(any(f.startswith("/api/me") for f in failures), failures)
+
+    def test_a_good_answer_adds_no_failure_of_its_own(self):
+        _, failures = self.run_smoke('{"enabled": true}')
+        self.assertFalse(any(f.startswith("/api/me") for f in failures), failures)
+
+
 class SmokeSelectionTest(unittest.TestCase):
     def test_without_data_no_detail_page_is_asked_for(self):
         self.assertEqual(release.detail_patterns(False), {})
