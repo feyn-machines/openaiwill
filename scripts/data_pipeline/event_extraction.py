@@ -134,6 +134,19 @@ def title_dedup_key(primary_org_id, title):
 OCCURRENCE_WINDOW_DAYS = 14
 
 
+def event_times(occurred, scheduled, published):
+    """(occurred_at, scheduled_for) with an announcement of something still to come kept in the past.
+
+    A post cannot report what has not happened yet: a date later than the newest
+    source post is the date the thing is planned for. It becomes `scheduled_for`
+    (unless one was given) and the event is dated by that post, so nothing is
+    placed in the future."""
+    latest = max((p for p in published if p), default=None)
+    if occurred and latest and occurred > latest:
+        return latest, scheduled or occurred
+    return occurred, scheduled
+
+
 def occurrence_suffix(key, occurred_at, known_occurrences):
     """Separate a recurring event from its earlier occurrences.
 
@@ -343,7 +356,9 @@ def assemble_extraction(candidates, batches, meta, known_occurrences=None):
             kind, unresolved_reason = _kind_of(raw)
             subject_key = _subject_key(raw.get("subject_key"))
             key, identity_confidence = event_identity(org_id, kind, subject_key, title)
-            occurred = _iso(raw.get("occurred_at"))
+            occurred, scheduled = event_times(
+                _iso(raw.get("occurred_at")), _iso(raw.get("scheduled_for")),
+                [by_source[src["source_id"]]["published_at"] for src in sources])
             key += occurrence_suffix(key, occurred, known_occurrences)
             eid = event_id_for(key)
             status = raw.get("occurrence_status") if raw.get("occurrence_status") in OCCURRENCE else "occurred"
@@ -355,8 +370,8 @@ def assemble_extraction(candidates, batches, meta, known_occurrences=None):
                 "summary": (raw.get("summary") or title).strip(),
                 "primary_org": org, "primary_org_id": org_id,
                 "announced_at": _iso(raw.get("announced_at")).isoformat() if raw.get("announced_at") else None,
-                "occurred_at": _iso(raw.get("occurred_at")).isoformat() if raw.get("occurred_at") else None,
-                "scheduled_for": _iso(raw.get("scheduled_for")).isoformat() if raw.get("scheduled_for") else None,
+                "occurred_at": occurred.isoformat() if occurred else None,
+                "scheduled_for": scheduled.isoformat() if scheduled else None,
                 "occurrence_status": status,
                 "confidence": _confidence(raw.get("confidence")),
                 "sources": sources, "categories": _categories(raw.get("categories")),

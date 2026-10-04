@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from data_pipeline.event_extraction import (  # noqa: E402
     EVENT_KINDS, EVENT_KIND_VOCABULARY, ORGANIZATIONS, assemble_extraction,
-    build_extraction_rows, dedup_key, event_id_for, resolve_org, select_candidates,
+    build_extraction_rows, dedup_key, event_id_for, event_times, resolve_org, select_candidates,
     title_dedup_key)
 from data_pipeline import deepseek  # noqa: E402
 
@@ -121,6 +121,27 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(doc["kind_vocabulary"], EVENT_KIND_VOCABULARY)
         self.assertEqual(len(doc["rubric_sha256"]), 64)
         self.assertEqual(doc["schema_version"], "2.1.0")
+
+
+class EventTimesTests(unittest.TestCase):
+    POSTED = datetime(2026, 10, 4, 10, 0, 11, tzinfo=timezone.utc)
+    LATER = datetime(2026, 10, 6, tzinfo=timezone.utc)
+
+    def test_a_date_after_the_post_is_the_planned_date(self):
+        self.assertEqual(event_times(self.LATER, None, [self.POSTED]), (self.POSTED, self.LATER))
+
+    def test_a_given_planned_date_is_kept(self):
+        planned = datetime(2026, 10, 7, tzinfo=timezone.utc)
+        self.assertEqual(event_times(self.LATER, planned, [self.POSTED]), (self.POSTED, planned))
+
+    def test_the_newest_source_post_is_the_limit(self):
+        newer = datetime(2026, 10, 6, 12, tzinfo=timezone.utc)
+        self.assertEqual(event_times(self.LATER, None, [self.POSTED, newer]), (self.LATER, None))
+
+    def test_past_and_missing_dates_are_unchanged(self):
+        earlier = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        self.assertEqual(event_times(earlier, None, [self.POSTED]), (earlier, None))
+        self.assertEqual(event_times(None, self.LATER, [self.POSTED]), (None, self.LATER))
 
 
 class KindTests(unittest.TestCase):
