@@ -35,3 +35,8 @@
 .mineMeta,.mineStatus{font-family:var(--ah-font-mono);font-size:11px;letter-spacing:.03em;color:var(--ah-color-subtle)}
 .mineStatus[data-status="approved"]{color:var(--ah-color-signal)}
 .mineReason{flex-basis:100%;font-size:14px;color:var(--ah-color-subtle);overflow-wrap:anywhere}
+.footerButton{align-self:flex-start;text-align:left;font:inherit;color:inherit;background:transparent;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.footerButton:hover{color:var(--ink)}
+.footerButton:focus-visible{outline:2px solid var(--ah-color-focus);outline-offset:4px}
+.check{display:flex;align-items:center;gap:var(--ah-space-3);font-size:16px;cursor:pointer}
+.check input{width:20px;height:20px;margin:0;accent-color:var(--ink)}

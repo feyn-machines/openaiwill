@@ -1,4 +1,5 @@
 import { AccountMenu } from "@/components/account/account-menu";
+import { Subscribe } from "@/components/account/subscribe";
 import { LanguageSwitch } from "@/components/language-switch";
 import { appEnabled } from "@/lib/app-config";
 import { LANGUAGES, bilingual } from "@/lib/i18n";
@@ -97,6 +98,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <footer className="footer wrap">
           <span>{c.footerBrand}</span>
           <span>{c.footerNote}</span>
+          <Subscribe language={language} enabled={appEnabled()} />
           <div className="footer-links">
             {SOCIAL_LINKS.map((link) => (
               <a key={link.href} href={link.href} rel="noopener">{link.label}</a>

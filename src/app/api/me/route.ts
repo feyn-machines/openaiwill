@@ -1,6 +1,7 @@
 import { json } from "@/lib/api";
 import { appEnabled } from "@/lib/app-config";
-import { currentUser, isAdminUser } from "@/lib/auth";
+import { getSubscriptions } from "@/lib/app-store";
+import { appPool, currentUser, isAdminUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,11 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error(`[auth] administrator lookup failed: ${error instanceof Error ? error.message : "unknown error"}`);
   }
-  return json({ enabled: true, user: { name: user.name, email: user.email, image: user.image }, admin, subscriptions: NONE });
+  let subscriptions = NONE;
+  try {
+    subscriptions = await getSubscriptions(appPool(), user.id);
+  } catch (error) {
+    console.error(`[subscriptions] lookup failed: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+  return json({ enabled: true, user: { name: user.name, email: user.email, image: user.image }, admin, subscriptions });
 }

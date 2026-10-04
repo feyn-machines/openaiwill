@@ -160,3 +160,66 @@ test("a submit for a user that does not exist is no_user and writes nothing", { 
   const { rows } = await pool.query("SELECT count(*)::int AS n FROM app.submissions WHERE handle = 'ghost'");
   assert.equal(rows[0].n, 0);
 });
+
+const sub = (userId, extra = {}) => ({ userId, language: "en", updates: false, weekly: false, ...extra });
+const rows = async (userId) =>
+  (await pool.query("SELECT topic, language, subscribed_at, unsubscribed_at FROM app.subscriptions WHERE user_id = $1 ORDER BY topic", [userId])).rows;
+
+test("subscribing to both topics stores two active rows", { skip: SKIP }, async () => {
+  const id = await user();
+  assert.deepEqual(await store.getSubscriptions(pool, id), { updates: false, weekly: false });
+  assert.deepEqual(await store.setSubscriptions(pool, sub(id, { updates: true, weekly: true })), { updates: true, weekly: true });
+  const stored = await rows(id);
+  assert.deepEqual(stored.map((r) => r.topic), ["updates", "weekly"]);
+  for (const row of stored) assert.equal(row.unsubscribed_at, null);
+  assert.deepEqual(store.TOPICS, ["updates", "weekly"]);
+});
+
+test("unsubscribing keeps the row and reports false; saving again keeps subscribed_at", { skip: SKIP }, async () => {
+  const id = await user();
+  await store.setSubscriptions(pool, sub(id, { updates: true, weekly: true }));
+  const before = await rows(id);
+  assert.deepEqual(await store.setSubscriptions(pool, sub(id, { updates: true, weekly: false })), { updates: true, weekly: false });
+  const after = await rows(id);
+  assert.equal(after.length, 2);
+  assert.equal(after[1].topic, "weekly");
+  assert.ok(after[1].unsubscribed_at instanceof Date);
+  assert.equal(after[0].unsubscribed_at, null);
+  assert.deepEqual(after[0].subscribed_at, before[0].subscribed_at);
+  // Unsubscribing again does not move the first unsubscribe time.
+  await store.setSubscriptions(pool, sub(id, { updates: true, weekly: false }));
+  assert.deepEqual((await rows(id))[1].unsubscribed_at, after[1].unsubscribed_at);
+});
+
+test("unsubscribing a topic never subscribed creates no row", { skip: SKIP }, async () => {
+  const id = await user();
+  assert.deepEqual(await store.setSubscriptions(pool, sub(id)), { updates: false, weekly: false });
+  assert.deepEqual(await rows(id), []);
+  await store.setSubscriptions(pool, sub(id, { weekly: true }));
+  assert.deepEqual((await rows(id)).map((r) => r.topic), ["weekly"]);
+});
+
+test("re-subscribing clears unsubscribed_at and renews subscribed_at; language follows the last save", { skip: SKIP }, async () => {
+  const id = await user();
+  await store.setSubscriptions(pool, sub(id, { updates: true }));
+  const first = (await rows(id))[0];
+  await store.setSubscriptions(pool, sub(id));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.deepEqual(await store.setSubscriptions(pool, sub(id, { updates: true, language: "zh-CN" })), { updates: true, weekly: false });
+  const again = (await rows(id))[0];
+  assert.equal(again.unsubscribed_at, null);
+  assert.ok(again.subscribed_at > first.subscribed_at);
+  assert.equal(again.language, "zh-CN");
+  // Changing language while active keeps the date.
+  await store.setSubscriptions(pool, sub(id, { updates: true, language: "en" }));
+  const last = (await rows(id))[0];
+  assert.equal(last.language, "en");
+  assert.deepEqual(last.subscribed_at, again.subscribed_at);
+});
+
+test("one user's subscriptions do not affect another's", { skip: SKIP }, async () => {
+  const a = await user();
+  const b = await user();
+  await store.setSubscriptions(pool, sub(a, { updates: true }));
+  assert.deepEqual(await store.getSubscriptions(pool, b), { updates: false, weekly: false });
+});

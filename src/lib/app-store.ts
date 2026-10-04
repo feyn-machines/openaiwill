@@ -106,3 +106,56 @@ export async function createSubmission(
     client.release();
   }
 }
+
+export const TOPICS = ["updates", "weekly"] as const;
+export type Topic = (typeof TOPICS)[number];
+export type Subscriptions = { updates: boolean; weekly: boolean };
+
+/** Which topics the user is subscribed to now. */
+export async function getSubscriptions(db: Pool, userId: string): Promise<Subscriptions> {
+  const { rows } = await db.query<{ topic: Topic }>(
+    "SELECT topic FROM app.subscriptions WHERE user_id = $1 AND unsubscribed_at IS NULL",
+    [userId],
+  );
+  const active = new Set(rows.map((row) => row.topic));
+  return { updates: active.has("updates"), weekly: active.has("weekly") };
+}
+
+/**
+ * Sets both topics at once. On: upsert, active again, language as given; `subscribed_at` is kept while
+ * the topic stays active and renewed when it was unsubscribed. Off: marks the row unsubscribed only if
+ * it is active; a topic never subscribed gets no row.
+ */
+export async function setSubscriptions(
+  db: Pool,
+  input: { userId: string; language: "en" | "zh-CN"; updates: boolean; weekly: boolean },
+): Promise<Subscriptions> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    for (const topic of TOPICS) {
+      if (input[topic]) {
+        await client.query(
+          `INSERT INTO app.subscriptions (user_id, topic, language) VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, topic) DO UPDATE SET
+             language = EXCLUDED.language,
+             subscribed_at = CASE WHEN app.subscriptions.unsubscribed_at IS NULL THEN app.subscriptions.subscribed_at ELSE now() END,
+             unsubscribed_at = NULL`,
+          [input.userId, topic, input.language],
+        );
+      } else {
+        await client.query(
+          "UPDATE app.subscriptions SET unsubscribed_at = now() WHERE user_id = $1 AND topic = $2 AND unsubscribed_at IS NULL",
+          [input.userId, topic],
+        );
+      }
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+  return getSubscriptions(db, input.userId);
+}
