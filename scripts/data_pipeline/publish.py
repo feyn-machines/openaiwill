@@ -19,7 +19,7 @@ from pathlib import Path
 from . import attention, checkpoint, ontology_schema
 from .activity_state import ACTIVITY_LEVEL_SQL, IS_TASK, readings_sql
 from .pipeline import digest
-from .ontology_schema import EVENT_KIND_VOCABULARY
+from .ontology_schema import EVENT_KIND_VOCABULARIES
 
 ROOT = Path(__file__).resolve().parents[2]
 PUBLISHED = ROOT / "datasets/published"
@@ -118,6 +118,17 @@ def sources(conn) -> list[dict]:
                                WHERE c.source_id = s.source_id
                                ORDER BY c.captured_at DESC LIMIT 1) c ON TRUE
                WHERE NOT s.is_reply AND NOT s.is_repost AND c.public_excerpt IS NOT NULL
+                 -- A company's own account is shown as it posts. Anyone else's
+                 -- post is shown only when the extractor read it and it states an
+                 -- update or says something about one (rule:post-outcome): most of
+                 -- what people post is not about AI at all.
+                 AND (EXISTS (SELECT 1 FROM public.source_accounts a
+                               WHERE a.platform_account_id = s.account_external_id
+                                 AND a.panel_role = 'official')
+                      OR EXISTS (SELECT 1 FROM public.extracted_event_sources es
+                                  WHERE es.source_id = s.source_id)
+                      OR EXISTS (SELECT 1 FROM public.extracted_event_attachments ea
+                                  WHERE ea.source_id = s.source_id))
             ) ranked WHERE n <= %s ORDER BY account_external_id, n""", (LATEST_POSTS_PER_SOURCE,))):
         latest.setdefault(r.pop("account_external_id"), []).append(
             {"source_id": r["source_id"], "url": r["canonical_url"], "published_at": r["published_at"],
@@ -240,6 +251,10 @@ def build(conn, ontology_version: str | None = None) -> dict:
                e.occurred_at, e.confidence, e.primary_org_id,
                coalesce(o.canonical_name_en, e.primary_org) AS org_name,
                o.canonical_name_zh_cn AS org_name_zh_cn,
+               e.subject, e.basis, e.task, e.result, e.quote, e.schema_version,
+               (SELECT json_agg(json_build_object('value', f.value, 'unit', f.unit, 'what', f.what,
+                                                  'quote', f.quote) ORDER BY f.fact_id)
+                  FROM public.extracted_event_facts f WHERE f.event_id = e.event_id) AS facts,
                (SELECT count(*) FROM public.extracted_event_sources s
                  WHERE s.event_id = e.event_id) AS source_count,
                (SELECT json_agg(cs.canonical_url ORDER BY cs.canonical_url)
@@ -249,9 +264,9 @@ def build(conn, ontology_version: str | None = None) -> dict:
                    AND cs.canonical_url IS NOT NULL) AS source_urls
         FROM public.extracted_events e
         LEFT JOIN public.org_registry o ON o.org_id = e.primary_org_id
-        WHERE e.kind_vocabulary = %s
+        WHERE e.kind_vocabulary = ANY(%s) AND e.primary_org_id IS NOT NULL
         ORDER BY e.occurred_at DESC NULLS LAST, e.event_id
-        LIMIT 2000""", (EVENT_KIND_VOCABULARY,)))
+        LIMIT 2000""", (EVENT_KIND_VOCABULARIES,)))
 
     # How much notice each update drew (rule:attention-baseline): its loudest
     # source post, read at a comparable age and against its own account's
@@ -259,7 +274,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
     # evidence - it ranks what deserves a reader's attention and which updates
     # are worth checking with third parties. Missing stays null, never zero.
     noticed = attention.compute(_rows(conn, attention.CAPTURES_SQL),
-                                _rows(conn, attention.LINKS_SQL, (EVENT_KIND_VOCABULARY,)))
+                                _rows(conn, attention.LINKS_SQL, (EVENT_KIND_VOCABULARIES,)))
     series = attention.series_sizes(events)
     for event in events:
         event["attention"] = noticed.get(event["event_id"])
@@ -284,14 +299,14 @@ def build(conn, ontology_version: str | None = None) -> dict:
         SELECT count(*) AS n FROM (
             SELECT s.source_id FROM public.extracted_events e
               JOIN public.extracted_event_sources s ON s.event_id = e.event_id
-             WHERE e.kind_vocabulary <> %s
+             WHERE e.kind_vocabulary <> ALL(%s)
             INTERSECT
             SELECT s.source_id FROM public.extracted_events e
               JOIN public.extracted_event_sources s ON s.event_id = e.event_id
-             WHERE e.kind_vocabulary = %s) x""",
-        (EVENT_KIND_VOCABULARY, EVENT_KIND_VOCABULARY))[0]["n"]
+             WHERE e.kind_vocabulary = ANY(%s)) x""",
+        (EVENT_KIND_VOCABULARIES, EVENT_KIND_VOCABULARIES))[0]["n"]
     for row in generations:
-        row["published"] = row["vocabulary"] == EVENT_KIND_VOCABULARY
+        row["published"] = row["vocabulary"] in EVENT_KIND_VOCABULARIES
         row["source_posts_also_in_current"] = None if row["published"] else shared_posts
 
     # Coverage is part of the finding, not a footnote. A page that shows edges

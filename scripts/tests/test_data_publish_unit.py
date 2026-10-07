@@ -693,8 +693,9 @@ class EventGenerationTests(unittest.TestCase):
     def test_only_the_current_vocabulary_is_published(self):
         conn = FakeConn(dataset())
         publish.build(conn, "1.0.0")
-        self.assertIn(publish.EVENT_KIND_VOCABULARY, conn.params_for("events"))
-        self.assertIn("WHERE e.kind_vocabulary = %s", conn.sql["events"])
+        # Every version of the current lineage, and only a company's own updates.
+        self.assertIn(publish.EVENT_KIND_VOCABULARIES, conn.params_for("events"))
+        self.assertIn("WHERE e.kind_vocabulary = ANY(%s) AND e.primary_org_id IS NOT NULL", conn.sql["events"])
 
     def test_a_second_generation_would_be_declared_not_hidden(self):
         """If one ever appears again, the page says so rather than quietly

@@ -143,6 +143,8 @@ export function Overview({ data, language }: { data: HomeData; language: Languag
 
   const today = view ? dateOf(Math.max(0, view.day)) : null;
   const panel = view?.panel ?? null;
+  const dayList = panel ? null : (view?.dayList ?? null);
+  const panelOpen = Boolean(panel || dayList);
   const counters: { key: string; label: string; value: number; tone?: string; kind?: NodeKind; sub?: string }[] = view
     ? [
         { key: "update", label: c.cUpdate, value: view.counts.update, kind: "update" },
@@ -198,7 +200,7 @@ export function Overview({ data, language }: { data: HomeData; language: Languag
           </div>
         ) : null}
 
-        <div className={`${s.top} ${panel ? s.topShifted : ""}`}>
+        <div className={`${s.top} ${panelOpen ? s.topShifted : ""}`}>
           <button type="button" className={s.button} onClick={() => scene.current?.reset()}>
             {c.reset}
           </button>
@@ -336,7 +338,28 @@ export function Overview({ data, language }: { data: HomeData; language: Languag
           </div>
         ) : null}
 
-        <aside className={`${s.panel} ${panel ? s.panelOpen : ""}`} aria-label={c.panelLabel} aria-hidden={!panel}>
+        <aside className={`${s.panel} ${panelOpen ? s.panelOpen : ""}`} aria-label={c.panelLabel} aria-hidden={!panelOpen}>
+          {dayList && today ? (
+            <>
+              <div className={s.nav}>
+                <button type="button" className={s.button} onClick={() => scene.current?.select(null)}>
+                  {c.close}
+                </button>
+              </div>
+              <div className={s.mono}>{c.dayPanel}</div>
+              <h2 className={s.panelTitle}>{`${iso(today)} UTC`}</h2>
+              <div>
+                <div className={`${s.mono} ${s.groupTitle}`}>{`${kinds.update} · ${dayList.length}`}</div>
+                {dayList.map((item) => (
+                  <button type="button" key={item.id} className={s.row} onClick={() => select(item.id)}>
+                    <span>{item.name}</span>
+                    <span className={s.meta}>{item.org}</span>
+                  </button>
+                ))}
+                {dayList.length === 0 ? <div className={s.rowMore}>{c.dayEmpty}</div> : null}
+              </div>
+            </>
+          ) : null}
           {panel ? (
             <>
               <div className={s.nav}>

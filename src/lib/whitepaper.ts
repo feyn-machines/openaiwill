@@ -24,6 +24,7 @@ export type Block =
   | { kind: "heading"; level: 1 | 2 | 3; id?: string; inline: Inline[] }
   | { kind: "paragraph"; inline: Inline[] }
   | { kind: "list"; items: Inline[][] }
+  | { kind: "bullets"; items: Inline[][] }
   | { kind: "rule" };
 
 const ANCHOR = /<a id="([^"]+)"><\/a>/g;
@@ -79,10 +80,19 @@ export function whitepaperBlocks(language: Language): Block[] {
   if (!whitepaperExists) return [];
   const section = sectionFor(readFileSync(WHITEPAPER_PATH, "utf8"), language);
   if (!section) return [];
+  return parseBlocks(section);
+}
 
+/**
+ * The subset of Markdown the site's own documents use, as blocks. `bullets`
+ * turns on unordered lists, which articles use and the whitepaper does not: a
+ * line of the whitepaper that happens to begin with a dash stays a paragraph.
+ */
+export function parseBlocks(section: string, options: { bullets?: boolean } = {}): Block[] {
   const blocks: Block[] = [];
   let paragraph: string[] = [];
   let list: string[] = [];
+  let bullets: string[] = [];
 
   const flushParagraph = () => {
     if (paragraph.length) blocks.push({ kind: "paragraph", inline: parseInlineLines(paragraph) });
@@ -90,7 +100,9 @@ export function whitepaperBlocks(language: Language): Block[] {
   };
   const flushList = () => {
     if (list.length) blocks.push({ kind: "list", items: list.map((item) => parseInline(item)) });
+    if (bullets.length) blocks.push({ kind: "bullets", items: bullets.map((item) => parseInline(item)) });
     list = [];
+    bullets = [];
   };
   const flush = () => {
     flushParagraph();
@@ -129,6 +141,12 @@ export function whitepaperBlocks(language: Language): Block[] {
     if (item) {
       flushParagraph();
       list.push(item[1]);
+      continue;
+    }
+    const bullet = options.bullets ? line.match(/^\s*-\s+(.*)$/) : null;
+    if (bullet) {
+      flushParagraph();
+      bullets.push(bullet[1]);
       continue;
     }
     flushList();

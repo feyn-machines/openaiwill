@@ -33,7 +33,7 @@ from .classify import Classifier, Option
 from .judge import JudgeError, TYPESAFE_URL, _post
 from .pipeline import digest
 from . import ontology_schema
-from .ontology_schema import EVENT_KIND_VOCABULARY
+from .ontology_schema import EVENT_KIND_VOCABULARIES, event_kind_markers
 
 METHOD_VERSION = checkpoint.EVENT_ROUTING
 
@@ -69,13 +69,13 @@ TIER_SCALE = {
 }
 
 
-def events(conn, *, vocabulary: str | None = EVENT_KIND_VOCABULARY,
+def events(conn, *, vocabulary: str | None = None,
            limit: int | None = None, exclude: set[str] | None = None) -> list[dict]:
-    clauses = ["1 = 1"]
-    params: list = []
-    if vocabulary:
-        clauses.append("e.kind_vocabulary = %s")
-        params.append(vocabulary)
+    # Only a company's own updates are routed to work. An update whose actor is
+    # a person or a panel organisation is stored, but stays out of the readings
+    # until such accounts have their own identity checks.
+    clauses = ["e.kind_vocabulary = ANY(%s)", "e.primary_org_id IS NOT NULL"]
+    params: list = [event_kind_markers(vocabulary)]
     if exclude:
         # Resume, from the checkpoint table rather than from the evidence rows.
         # Asking "does this event have evidence?" looked equivalent and was not:
@@ -160,10 +160,10 @@ def run(conn, *, ontology_version: str = "1.0.0", limit: int | None = None,
         raise ValueError("No activities; nothing to route against")
     skipped = conn.execute(
         """SELECT count(*) AS n FROM public.extracted_events e
-            WHERE e.kind_vocabulary = %s
+            WHERE e.kind_vocabulary = ANY(%s) AND e.primary_org_id IS NOT NULL
               AND EXISTS (SELECT 1 FROM public.judgment_checkpoints c
                            WHERE c.method_version = %s AND c.subject_id = e.event_id)""",
-        (EVENT_KIND_VOCABULARY, METHOD_VERSION),
+        (EVENT_KIND_VOCABULARIES, METHOD_VERSION),
     ).fetchone()["n"] if resume else 0
     if not rows:
         # Everything already decided is a result, not an error: the daily run

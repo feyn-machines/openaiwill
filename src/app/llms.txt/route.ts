@@ -2,6 +2,7 @@ import { LEVEL_NAMES } from "@/lib/level-names";
 import { DISCORD_URL, GITHUB_URL, SITE_NAME, SITE_URL, X_URL, absoluteUrl } from "@/lib/seo";
 import { SITE_NAV, siteNavCopy } from "@/lib/site-nav";
 import { manifest as dataManifest } from "@/lib/snapshot";
+import publishedArticles from "@/content/articles.json";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,17 @@ export function GET() {
     `- [openaiwill on Discord](${DISCORD_URL})`,
     `- [Source on GitHub](${GITHUB_URL})`,
     "",
+    ...(publishedArticles.length
+      ? [
+          "## Articles",
+          "",
+          ...publishedArticles.map((item) =>
+            `- [${item.title.en}](${absoluteUrl("en", `/articles/${item.slug}`)}) (${item.date}): ${item.description.en} ` +
+            `[Markdown](${absoluteUrl("en", `/articles/${item.slug}/raw.md`)})`),
+          `- [Feed](${absoluteUrl("en", "/articles/feed.xml")})`,
+          "",
+        ]
+      : []),
     "## Levels",
     "",
     "Each kind of work carries the highest level its evidence supports.",

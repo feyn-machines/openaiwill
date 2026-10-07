@@ -3,6 +3,7 @@ import { LANGUAGES } from "@/lib/i18n";
 import { absoluteUrl } from "@/lib/seo";
 import { FIXED_PATHS, detailPages } from "@/lib/site-pages";
 import { manifest } from "@/lib/snapshot";
+import publishedArticles from "@/content/articles.json";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...detailPages.occupations().map((code) => ({ path: `/occupations/${code}`, lastModified: built })),
     ...detailPages.work().map((id) => ({ path: `/work/${id}`, lastModified: built })),
     ...detailPages.updates().map(({ id, occurredAt }) => ({ path: `/updates/${id}`, lastModified: occurredAt ?? built })),
+    // The article pages are built ahead from documents the server does not carry,
+    // so the list comes from the index written beside the build.
+    ...publishedArticles.map((item) => ({ path: `/articles/${item.slug}`, lastModified: item.date })),
   ];
   return pages.flatMap(({ path, lastModified }) =>
     LANGUAGES.map((language) => ({

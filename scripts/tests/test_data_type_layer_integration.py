@@ -36,7 +36,11 @@ from data_pipeline import type_layer
 from data_pipeline.db import connect, migrate
 # The markers are half of the SQL CHECK; taking them from the schema keeps
 # this file from becoming a second, silently diverging copy of the vocabulary.
-from data_pipeline.ontology_schema import EVENT_KIND_VOCABULARY as NEW_VOCABULARY, LEGACY_VOCABULARY
+from data_pipeline.ontology_schema import EVENT_KIND_VOCABULARIES, EVENT_KIND_VOCABULARY, LEGACY_VOCABULARY
+
+# The constraints below are those of the first controlled vocabulary, whose rows
+# name a company. A row of the current one names the account that acted instead.
+NEW_VOCABULARY = EVENT_KIND_VOCABULARIES[0]
 
 ONTOLOGY_VERSION = "semantic-test-ontology-1"
 EXTRACTION_RUN_ID = "extract-semantic-layer-test"
@@ -352,6 +356,14 @@ class ConstraintTest(unittest.TestCase):
             self.insert_event(primary_org_id=None)
         with self.assertRaises(errors.ForeignKeyViolation):
             self.insert_event(primary_org_id="org:not-registered")
+
+    def test_a_current_vocabulary_event_must_name_the_account_that_acted(self):
+        with self.assertRaises(errors.CheckViolation):
+            self.insert_event(kind_vocabulary=EVENT_KIND_VOCABULARY, primary_org_id=None)
+
+    def test_the_kinds_added_later_are_refused_under_the_earlier_marker(self):
+        with self.assertRaises(errors.CheckViolation):
+            self.insert_event(kind="usage_report")
 
     def test_legacy_rows_keep_their_old_kinds_and_need_no_org_id(self):
         row = self.insert_event(kind_vocabulary=LEGACY_VOCABULARY, kind="launch",

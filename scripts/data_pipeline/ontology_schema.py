@@ -26,7 +26,6 @@ SCHEMA_PATH = ROOT / "datasets" / "ontology" / "schema" / "schema.json"
 # reproducible while new writes are constrained. These two strings are part of the
 # SQL CHECK in migration 006 and must stay identical to the constants in
 # scripts/build-ontology-projections.mjs.
-EVENT_KIND_VOCABULARY = "event_kind-2.0.0"
 LEGACY_VOCABULARY = "legacy-freeform"
 
 # Language order used when rendering a bilingual field into prompt text.
@@ -54,6 +53,19 @@ SCHEMA_VERSION = load_schema()["version"]
 # is added or the definition is restructured; a classification is only
 # comparable across runs if that does not disturb it.
 EVENT_KIND_VERSION = load_schema()["vocabularies"]["event_kind"]["version"]
+# The marker a row written now carries, and the markers a reader accepts. A term
+# added to the vocabulary gives new rows a new marker; the rows already stored
+# keep theirs and their values (rule:definitions-take-effect-forward). Reading by
+# equality with the current marker would therefore drop every earlier update
+# from links, routing and the published snapshot the day the vocabulary moved.
+EVENT_KIND_VOCABULARY = f"event_kind-{EVENT_KIND_VERSION}"
+EVENT_KIND_VOCABULARIES = [f"event_kind-{version}" for version in
+                           load_schema()["vocabularies"]["event_kind"].get("lineage") or [EVENT_KIND_VERSION]]
+
+
+def event_kind_markers(vocabulary=None):
+    """Markers to read: every version of the lineage, or the one that was asked for."""
+    return [vocabulary] if vocabulary else list(EVENT_KIND_VOCABULARIES)
 
 
 def event_identity(model=None):
@@ -76,6 +88,26 @@ def term_ids(name, model=None):
     if isinstance(terms, dict):
         return list(terms)
     raise ValueError(f"Vocabulary {name} has no terms")
+
+
+def _version_tuple(version):
+    return tuple(int(part) for part in str(version).split("."))
+
+
+def current_term_ids(name, model=None):
+    """Term ids a row written today may carry: without those retired by `until`.
+
+    A retired term stays in the schema so the rows that carry it can still be
+    read and labelled (rule:definitions-take-effect-forward).
+    """
+    model = model or load_schema()
+    vocabulary = _vocabulary(name, model)
+    now = _version_tuple(vocabulary.get("version") or model["version"])
+    terms = vocabulary.get("terms")
+    if not isinstance(terms, dict):
+        return term_ids(name, model)
+    return [term_id for term_id, body in terms.items()
+            if not (isinstance(body, dict) and body.get("until") and _version_tuple(body["until"]) < now)]
 
 
 def term(name, term_id, model=None):
@@ -103,7 +135,7 @@ def _localized(value, prefix, indent="  "):
 
 
 def event_kind_rubric(model=None):
-    """The 15 event kinds as prompt text: definition, boundary, both examples.
+    """The event kinds a new row may carry, as prompt text: definition, boundary, both examples.
 
     The old prompt listed ten bare words with no definitions, so the model drew a
     different boundary on every run (availability 15.8% -> 5.1% between two runs of
@@ -113,7 +145,7 @@ def event_kind_rubric(model=None):
     """
     model = model or load_schema()
     vocabulary = _vocabulary("event_kind", model)
-    ids = term_ids("event_kind", model)
+    ids = current_term_ids("event_kind", model)
     lines = [f"Controlled vocabulary `{EVENT_KIND_VOCABULARY}` - {len(ids)} terms, closed set:"]
     for position, term_id in enumerate(ids, 1):
         body = term("event_kind", term_id, model) or {}

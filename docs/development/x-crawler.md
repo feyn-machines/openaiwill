@@ -105,6 +105,8 @@ pnpm data:ingest:x -- data/collection/official-x/<run>.json
 - 传输错误（`ConnectError`、超时等）：不判账号问题，同账号换新连接（新 IP）重试，另计 `max_transient`（默认 8）。
 - 结构变化（接口 404，或响应结构解析器不认识）：`SchemaChanged`，**整批停止**，不重试、不换号（换哪个账号都是同样结果），不判账号失效。运行文件 `schema_change` 记下出错任务与原因，原始页留在 `.pages/`，据此修 `x/parse.py` 或 `x/compat.py`。
 - 单条记录无法解析（如不可用的帖子）：该 job 记 `parse_error:*`，不重试，其余 job 继续。
+- 不算解析失败的三种情况（2026-10-05）：时间线数据旁带着字段级 `errors`（如长文字段的 214）时照常读已返回的帖子；订阅者专属帖（`TweetPreviewDisplay`）跳过；没有帖子的页面即时间线到头（`empty_page`），不论是否带 cursor，因为 X 在最后一条之后仍会给 cursor。
+- twikit 自身读不懂某次响应（`KeyError` 等）按传输错误处理，换新连接重试。
 - 账号换遍仍不成 → 该 job `incomplete` 并记原因，不阻塞其余 job。单账号错误被转移消化后不影响整次 `ok`。
 
 ## 成败判据
@@ -129,3 +131,21 @@ pnpm data:ingest:x -- data/collection/official-x/<run>.json
 ## 相关
 
 - 与外部实现 `x-account-client` 的对比及借鉴建议，见 [X 采集实现对比 spec](../superpowers/specs/2026-09-23-x-account-client-crawler-comparison.md)。
+
+## 按搜索采集（2026-10-07）
+
+时间线采集只读名单里的账号。搜索读的是任何人就某个对象发的帖子，所以能触及名单之外的账号。
+
+```sh
+pnpm crawl search --query "Qwen3.8-Flash-Next" --query "Strata Qwen3.8-Flash-Next" \
+  --start 2026-09-29T00:00:00+00:00 --end 2026-10-07T00:00:00+00:00 \
+  --output data/collection/search/<run>.json
+```
+
+- 每个 `--query` 是一个任务；`--queries-file` 每行一个查询。时间窗口以 X 自己的 `since:`/`until:` 写进查询，并按帖子时间再过滤一次；回复不取，转发不留。
+- `--product Top`（默认）取 X 排序后的结果，`Latest` 取最新的。`--max-pages` 默认 3，搜索到这里就结束，运行文件里记为 `search_ended / page_budget`。
+- 运行文件和时间线的格式相同，照常入库；`coverage_status=provider_search`。**搜索给的是样本，不是全量**，不能据此说“共有多少人在说”。
+- 一部分采集账号搜索时会收到 404，其余账号正常（2026-10-07 实测约一半）。对搜索来说这不是接口变化：该账号休息 120 秒，任务换号继续，不整批停止。
+- 搜到的作者不在名单里。它的帖子在提取时产生了更新，才登记为候选账号（`rule:search-finds-candidates`）：归属未知、角色未分类、身份依据为“搜索发现”。候选账号不按时间线采集、不会被启用、不进入路由和公开的声音名单。
+- 提取搜索到的帖子：`pnpm data:extract:events --targets search --window-start … --window-end … --output data/extraction/<run>.json`。
+

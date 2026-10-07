@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { schema, termIds, validateSchema, governedColumns } from "./lib/ontology-schema.mjs";
+import { schema, termIds, currentTermIds, validateSchema, governedColumns } from "./lib/ontology-schema.mjs";
 import { migrationSql, migrationSql007, migrationSql009, migrationSql011, siteLabels, marketGroups } from "./build-ontology-projections.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -78,7 +78,9 @@ for (const [qualified, vocabulary] of Object.entries(governedColumns)) {
     fail(`${qualified} is governed by vocabulary ${vocabulary} but no CHECK list was found in db/migrations`);
     continue;
   }
-  const expected = termIds(vocabulary);
+  // What a row written today may carry. A retired term stays in the schema so
+  // old rows can be read, and stays allowed only behind the marker of its day.
+  const expected = currentTermIds(vocabulary);
   // One of the lists must be exactly the vocabulary. Other lists in the same
   // statement are the legacy branch, which only stays reachable behind a
   // *_vocabulary marker - if that marker is absent, old values are live values.

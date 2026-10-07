@@ -119,7 +119,7 @@ LINKS_SQL = """
     SELECT s.event_id, s.source_id
       FROM public.extracted_event_sources s
       JOIN public.extracted_events e ON e.event_id = s.event_id
-     WHERE e.kind_vocabulary = %s
+     WHERE e.kind_vocabulary = ANY(%s)
 """
 
 

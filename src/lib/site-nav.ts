@@ -6,6 +6,7 @@ export const SITE_NAV = [
   { href: "/occupations", key: "occupations" },
   { href: "/updates", key: "updates" },
   { href: "/voices", key: "voices" },
+  { href: "/articles", key: "articles" },
   { href: "/whitepaper", key: "whitepaper" },
 ] as const;
 
@@ -16,6 +17,7 @@ export const siteNavCopy = bilingual({
     occupations: "Occupations",
     updates: "AI Updates",
     voices: "Voices",
+    articles: "Articles",
     whitepaper: "Whitepaper",
   },
   "zh-CN": {
@@ -24,6 +26,7 @@ export const siteNavCopy = bilingual({
     occupations: "职业",
     updates: "AI 更新",
     voices: "声音",
+    articles: "文章",
     whitepaper: "白皮书",
   },
 });

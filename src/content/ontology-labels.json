@@ -1,6 +1,6 @@
 {
   "generated_from": "datasets/ontology/schema/schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "classes": {
     "Concept": {
       "en": "Concept",
@@ -57,6 +57,10 @@
     "Provider": {
       "en": "Provider",
       "zh-CN": "供应商"
+    },
+    "EventFact": {
+      "en": "Event fact",
+      "zh-CN": "事件事实"
     }
   },
   "relations": {
@@ -151,6 +155,14 @@
     "reposts": {
       "en": "reposts",
       "zh-CN": "转发"
+    },
+    "acted_by": {
+      "en": "acted by",
+      "zh-CN": "行动者"
+    },
+    "attached_to": {
+      "en": "attached to",
+      "zh-CN": "挂靠于"
     }
   },
   "vocabularies": {
@@ -294,6 +306,33 @@
             "zh-CN": "组织就治理、安全、披露或使用规则表明立场或发布规范。"
           },
           "can_demonstrate_capability": false
+        },
+        "usage_report": {
+          "en": "Usage report",
+          "zh-CN": "使用实录",
+          "definition": {
+            "en": "A named person or organization describes using an AI product to carry out a concrete piece of work, and says what came out.",
+            "zh-CN": "具名的人或机构讲述用 AI 产品完成了一件具体的事，并说明结果。"
+          },
+          "can_demonstrate_capability": true
+        },
+        "independent_evaluation": {
+          "en": "Independent evaluation",
+          "zh-CN": "独立测评",
+          "definition": {
+            "en": "Someone other than the maker tests or measures an AI product and reports what they found.",
+            "zh-CN": "出品方以外的人测试或测量 AI 产品，并报告结果。"
+          },
+          "can_demonstrate_capability": true
+        },
+        "failure_report": {
+          "en": "Failure report",
+          "zh-CN": "失败报告",
+          "definition": {
+            "en": "Someone reports an AI product failing at, or being unable to do, a concrete piece of work.",
+            "zh-CN": "有人报告 AI 产品在一件具体的事上失败或做不到。"
+          },
+          "can_demonstrate_capability": true
         }
       }
     },
@@ -867,6 +906,14 @@
             "zh-CN": "机构自己运营的公司、产品、平台或研究部门账号；谈本机构属于厂商自证。",
             "en": "An account an organisation runs for itself, a product, platform or research unit; about that organisation this is a vendor claim."
           }
+        },
+        "unclassified": {
+          "en": "Unclassified",
+          "zh-CN": "未分类",
+          "definition": {
+            "en": "Found by search as the author of a post that made an update; nobody has yet said what the account posts about.",
+            "zh-CN": "由搜索发现、其帖子产生了更新的账号；还没有人说明它发什么。"
+          }
         }
       }
     },
@@ -1059,6 +1106,14 @@
             "zh-CN": "只出现在别人整理的名单中。",
             "en": "Only appears in someone else's list."
           }
+        },
+        "found_by_search": {
+          "en": "Found by search",
+          "zh-CN": "搜索发现",
+          "definition": {
+            "en": "Seen only as the author of posts a search returned. Nothing says who is behind the account, so it cannot be enabled on this alone.",
+            "zh-CN": "只作为搜索结果里帖子的作者出现过。没有任何依据说明账号背后是谁，仅凭这一点不能启用。"
+          }
         }
       }
     },
@@ -1177,6 +1232,14 @@
           "definition": {
             "zh-CN": "没有上游关系，但在事件发生后 7 天内提到了产品名。",
             "en": "No upstream link, but names the product within 7 days of the event."
+          }
+        },
+        "attached": {
+          "en": "Attached",
+          "zh-CN": "挂靠",
+          "definition": {
+            "en": "The extractor read the post and found it says something of substance about the event.",
+            "zh-CN": "提取时读过帖子内容，确认它就这条事件说了实质内容。"
           }
         }
       }
@@ -1546,6 +1609,14 @@
             "en": "The account belongs to an organization.",
             "zh-CN": "账号属于一个机构。"
           }
+        },
+        "unknown": {
+          "en": "Unknown",
+          "zh-CN": "未知",
+          "definition": {
+            "en": "Not yet known whether the account belongs to a person or an organization.",
+            "zh-CN": "还不知道账号属于个人还是机构。"
+          }
         }
       }
     },
@@ -1753,6 +1824,94 @@
           "definition": {
             "en": "An O*NET occupation with its source identity and occupational description.",
             "zh-CN": "一个 O*NET 职业，带来源身份和职业描述。"
+          }
+        }
+      }
+    },
+    "event_basis": {
+      "label": {
+        "en": "Basis of an update",
+        "zh-CN": "更新的依据"
+      },
+      "terms": {
+        "vendor_claim": {
+          "en": "Vendor claim",
+          "zh-CN": "出品方自述",
+          "definition": {
+            "en": "The maker of the subject says so; nobody else measured it.",
+            "zh-CN": "出品方自己说的，没有他人测量。"
+          }
+        },
+        "demonstration": {
+          "en": "Demonstration",
+          "zh-CN": "演示",
+          "definition": {
+            "en": "A shown example or demo, not a measurement.",
+            "zh-CN": "给出了示例或演示，不是测量。"
+          }
+        },
+        "own_use": {
+          "en": "Own use",
+          "zh-CN": "亲自使用",
+          "definition": {
+            "en": "The author of the post used it themselves.",
+            "zh-CN": "发帖人自己用过。"
+          }
+        },
+        "measurement": {
+          "en": "Measurement",
+          "zh-CN": "测量",
+          "definition": {
+            "en": "A test or benchmark run by someone other than the maker.",
+            "zh-CN": "出品方以外的人做的测试或基准。"
+          }
+        },
+        "production_use": {
+          "en": "Production use",
+          "zh-CN": "生产使用",
+          "definition": {
+            "en": "A named organization runs it in its real operations.",
+            "zh-CN": "具名机构在真实业务中运行。"
+          }
+        }
+      }
+    },
+    "event_result": {
+      "label": {
+        "en": "Result of the task",
+        "zh-CN": "这件事的结果"
+      },
+      "terms": {
+        "succeeded": {
+          "en": "Succeeded",
+          "zh-CN": "成功",
+          "definition": {
+            "en": "The work was done.",
+            "zh-CN": "事情做成了。"
+          }
+        },
+        "partly": {
+          "en": "Partly",
+          "zh-CN": "部分成功",
+          "definition": {
+            "en": "Part of the work was done, or it was done with significant help or flaws.",
+            "zh-CN": "做成了一部分，或在明显的帮助或缺陷下做成。"
+          }
+        },
+        "failed": {
+          "en": "Failed",
+          "zh-CN": "失败",
+          "definition": {
+            "en": "The work was not done.",
+            "zh-CN": "事情没有做成。"
+          }
+        },
+        "not_stated": {
+          "en": "Not stated",
+          "zh-CN": "未说明",
+          "definition": {
+            "en": "The post does not say how it came out.",
+            "zh-CN": "帖子没有说明结果。"
           }
         }
       }

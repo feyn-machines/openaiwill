@@ -5,7 +5,7 @@
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { schema, termIds, term, sqlValueList, validateSchema } from "./lib/ontology-schema.mjs";
+import { schema, termIds, term, sqlValueList, sqlValueListAt, validateSchema } from "./lib/ontology-schema.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -13,7 +13,10 @@ export const LEGACY_EVENT_KINDS = [
   "launch", "release", "update", "pricing", "availability",
   "benchmark", "partnership", "deprecation", "research", "other",
 ];
+// The marker and term list of the migrations below, which have already run. A
+// later version of the vocabulary gets its own marker in its own migration.
 export const EVENT_KIND_VOCABULARY = "event_kind-2.0.0";
+const eventKinds200 = () => sqlValueListAt("event_kind", "2.0.0");
 export const LEGACY_VOCABULARY = "legacy-freeform";
 
 const legacyList = LEGACY_EVENT_KINDS.map((k) => `'${k}'`).join(", ");
@@ -228,7 +231,7 @@ ALTER TABLE public.extracted_events DROP CONSTRAINT extracted_events_kind_check;
 ALTER TABLE public.extracted_events ADD CONSTRAINT extracted_events_kind_check CHECK (
     (kind_vocabulary = '${LEGACY_VOCABULARY}' AND kind IN (${legacyList}))
     OR (kind_vocabulary = '${EVENT_KIND_VOCABULARY}' AND (
-        kind IN (${sqlValueList("event_kind")})
+        kind IN (${eventKinds200()})
         OR (kind IS NULL AND unresolved_reason IS NOT NULL AND unresolved_reason <> '')
     ))
 );
@@ -256,7 +259,7 @@ ALTER TABLE public.person_affiliations ADD CONSTRAINT person_affiliations_role_c
 
 ALTER TABLE public.events ADD COLUMN kind_vocabulary text NOT NULL DEFAULT '${LEGACY_VOCABULARY}';
 ALTER TABLE public.events ADD CONSTRAINT events_kind_check CHECK (
-    kind_vocabulary = '${LEGACY_VOCABULARY}' OR kind IN (${sqlValueList("event_kind")})
+    kind_vocabulary = '${LEGACY_VOCABULARY}' OR kind IN (${eventKinds200()})
 );
 `;
 }
@@ -391,7 +394,7 @@ ALTER TABLE public.extracted_events ADD CONSTRAINT extracted_events_kind_check C
     (kind_vocabulary = '${LEGACY_VOCABULARY}'
         AND kind IS NOT NULL AND kind IN (${legacyList}))
     OR (kind_vocabulary = '${EVENT_KIND_VOCABULARY}' AND (
-        (kind IS NOT NULL AND kind IN (${sqlValueList("event_kind")}))
+        (kind IS NOT NULL AND kind IN (${eventKinds200()}))
         OR (kind IS NULL AND unresolved_reason IS NOT NULL AND unresolved_reason <> '')
     ))
 );
@@ -412,7 +415,7 @@ ALTER TABLE public.person_affiliations ADD CONSTRAINT person_affiliations_role_c
 ALTER TABLE public.events DROP CONSTRAINT events_kind_check;
 ALTER TABLE public.events ADD CONSTRAINT events_kind_check CHECK (
     kind_vocabulary = '${LEGACY_VOCABULARY}'
-    OR (kind IS NOT NULL AND kind IN (${sqlValueList("event_kind")}))
+    OR (kind IS NOT NULL AND kind IN (${eventKinds200()}))
 );
 `;
 }

@@ -38,7 +38,6 @@ const copy = bilingual({
     listLabel: "{title} list",
     followers: "{n} followers",
     open: "View post",
-    noPost: "No recent posts",
     empty: "Nothing here yet.",
     metaTitle: "Voices",
     metaDescription: "What the people and companies building AI are saying.",
@@ -53,7 +52,6 @@ const copy = bilingual({
     listLabel: "{title}列表",
     followers: "{n} 关注者",
     open: "查看原帖",
-    noPost: "暂无发文",
     empty: "暂无内容。",
     metaTitle: "声音",
     metaDescription: "做 AI 的人和公司，最近在说什么。",
@@ -101,7 +99,6 @@ function Identity({ source, language, size }: { source: Source; language: Langua
 }
 
 function Rows({ list, language, label }: { list: Source[]; language: Language; label: string }) {
-  const c = copy[language];
   return (
     <div className="oaw-scroll" role="region" aria-label={label} tabIndex={0}>
       <ul className={s.list}>
@@ -110,14 +107,10 @@ function Rows({ list, language, label }: { list: Source[]; language: Language; l
           return (
             <li key={source.account_key} className={s.row}>
               <Identity source={source} language={language} size={36} />
-              {post ? (
-                <p className={s.line} lang={post.language ?? undefined}>
-                  <a href={post.url} target="_blank" rel="noreferrer">{post.excerpt}</a>
-                </p>
-              ) : (
-                <p className={`${s.line} ${s.none}`}>{c.noPost}</p>
-              )}
-              <span className={s.when}>{isoDate(post?.published_at) ?? "—"}</span>
+              <p className={s.line} lang={post.language ?? undefined}>
+                <a href={post.url} target="_blank" rel="noreferrer">{post.excerpt}</a>
+              </p>
+              <span className={s.when}>{isoDate(post.published_at) ?? "—"}</span>
             </li>
           );
         })}
@@ -140,7 +133,8 @@ export default async function VoicesPage() {
   }
 
   const enabled = appEnabled();
-  const sources = allSources();
+  // Only accounts with something to show: a row saying "no posts" is not a voice.
+  const sources = allSources().filter((x) => x.latest.length > 0);
   const people = sources.filter((x) => x.owner_kind === "person");
   const orgs = sources.filter((x) => x.owner_kind === "organization").sort(byLatest);
   const top = people

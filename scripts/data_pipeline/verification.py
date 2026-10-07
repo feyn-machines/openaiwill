@@ -23,7 +23,7 @@ from . import attention, panel, ontology_schema
 from .post_events import mentions, subject_terms  # noqa: F401  (re-exported)
 from .judge import JudgeError, TYPESAFE_URL, _post, build_judge
 from .pipeline import digest
-from .ontology_schema import EVENT_KIND_VOCABULARY
+from .ontology_schema import EVENT_KIND_VOCABULARIES
 
 METHOD_VERSION = "verification-2"  # asks whether the post is about the claimed product first
 NOT_SHOWN = "not_shown"
@@ -89,7 +89,7 @@ TRIGGER_SQL = """
            LEAST(floor(ae.observed_level), {cap})::int AS kept
       FROM public.activity_evidence ae
       JOIN public.extracted_events e ON e.event_id = ae.event_id
-     WHERE e.kind_vocabulary = %s
+     WHERE e.kind_vocabulary = ANY(%s)
        AND ae.evidence_sign = 'positive' AND ae.status IN ('candidate', 'reviewed')
        AND ae.observed_level >= {min_score}
        AND floor(ae.observed_level) > LEAST(floor(ae.observed_level), {cap})
@@ -111,9 +111,9 @@ PANEL_SQL = """
 def triggers(conn, model=None):
     """Events worth verifying, each with its held-down readings."""
     sql = TRIGGER_SQL.format(cap=ontology_schema.level_cap_sql(), min_score=ontology_schema.min_level_score(model))
-    readings = conn.execute(sql, (EVENT_KIND_VOCABULARY,)).fetchall()
+    readings = conn.execute(sql, (EVENT_KIND_VOCABULARIES,)).fetchall()
     noticed = attention.compute(conn.execute(attention.CAPTURES_SQL).fetchall(),
-                                conn.execute(attention.LINKS_SQL, (EVENT_KIND_VOCABULARY,)).fetchall())
+                                conn.execute(attention.LINKS_SQL, (EVENT_KIND_VOCABULARIES,)).fetchall())
     by_event = defaultdict(list)
     for r in readings:
         by_event[r["event_id"]].append(r)

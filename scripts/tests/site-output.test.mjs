@@ -14,7 +14,7 @@ const STANDALONE = join(ROOT, ".next", "standalone");
 const SNAPSHOT_DIR = join(ROOT, "datasets", "published", "latest");
 const HAS_SNAPSHOT = existsSync(join(SNAPSHOT_DIR, "manifest.json"));
 const LEGAL = ["/privacy", "/terms"];
-const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/whitepaper", ...LEGAL];
+const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/articles", "/whitepaper", ...LEGAL];
 
 let site;
 const pages = new Map();
@@ -243,9 +243,10 @@ test("every data page asks to be rendered per request, so none is baked into the
     entry.isDirectory() ? walk(join(dir, entry.name)) : entry.name === "page.tsx" ? [join(dir, entry.name)] : []);
   for (const file of walk(join(ROOT, "src", "app", "[lang]"))) {
     const text = readFileSync(file, "utf8");
-    // Only the whitepaper is built ahead: it reads a document the server does not carry. The legal pages read
-    // nothing, but the layout's sign-in menu depends on the server's settings, so they render per request too.
-    if (/[\\/]whitepaper[\\/]/.test(file)) assert.match(text, /export const dynamic = "force-static"/, file);
+    // Only the whitepaper and the articles are built ahead: they read documents the server does not carry.
+    // The legal pages read nothing, but the layout's sign-in menu depends on the server's settings, so they
+    // render per request too.
+    if (/[\\/](whitepaper|articles)[\\/]/.test(file)) assert.match(text, /export const dynamic = "force-static"/, file);
     else assert.match(text, /export const dynamic = "force-dynamic"/, file);
   }
 });

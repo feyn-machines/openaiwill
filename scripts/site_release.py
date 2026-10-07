@@ -541,16 +541,20 @@ NO_SIGN_IN_AT_BUILD = "the build machine lacks the five sign-in settings; run `p
 
 
 def static_sign_in_failures(next_dir: Path) -> list[str]:
-    """The whitepaper is the one page built ahead; its layout carries the sign-in menu only when the build
-    machine has the five sign-in settings. A release built without them would hide sign-in on that page."""
+    """The whitepaper and the articles are the pages built ahead: they read documents the server does not
+    carry. Their layout carries the sign-in menu only when the build machine has the five sign-in settings.
+    A release built without them would hide sign-in on those pages. The whitepaper must be there; the
+    articles are checked when the build has any."""
     for language in STATIC_WHITEPAPER:
-        page = next_dir / "server" / "app" / language / "whitepaper.html"
-        try:
-            if "data-account-menu" in page.read_text(encoding="utf-8"):
-                continue
-        except OSError:
-            pass
-        return [NO_SIGN_IN_AT_BUILD]
+        root = next_dir / "server" / "app" / language
+        pages = [root / "whitepaper.html", *sorted(root.glob("articles.html")), *sorted(root.glob("articles/*.html"))]
+        for page in pages:
+            try:
+                if "data-account-menu" in page.read_text(encoding="utf-8"):
+                    continue
+            except OSError:
+                pass
+            return [NO_SIGN_IN_AT_BUILD]
     return []
 
 

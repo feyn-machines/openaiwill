@@ -28,7 +28,8 @@ def run_event_extraction(conn, args):
     """Query candidates from the collection store, call DeepSeek, land the event layer."""
     from data_pipeline import deepseek
     from data_pipeline.event_extraction import (load_candidates, assemble_extraction,
-                                                ingest_extraction, load_known_occurrences)
+                                                ingest_extraction, load_known_occurrences,
+                                                load_known_events, load_prior)
     deepseek.load_env(ROOT)
     out = args.output
     if out.exists():
@@ -36,7 +37,8 @@ def run_event_extraction(conn, args):
     window = {'start': args.window_start, 'end': args.window_end} if (args.window_start or args.window_end) else None
     migrate(conn)
     candidates = load_candidates(conn, window=window,
-                                 collection_run_ids=args.collection_run or None, limit=args.limit)
+                                 collection_run_ids=args.collection_run or None, limit=args.limit,
+                                 targets=args.targets)
     if not candidates:
         raise ValueError('No extraction candidates matched (check --window-start/--end and --collection-run)')
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -48,19 +50,23 @@ def run_event_extraction(conn, args):
     cfg = deepseek.config_from_env()
     started = datetime.now(timezone.utc).isoformat()
     print(f'Extracting {len(candidates)} candidates via {cfg["model"]} (batch {args.batch_size})...', file=sys.stderr)
+    known = load_known_events(conn, candidates)
     batches, failures = deepseek.extract_events(
-        candidates, cfg, batch_size=args.batch_size,
+        candidates, cfg, batch_size=args.batch_size, known=known, workers=args.workers,
         progress=lambda done, total, n: print(f'  batch {done}/{total}: {n} events', file=sys.stderr))
     if failures and len(failures) == len(batches):
         raise ValueError(f'Every extraction batch failed; first error: {failures[0]["error"]}')
     if failures:
         print(f'  WARNING: {len(failures)} of {len(batches)} batches failed and were skipped', file=sys.stderr)
     meta = {'model': cfg['model'], 'prompt_sha256': deepseek.prompt_sha256(),
-            'params': {'batch_size': args.batch_size, 'limit': args.limit, 'failed_batches': failures},
+            'params': {'batch_size': args.batch_size, 'limit': args.limit, 'failed_batches': failures,
+                       'targets': args.targets, 'known_events': len(known)},
             'window': window, 'started_at': started,
             'finished_at': datetime.now(timezone.utc).isoformat(), 'status': 'completed'}
     doc = assemble_extraction(candidates, batches, meta,
-                              known_occurrences=load_known_occurrences(conn))
+                              known_occurrences=load_known_occurrences(conn),
+                              known_events={item['ref']: item for item in known},
+                              prior=load_prior(conn, candidates))
     save(out, doc)
     result = ingest_extraction(conn, out)
     print(json.dumps({'output': str(out), **result}, ensure_ascii=False, indent=2, default=json_default))
@@ -113,14 +119,17 @@ def main():
     extract.add_argument('--window-end')
     extract.add_argument('--collection-run', action='append')
     extract.add_argument('--limit', type=int)
-    extract.add_argument('--batch-size', type=int, default=25)
+    extract.add_argument('--batch-size', type=int, default=20)
+    extract.add_argument('--targets', choices=['official', 'panel', 'search', 'all'], default='all',
+                         help='Whose posts to read: official company accounts, the panel, authors found by search, or all')
+    extract.add_argument('--workers', type=int, default=4, help='Batches sent at once')
     extract.add_argument('--plan-only', action='store_true')
     ingest_events = sub.add_parser('ingest-events')
     ingest_events.add_argument('archive', type=Path)
     seed = sub.add_parser('seed-ontology-data')
     seed.add_argument('--ontology-version')
     gs = sub.add_parser('gate-state')
-    gs.add_argument('--vocabulary', default='event_kind-2.0.0')
+    gs.add_argument('--vocabulary', default=None, help='One marker only; default is every version of event_kind')
     pub = sub.add_parser('publish-snapshot')
     pub.add_argument('--ontology-version')
     for name, (_, help_text) in MAPPING_PASSES.items():

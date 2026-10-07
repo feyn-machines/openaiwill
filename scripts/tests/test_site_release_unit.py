@@ -654,6 +654,16 @@ class StaticSignInTest(unittest.TestCase):
             self.pages(tmp, "<div data-account-menu></div>", "<div data-account-menu></div>")
             self.assertEqual(release.static_sign_in_failures(Path(tmp)), [])
 
+    def test_an_article_page_built_without_the_menu_fails_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.pages(tmp, "<div data-account-menu></div>", "<div data-account-menu></div>")
+            article = Path(tmp) / "server" / "app" / "en" / "articles" / "some-article.html"
+            article.parent.mkdir(parents=True)
+            article.write_text("<div data-account-menu></div>")
+            self.assertEqual(release.static_sign_in_failures(Path(tmp)), [])
+            article.write_text("<p>x</p>")
+            self.assertEqual(release.static_sign_in_failures(Path(tmp)), [release.NO_SIGN_IN_AT_BUILD])
+
     def test_a_page_without_the_menu_or_missing_fails_with_one_line(self):
         for en, zh in (("<p>x</p>", "<div data-account-menu></div>"), ("<div data-account-menu></div>", "<p>x</p>"), (None, None)):
             with tempfile.TemporaryDirectory() as tmp:

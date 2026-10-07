@@ -11,7 +11,7 @@ import {
 import { workSlug } from "./routes";
 
 /** Pages that exist whatever the snapshot holds. */
-export const FIXED_PATHS = ["/", "/markets", "/occupations", "/updates", "/voices", "/whitepaper", "/privacy", "/terms"] as const;
+export const FIXED_PATHS = ["/", "/markets", "/occupations", "/updates", "/voices", "/articles", "/whitepaper", "/privacy", "/terms"] as const;
 
 /**
  * The detail pages of the loaded data release. Each detail route looks its

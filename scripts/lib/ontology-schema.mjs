@@ -24,6 +24,32 @@ export function termIds(name) {
   throw new Error(`Vocabulary ${name} has no terms`);
 }
 
+const versionParts = (version) => String(version).split(".").map(Number);
+const notAfter = (a, b) => {
+  const [x, y] = [versionParts(a), versionParts(b)];
+  for (let i = 0; i < 3; i += 1) if (x[i] !== y[i]) return x[i] < y[i];
+  return true;
+};
+
+/** Term ids as the vocabulary stood at one of its own versions.
+ *
+ * A term that says `since` did not exist before that version
+ * (rule:definitions-take-effect-forward). An applied migration is frozen, so
+ * the text generated for it has to keep naming the terms of its day; without
+ * this, adding a term would rewrite the CHECK list of a migration that already ran.
+ */
+export function termIdsAt(name, version) {
+  return termIds(name).filter((id) => {
+    const { since, until } = term(name, id) ?? {};
+    return (!since || notAfter(since, version)) && (!until || notAfter(version, until));
+  });
+}
+
+/** Term ids a row written today may carry: without the retired ones. */
+export function currentTermIds(name) {
+  return termIdsAt(name, schema.vocabularies[name].version ?? schema.version);
+}
+
 /** Term body, or an empty object for list-shaped vocabularies. */
 export function term(name, id) {
   const terms = schema.vocabularies[name].terms;
@@ -66,6 +92,8 @@ export const governedColumns = {
   "source_accounts.language": "account_language",
   "extracted_events.occurrence_status": "occurrence_status",
   "extracted_events.identity_confidence": "identity_confidence",
+  "extracted_events.basis": "event_basis",
+  "extracted_events.result": "event_result",
   "extracted_event_sources.source_role": "source_role",
   "activity_evidence.evidence_sign": "evidence_sign",
 };
@@ -217,6 +245,11 @@ export function validateSchema(model = schema) {
   }
 
   return problems;
+}
+
+/** The same list as the vocabulary stood at one of its versions. */
+export function sqlValueListAt(name, version) {
+  return termIdsAt(name, version).map((id) => `'${id}'`).join(", ");
 }
 
 /** `'a', 'b', 'c'` for embedding in a generated CHECK constraint. */
