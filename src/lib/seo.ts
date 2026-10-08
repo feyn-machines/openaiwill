@@ -52,22 +52,39 @@ export function absoluteUrl(language: Language, path: string): string {
  * Everything a page tells a search engine about itself: its own address, the
  * same page in the other language, and the share card. `path` is written
  * without a language prefix.
+ *
+ * `languages` names the languages the page's own content exists in. A page
+ * whose content is the same words in every language (an update keeps its
+ * original title and summary) is one page to a search engine: the other
+ * address points at it instead of standing as a second copy.
+ *
+ * `index: false` asks engines to leave the page out while still following its
+ * links; it is for a page that has nothing of its own to say yet.
  */
-export function pageMetadata(page: { language: Language; path: string; title?: string; description?: string }): Metadata {
+export function pageMetadata(page: {
+  language: Language;
+  path: string;
+  title?: string;
+  description?: string;
+  languages?: readonly Language[];
+  index?: boolean;
+}): Metadata {
   const { language, path } = page;
   const site = siteCopy[language];
   const description = page.description ?? site.description;
   const shareTitle = page.title ?? site.title;
-  const url = absoluteUrl(language, path);
+  const versions = page.languages ?? LANGUAGES;
+  const url = absoluteUrl(versions.includes(language) ? language : versions[0], path);
   const image = `/og/${language}.png`;
   return {
     ...(page.title ? { title: page.title } : {}),
     description,
+    ...(page.index === false ? { robots: { index: false, follow: true } } : {}),
     alternates: {
       canonical: url,
       languages: {
-        ...Object.fromEntries(LANGUAGES.map((l) => [l, absoluteUrl(l, path)])),
-        "x-default": absoluteUrl("en", path),
+        ...Object.fromEntries(versions.map((l) => [l, absoluteUrl(l, path)])),
+        "x-default": absoluteUrl(versions.includes("en") ? "en" : versions[0], path),
       },
     },
     openGraph: {

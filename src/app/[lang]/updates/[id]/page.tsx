@@ -9,6 +9,7 @@ import { getLocale } from "@/lib/locale";
 import { articleLd, breadcrumbLd, pageMetadata } from "@/lib/seo";
 import { JsonLd } from "@/components/json-ld";
 import { siteNavCopy } from "@/lib/site-nav";
+import { UPDATE_LANGUAGES } from "@/lib/site-pages";
 import { href, marketHref, workHref } from "@/lib/routes";
 import { activityById, chainEvents, events as allEvents, evidenceForEvent } from "@/lib/snapshot";
 
@@ -67,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = (await params).id;
   const update = find(id);
   if (!update) notFound();
-  return pageMetadata({ language, path: `/updates/${id}`, title: update.title, description: update.summary });
+  return pageMetadata({ language, path: `/updates/${id}`, title: update.title, description: update.summary, languages: UPDATE_LANGUAGES });
 }
 
 function compact(n: number, zh: boolean): string {

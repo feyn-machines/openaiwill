@@ -22,8 +22,13 @@ export const FIXED_PATHS = ["/", "/markets", "/occupations", "/updates", "/voice
 export const detailPages = {
   markets: () => markets().map((market) => marketSlug(market.id)),
   occupations: () => occupations().map((row) => occupationSlug(row.occupation_id)),
+  /** Occupations an update has reached: the ones a search engine is told about. */
+  reachedOccupations: () => occupations().filter((row) => row.assessed > 0).map((row) => occupationSlug(row.occupation_id)),
   occupationGroups: () => Object.keys(progress()?.groups ?? {}).map(groupSlug),
   /** Only work an update has reached has a page of its own. */
   work: () => activities().filter((a) => a.evidence_rows && a.level).map((a) => workSlug(a.activity_id)),
   updates: () => chainEvents().map((e) => ({ id: e.event_id, occurredAt: e.occurred_at ?? null })),
 };
+
+/** An update keeps its original words in every language, so it is listed once. */
+export const UPDATE_LANGUAGES = ["en"] as const;

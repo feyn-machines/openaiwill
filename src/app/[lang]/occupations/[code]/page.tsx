@@ -118,6 +118,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!id) notFound();
   const name = label(id, language);
   const entry = progress()?.occupations?.[id];
+  const reached = entry ? assessedCount(entry.by_stage) : 0;
   return pageMetadata({
     language,
     path: `/occupations/${code}`,
@@ -125,7 +126,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: c.metaDescription
       .replace("{name}", name)
       .replace("{tasks}", String(entry?.tasks ?? 0))
-      .replace("{reached}", String(entry ? assessedCount(entry.by_stage) : 0)),
+      .replace("{reached}", String(reached)),
+    // An occupation no update has reached has nothing of its own to show yet.
+    index: reached > 0,
   });
 }
 

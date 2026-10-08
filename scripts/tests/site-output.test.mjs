@@ -232,6 +232,11 @@ test("with a snapshot, a detail page of each kind answers", { skip: !HAS_SNAPSHO
     for (const prefix of ["https://openaiwill.com", "https://openaiwill.com/zh-CN"]) {
       const loc = locs.find((l) =>
         l.startsWith(`${prefix}/${section}/`) && (section !== "occupations" || !l.startsWith(`${prefix}/occupations/g/`)));
+      // An update keeps its original words in both languages, so only the English address is listed.
+      if (section === "updates" && prefix.endsWith("/zh-CN")) {
+        assert.equal(loc, undefined, "a Chinese update address is in the sitemap");
+        continue;
+      }
       assert.ok(loc, `${prefix}/${section} is not in the sitemap`);
       assert.equal((await fetch(`${site.base}${new URL(loc).pathname}`)).status, 200, loc);
     }
