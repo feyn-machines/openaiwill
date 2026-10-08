@@ -428,6 +428,8 @@ test("the sitemap lists each address once, with its counterpart, and the address
   for (const loc of locs) assert.ok(loc.startsWith(`${SITE}/`) || loc === SITE, loc);
   assert.match(xml, /hreflang="zh-CN"/);
   assert.match(xml, /hreflang="x-default"/);
+  for (const [, time] of xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g))
+    assert.match(time, /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2}))?$/, `a time not written to the second: ${time}`);
   assert.ok(!locs.some((loc) => /\/admin(\/|$)/.test(loc)), "the admin page is not in the sitemap");
   assert.ok(!/\/admin\b/.test(body("llms.txt")), "the admin page is not in llms.txt");
   // The first, the last and twenty evenly spaced addresses between them.

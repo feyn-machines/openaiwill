@@ -47,7 +47,7 @@ function entries(built: string | undefined): MetadataRoute.Sitemap {
   return pages.flatMap(({ path, lastModified, languages = LANGUAGES }) =>
     languages.map((language) => ({
       url: absoluteUrl(language, path),
-      ...(lastModified ? { lastModified } : {}),
+      ...(lastModified ? { lastModified: toTheSecond(lastModified) } : {}),
       alternates: {
         languages: {
           ...Object.fromEntries(languages.map((l) => [l, absoluteUrl(l, path)])),
@@ -56,4 +56,9 @@ function entries(built: string | undefined): MetadataRoute.Sitemap {
       },
     })),
   );
+}
+
+// The data carries times to the microsecond; a sitemap reader expects a date or a time to the second.
+function toTheSecond(time: string): string {
+  return time.replace(/(T\d{2}:\d{2}:\d{2})\.\d+/, "$1");
 }
