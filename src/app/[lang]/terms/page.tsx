@@ -9,8 +9,8 @@ import { LegalDoc } from "../legal-doc";
 export const dynamic = "force-dynamic";
 
 const meta = bilingual({
-  en: { description: "The terms for using openaiwill: the data is machine-proposed and unreviewed, and what to submit." },
-  "zh-CN": { description: "使用 openaiwill 的条款：数据由机器提出、未经审核，以及可以提交什么。" },
+  en: { description: "The terms for using SurviAGI: the data is machine-proposed and unreviewed, and what to submit." },
+  "zh-CN": { description: "使用 SurviAGI 的条款：数据由机器提出、未经审核，以及可以提交什么。" },
 });
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -38,7 +38,7 @@ const copy = bilingual({
     undated: "Undated",
     all: "All updates",
     home: "Back to the overview",
-    meta: "openaiwill",
+    meta: "SurviAGI",
   },
   "zh-CN": {
     back: "← 全部更新",
@@ -56,7 +56,7 @@ const copy = bilingual({
     undated: "无日期",
     all: "全部更新",
     home: "回到全览",
-    meta: "openaiwill",
+    meta: "SurviAGI",
   },
 });
 

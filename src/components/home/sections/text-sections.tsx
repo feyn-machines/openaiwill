@@ -33,7 +33,7 @@ const copy = bilingual({
     now: "{n} kinds of work",
     none: "None yet",
     endTitle: "Every AI update could change your answer.",
-    endBody: "openaiwill is an initiative to make AI’s progress toward taking over the world more transparent and credible.",
+    endBody: "SurviAGI is an initiative to make AI’s progress toward taking over the world more transparent and credible.",
     endLink: "Read the whitepaper",
   },
   "zh-CN": {
@@ -56,7 +56,7 @@ const copy = bilingual({
     now: "{n} 项工作",
     none: "暂无",
     endTitle: "每一次 AI 更新，都可能会挑战你的答案。",
-    endBody: "openaiwill 是一项让 AI 接管世界的进度更透明、更可信的倡议。",
+    endBody: "SurviAGI 是一项让 AI 接管世界的进度更透明、更可信的倡议。",
     endLink: "阅读白皮书",
   },
 });

@@ -17,15 +17,15 @@ export function GET() {
   const lines = [
     `# ${SITE_NAME}`,
     "",
-    "> An initiative to make progress toward AI independently completing major production and service work more transparent and credible. Each reading links to the official update it rests on.",
+    "> SurviAGI (The AGI Survival Guide; 新人类 AI 生存指南; formerly openaiwill) is an independent initiative, not affiliated with any AI company, to make progress toward AI independently completing major production and service work more transparent and credible. Each reading links to the official update it rests on.",
     "",
     "## Pages",
     "",
     ...SITE_NAV.map((item) => `- [${nav[item.key]}](${absoluteUrl("en", item.href)})`),
     `- [Sitemap](${SITE_URL}/sitemap.xml)`,
     `- [简体中文](${absoluteUrl("zh-CN", "/")})`,
-    `- [openaiwill on X](${X_URL})`,
-    `- [openaiwill on Discord](${DISCORD_URL})`,
+    `- [${SITE_NAME} on X](${X_URL})`,
+    `- [${SITE_NAME} on Discord](${DISCORD_URL})`,
     `- [Source on GitHub](${GITHUB_URL})`,
     "",
     ...(publishedArticles.length

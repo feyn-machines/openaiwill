@@ -78,7 +78,7 @@ export default async function Home() {
         <Reveal tone="base" ghost="Companies" chapter={chapters[4]}><CompaniesSection data={data} language={language} index={index(5)} /></Reveal>
         <Reveal tone="ink" ghost="Attention" chapter={chapters[5]}><AttentionSection data={data} language={language} index={index(6)} /></Reveal>
         <Reveal tone="base" ghost="Record" chapter={chapters[6]}><GraphSection data={data} language={language} index={index(7)} /></Reveal>
-        <Reveal tone="green" ghost="openaiwill"><ClosingSection language={language} /></Reveal>
+        <Reveal tone="green" ghost="SurviAGI"><ClosingSection language={language} /></Reveal>
       </div>
     </div>
   );

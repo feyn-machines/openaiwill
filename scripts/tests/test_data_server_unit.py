@@ -405,7 +405,7 @@ class AppSetupScriptTest(unittest.TestCase):
     def test_site_env_gets_the_app_settings_only_when_absent_and_heals_the_url(self):
         script = build()
         self.assertIn('want="postgres://oaw_app:${apw}@openaiwill-db:5432/openaiwill"', script)
-        self.assertIn("BETTER_AUTH_URL=https://openaiwill.com", script)
+        self.assertIn("BETTER_AUTH_URL=https://surviagi.com", script)
         self.assertIn("grep -q '^BETTER_AUTH_SECRET=' /opt/openaiwill/site.env", script)
         self.assertIn("grep -q '^BETTER_AUTH_URL=' /opt/openaiwill/site.env", script)
 
@@ -510,7 +510,7 @@ esac
         self.assertEqual(site["DATABASE_URL"], f"postgres://oaw_site:{db['OAW_SITE_PASSWORD']}@openaiwill-db:5432/openaiwill")
         self.assertEqual(site["APP_DATABASE_URL"], f"postgres://oaw_app:{db['OAW_APP_PASSWORD']}@openaiwill-db:5432/openaiwill")
         self.assertRegex(site["BETTER_AUTH_SECRET"], r"[0-9a-f]{64}")
-        self.assertEqual(site["BETTER_AUTH_URL"], "https://openaiwill.com")
+        self.assertEqual(site["BETTER_AUTH_URL"], "https://surviagi.com")
         self.assertEqual(oct(self.db_env.stat().st_mode & 0o777), "0o600")
         self.assertEqual(oct(self.site_env.stat().st_mode & 0o777), "0o600")
         self.assertEqual(oct((self.root / "backups").stat().st_mode & 0o777), "0o700")
@@ -554,7 +554,7 @@ esac
 
     def test_existing_site_settings_are_never_rewritten(self):
         self.run_script()
-        text = self.site_env.read_text().replace("BETTER_AUTH_URL=https://openaiwill.com", "BETTER_AUTH_URL=https://other.example")
+        text = self.site_env.read_text().replace("BETTER_AUTH_URL=https://surviagi.com", "BETTER_AUTH_URL=https://other.example")
         self.site_env.write_text(text + "GOOGLE_CLIENT_ID=kept\n")
         self.run_script()
         self.assertEqual(self.site_env.read_text(), text + "GOOGLE_CLIENT_ID=kept\n")

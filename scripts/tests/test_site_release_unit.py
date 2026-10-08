@@ -164,7 +164,7 @@ class FetchAndSmokeTest(unittest.TestCase):
                 release.fetch("http://x.invalid/", headers={"RSC": "1"})
         finally:
             release.urllib.request.build_opener = original
-        self.assertTrue(seen["User-agent"].startswith("openaiwill-release/1.0"))
+        self.assertTrue(seen["User-agent"].startswith("surviagi-release/1.0"))
         self.assertEqual(seen["Rsc"], "1")
 
     def test_an_unreachable_host_is_one_listed_failure(self):
@@ -186,7 +186,7 @@ class PublicCheckMessageTest(unittest.TestCase):
     new = "20261003T102912Z-aaaaaaa"
 
     def test_a_reachability_failure_does_not_tell_the_operator_to_roll_back(self):
-        message = release.public_check_message(self.new, ["https://openaiwill.com is not reachable: no answer (dns)"])
+        message = release.public_check_message(self.new, ["https://surviagi.com is not reachable: no answer (dns)"])
         self.assertIn("production IS switched", message)
         self.assertIn("pnpm site:indexnow", message)
         self.assertIn("Tunnel/DNS", message)
@@ -209,7 +209,7 @@ class SmokeAskedForTest(unittest.TestCase):
                 return 404, {}, ""
             if path == "/api/me":
                 return 200, {}, me_body
-            return 200, {}, "lang=\"en\" lang=\"zh-CN\" Sitemap: # openaiwill <urlset"
+            return 200, {}, "lang=\"en\" lang=\"zh-CN\" Sitemap: # SurviAGI <urlset"
 
         original = release.fetch
         release.fetch = fake_fetch
@@ -622,9 +622,9 @@ class WwwRedirectTest(unittest.TestCase):
         return release.www_redirect_failures(lambda url: (code, {"Location": location} if location else {}, ""))
 
     def test_a_redirect_to_the_apex_passes(self):
-        self.assertEqual(self.check(308, "https://openaiwill.com/"), [])
-        self.assertEqual(self.check(308, "https://openaiwill.com"), [])
-        self.assertEqual(self.check(301, "https://openaiwill.com/"), [])
+        self.assertEqual(self.check(308, "https://surviagi.com/"), [])
+        self.assertEqual(self.check(308, "https://surviagi.com"), [])
+        self.assertEqual(self.check(301, "https://surviagi.com/"), [])
 
     def test_serving_the_site_or_redirecting_elsewhere_fails(self):
         self.assertEqual(len(self.check(200, None)), 1)
@@ -637,8 +637,8 @@ class WwwRedirectTest(unittest.TestCase):
 
     def test_it_asks_the_www_address(self):
         asked = []
-        release.www_redirect_failures(lambda url: asked.append(url) or (308, {"Location": "https://openaiwill.com/"}, ""))
-        self.assertEqual(asked, ["https://www.openaiwill.com/"])
+        release.www_redirect_failures(lambda url: asked.append(url) or (308, {"Location": "https://surviagi.com/"}, ""))
+        self.assertEqual(asked, ["https://www.surviagi.com/"])
 
 
 class StaticSignInTest(unittest.TestCase):

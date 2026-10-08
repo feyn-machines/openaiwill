@@ -33,7 +33,7 @@ const copy = bilingual({
   en: {
     metaTitle: "Whitepaper",
     metaDescription:
-      "openaiwill is an initiative to make progress toward AI independently completing major work more transparent and credible.",
+      "SurviAGI is an initiative to make progress toward AI independently completing major work more transparent and credible.",
     missing: "The whitepaper file is not present in this build.",
     eyebrow: "PUBLIC WHITEPAPER",
     contents: "Contents",
@@ -41,7 +41,7 @@ const copy = bilingual({
   },
   "zh-CN": {
     metaTitle: "白皮书",
-    metaDescription: "openaiwill 是一项倡议，让 AI 独立完成主要工作的进展变得更透明、更可信。",
+    metaDescription: "SurviAGI 是一项倡议，让 AI 独立完成主要工作的进展变得更透明、更可信。",
     missing: "本次构建中没有白皮书文件。",
     eyebrow: "公开白皮书",
     contents: "目录",
@@ -161,7 +161,7 @@ export default async function Whitepaper() {
       <div className={s.layout}>
         <WhitepaperToc label={c.contents} items={contents} />
         {/* The document carries its own headings and version line; the page
-            frames it rather than restating it. openaiwill is an initiative, not
+            frames it rather than restating it. SurviAGI is an initiative, not
             a platform, and this page must not describe it as one. */}
         <article className={s.doc}>
           {blocks.map((block, i) => renderBlock(block, i, sectionIds.get(i)))}

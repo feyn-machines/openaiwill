@@ -91,6 +91,17 @@ openaiwill 的三样独有资产：
 6. **优先推有证据的页面**：多数职业页尚无证据，内容偏薄；内部链接和站点地图优先指向有证据的页面。
 7. **站点地图加短时缓存**：现在每次请求现场生成，约 4 秒。
 
+## 2026-10-08 改名为 SurviAGI（用户决定）
+
+用户 2026-10-08 决定：品牌改为 **SurviAGI**（全称 The AGI Survival Guide，对应用户的主品牌“新人类 AI 生存指南”），正式地址改为 `https://surviagi.com`，GitHub 仓库改名为 `feyn-machines/surviagi`。原因：`openaiwill` 会被搜索引擎拆成 “openai will”，品牌词被 OpenAI 的结果淹没，AI 引擎也容易把它当成 OpenAI 的产品，并且域名含他人商标。
+
+- 网站名、页面标题后缀、页脚、结构化数据、`llms.txt`、分享图、白皮书和 README 都改为 SurviAGI；组织的结构化数据带别名（The AGI Survival Guide、新人类 AI 生存指南、openaiwill），`llms.txt` 写明“独立倡议，与任何 AI 公司无关”。
+- `openaiwill.com` 和 `www.openaiwill.com` 的每个地址由网站自己 308 跳转到 `surviagi.com` 的同一路径（和 `www` 跳转是同一段逻辑）。Cloudflare Tunnel 里四个主机名都要指向同一个本机端口，跳转不在 Cloudflare 上配。
+- 不改的：数据库名、角色名、容器名、服务器目录、语言 cookie 名、已封存的本体和平台数据里的旧名字。X 账号在用户改名前仍是 `@openaiwill`。
+- 上线时还要：服务器 `site.env` 里的 `BETTER_AUTH_URL` 改为新地址；Google 登录后台加入新地址；Google Search Console 和 Bing 里添加新域名并做“地址变更”。
+
+上文中出现的 openaiwill.com 是改名前的记录。
+
 ## 2026-10-08 站点检查后的调整（已实现）
 
 用户 2026-10-08 要求检查线上站点的 SEO 并直接修改能改的部分。检查发现站点地图里约八成地址内容很薄或重复，改动如下：

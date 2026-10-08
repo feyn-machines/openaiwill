@@ -63,7 +63,7 @@ export const legalCopy: Record<Language, { privacy: Doc; terms: Doc }> = {
         {
           heading: "What this is",
           body: [
-            "openaiwill is an initiative to make progress toward AI independently completing major work more transparent. The site is provided as is, without warranty.",
+            "SurviAGI is an initiative to make progress toward AI independently completing major work more transparent. The site is provided as is, without warranty.",
           ],
         },
         {
@@ -137,7 +137,7 @@ export const legalCopy: Record<Language, { privacy: Doc; terms: Doc }> = {
       sections: [
         {
           heading: "这是什么",
-          body: ["openaiwill 是一项倡议，让 AI 独立完成主要工作的进展变得更透明。本站按现状提供，不作任何担保。"],
+          body: ["SurviAGI 是一项倡议，让 AI 独立完成主要工作的进展变得更透明。本站按现状提供，不作任何担保。"],
         },
         {
           heading: "关于数据",

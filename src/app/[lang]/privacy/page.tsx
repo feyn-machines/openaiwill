@@ -9,8 +9,8 @@ import { LegalDoc } from "../legal-doc";
 export const dynamic = "force-dynamic";
 
 const meta = bilingual({
-  en: { description: "What openaiwill stores about people who sign in, submit an account or subscribe, and how to have it deleted." },
-  "zh-CN": { description: "openaiwill 对登录、提交帐号或订阅的人存储哪些信息，以及如何删除。" },
+  en: { description: "What SurviAGI stores about people who sign in, submit an account or subscribe, and how to have it deleted." },
+  "zh-CN": { description: "SurviAGI 对登录、提交帐号或订阅的人存储哪些信息，以及如何删除。" },
 });
 
 export async function generateMetadata(): Promise<Metadata> {

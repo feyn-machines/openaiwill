@@ -4,14 +4,16 @@ import { SITE_URL } from "./site-origin";
 import { manifest as dataManifest } from "./snapshot";
 
 export { SITE_URL };
-export const SITE_NAME = "openaiwill";
+export const SITE_NAME = "SurviAGI";
+/** What the name stands for, and the names the same project is also known by (the last is its earlier name). */
+export const SITE_ALTERNATE_NAMES = ["The AGI Survival Guide", "新人类 AI 生存指南", "openaiwill"] as const;
 /** The project's own account on X (user-confirmed 2026-10-03). */
 export const X_HANDLE = "@openaiwill";
 export const X_URL = "https://x.com/openaiwill";
 /** The project's community invite on Discord (user-confirmed 2026-10-03). */
 export const DISCORD_URL = "https://discord.gg/ArVHw2K9X";
 /** The public source repository (user-confirmed 2026-10-03). */
-export const GITHUB_URL = "https://github.com/feyn-machines/openaiwill";
+export const GITHUB_URL = "https://github.com/feyn-machines/surviagi";
 
 /** The project's own places elsewhere, in the order the footer shows them. */
 export const SOCIAL_LINKS = [
@@ -105,6 +107,7 @@ const CONTEXT = "https://schema.org";
 const organization = {
   "@type": "Organization",
   name: SITE_NAME,
+  alternateName: SITE_ALTERNATE_NAMES,
   url: SITE_URL,
   logo: `${SITE_URL}/icon.svg`,
   sameAs: [X_URL, DISCORD_URL, GITHUB_URL],

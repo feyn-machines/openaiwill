@@ -41,7 +41,7 @@ const copy = bilingual({
     more: "More work in {market}",
     all: "All updates",
     market: "The whole market",
-    meta: "openaiwill",
+    meta: "SurviAGI",
   },
   "zh-CN": {
     back: "← {market}",
@@ -64,7 +64,7 @@ const copy = bilingual({
     more: "{market} 里的其他工作",
     all: "全部更新",
     market: "整条赛道",
-    meta: "openaiwill",
+    meta: "SurviAGI",
   },
 });
 

@@ -334,7 +334,7 @@ t("the subscriber list as CSV", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "text/csv; charset=utf-8");
   assert.ok(
-    [dayBefore, dayAfter].some((day) => res.headers.get("content-disposition") === `attachment; filename="openaiwill-subscribers-${day}.csv"`),
+    [dayBefore, dayAfter].some((day) => res.headers.get("content-disposition") === `attachment; filename="surviagi-subscribers-${day}.csv"`),
     res.headers.get("content-disposition"),
   );
   assert.match(res.headers.get("cache-control") ?? "", /no-store/);

@@ -14,18 +14,18 @@ import { SITE_NAME, SITE_URL, SOCIAL_LINKS, siteCopy } from "@/lib/seo";
 
 const copy = bilingual({
   en: {
-    brandLabel: "openaiwill home",
-    footerBrand: "openaiwill · Before you build.",
+    brandLabel: "SurviAGI home",
+    footerBrand: "SurviAGI · The AGI Survival Guide",
     footerNote: "Evidence first. Opinions that can change.",
-    socialLinks: "openaiwill elsewhere",
+    socialLinks: "SurviAGI elsewhere",
     privacy: "Privacy",
     terms: "Terms",
   },
   "zh-CN": {
-    brandLabel: "openaiwill 首页",
-    footerBrand: "openaiwill · 在动手之前。",
+    brandLabel: "SurviAGI 首页",
+    footerBrand: "SurviAGI · 新人类 AI 生存指南",
     footerNote: "以证据为先，判断随事实更新。",
-    socialLinks: "openaiwill 的其他地址",
+    socialLinks: "SurviAGI 的其他地址",
     privacy: "隐私",
     terms: "条款",
   },
@@ -86,7 +86,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={language} className={`${interTight.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
       <body>
         <header className="header wrap">
-          <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>open<span className="brand-ai">ai</span><span className="brand-will">will</span></Link>
+          <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>survi<span className="brand-will">AGI</span></Link>
           <div className="header-end">
             <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={href(language, item.href)}>{nav[item.key]}</Link>)}</nav>
             <nav className="header-social" aria-label={c.socialLinks}>

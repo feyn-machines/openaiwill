@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       headers: {
         ...NO_STORE_HEADERS,
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="openaiwill-subscribers-${day}.csv"`,
+        "Content-Disposition": `attachment; filename="surviagi-subscribers-${day}.csv"`,
       },
     });
   } catch (error) {

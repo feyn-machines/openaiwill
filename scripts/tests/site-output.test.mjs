@@ -147,14 +147,22 @@ function getWithHeaders(base, path, headers) {
   });
 }
 
-test("www.openaiwill.com is sent to the apex with the same path and query", async () => {
+test("www.surviagi.com is sent to the apex with the same path and query", async () => {
   for (const path of ["/", "/zh-CN/voices?x=1", "/occupations/11-1011.00", "/api/me", "/markets?lang=zh-CN"]) {
-    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    const answer = await getWithHeaders(site.base, path, { host: "www.surviagi.com" });
     assert.equal(answer.status, 308, path);
     assert.equal(answer.location, `${SITE}${path}`, path);
   }
+  // The address the site had before it was renamed lands on the same page at the new one.
+  for (const host of ["openaiwill.com", "www.openaiwill.com", "OpenAIWill.com:443"]) {
+    for (const path of ["/", "/zh-CN/articles/judgment-for-two-cents", "/occupations/11-1011.00?x=1", "/api/me"]) {
+      const answer = await getWithHeaders(site.base, path, { host });
+      assert.equal(answer.status, 308, `${host}${path}`);
+      assert.equal(answer.location, `${SITE}${path}`, `${host}${path}`);
+    }
+  }
   // The case of a host name does not matter; a port or a trailing dot names the same host.
-  for (const host of ["WWW.OpenAIWill.com", "www.openaiwill.com:443", "www.openaiwill.com:8080", "www.openaiwill.com."]) {
+  for (const host of ["WWW.SurviAGI.com", "www.surviagi.com:443", "www.surviagi.com:8080", "www.surviagi.com."]) {
     const answer = await getWithHeaders(site.base, "/voices", { host });
     assert.equal(answer.status, 308, host);
     assert.equal(answer.location, `${SITE}/voices`, host);
@@ -162,8 +170,8 @@ test("www.openaiwill.com is sent to the apex with the same path and query", asyn
 });
 
 test("only the one www host is redirected, and the Location is always the fixed apex origin", async () => {
-  for (const host of ["openaiwill.com", "127.0.0.1", new URL(site.base).host, "www.openaiwill.com.evil.example", "evil-www.openaiwill.com",
-    "wwww.openaiwill.com", "sub.www.openaiwill.com", "www.openaiwill.com@evil.example", "evil.example"]) {
+  for (const host of ["surviagi.com", "127.0.0.1", new URL(site.base).host, "www.surviagi.com.evil.example", "evil-www.surviagi.com",
+    "wwww.surviagi.com", "sub.www.surviagi.com", "sub.openaiwill.com", "openaiwill.com.evil.example", "www.surviagi.com@evil.example", "evil.example"]) {
     const answer = await getWithHeaders(site.base, "/markets", { host });
     assert.equal(answer.status, 200, host);
     assert.equal(answer.location, null, host);
@@ -171,7 +179,7 @@ test("only the one www host is redirected, and the Location is always the fixed 
     assert.equal(api.status, 200, `${host} /api/me`);
   }
   for (const path of ["/%2F%2Fevil.example", "/a?next=https://evil.example"]) {
-    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    const answer = await getWithHeaders(site.base, path, { host: "www.surviagi.com" });
     assert.equal(answer.status, 308, path);
     assert.ok(answer.location.startsWith(`${SITE}/`), `${path} -> ${answer.location}`);
     assert.equal(new URL(answer.location).origin, SITE);
@@ -179,13 +187,13 @@ test("only the one www host is redirected, and the Location is always the fixed 
   // Next itself collapses a leading double slash before the proxy runs, with a same-host relative Location:
   // never another host, never protocol-relative.
   for (const path of ["//evil.example/x", "/\\evil.example", "/x//y"]) {
-    const answer = await getWithHeaders(site.base, path, { host: "www.openaiwill.com" });
+    const answer = await getWithHeaders(site.base, path, { host: "www.surviagi.com" });
     assert.equal(answer.status, 308, path);
     assert.ok(answer.location.startsWith("/") && !answer.location.startsWith("//"), `${path} -> ${answer.location}`);
   }
   // Only the Host header decides: a client-sent X-Forwarded-Host cannot redirect an apex request (to itself, in a loop).
-  for (const forwarded of ["www.openaiwill.com", "evil.example"]) {
-    const answer = await getWithHeaders(site.base, "/voices", { host: "openaiwill.com", "x-forwarded-host": forwarded });
+  for (const forwarded of ["www.surviagi.com", "evil.example"]) {
+    const answer = await getWithHeaders(site.base, "/voices", { host: "surviagi.com", "x-forwarded-host": forwarded });
     assert.equal(answer.status, 200, forwarded);
     assert.equal(answer.location, null, forwarded);
   }
@@ -229,7 +237,7 @@ test("an address outside the loaded release is a 404 in both languages", async (
 test("with a snapshot, a detail page of each kind answers", { skip: !HAS_SNAPSHOT }, async () => {
   const locs = [...files.get("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   for (const section of ["markets", "occupations/g", "occupations", "updates", "work"]) {
-    for (const prefix of ["https://openaiwill.com", "https://openaiwill.com/zh-CN"]) {
+    for (const prefix of ["https://surviagi.com", "https://surviagi.com/zh-CN"]) {
       const loc = locs.find((l) =>
         l.startsWith(`${prefix}/${section}/`) && (section !== "occupations" || !l.startsWith(`${prefix}/occupations/g/`)));
       // An update keeps its original words in both languages, so only the English address is listed.
@@ -289,7 +297,7 @@ test("/healthz names the data release and is not cached", async () => {
   }
 });
 
-const SITE = "https://openaiwill.com";
+const SITE = "https://surviagi.com";
 // Next writes the site root without its trailing slash; the two spell the same address.
 const publicUrl = (language, path) => `${SITE}${language === "en" ? path : `/zh-CN${path}`}`;
 const tag = (page, pattern) => page.match(pattern)?.[1] ?? null;
@@ -315,7 +323,7 @@ test("every page links to the project's accounts in the header and in the footer
   for (const language of ["en", "zh-CN"]) {
     for (const path of FIXED) {
       const links = anchors(html(language, path));
-      for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]) {
+      for (const url of ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/surviagi"]) {
         // The legal pages also name X and Discord once, as the way to reach us.
         const contact = LEGAL.includes(path) && !url.includes("github") ? 1 : 0;
         assert.equal(links.filter((link) => link === url).length, 2 + contact, `${language}${path}: ${url} should appear in header and footer`);
@@ -398,7 +406,7 @@ const body = (name) => files.get(name);
 
 test("robots.txt allows every page, keeps crawlers out of the admin and the API, names the AI crawlers, and points at the sitemap", () => {
   const robots = body("robots.txt");
-  assert.match(robots, /Sitemap: https:\/\/openaiwill\.com\/sitemap\.xml/);
+  assert.match(robots, /Sitemap: https:\/\/surviagi\.com\/sitemap\.xml/);
   const groups = robots.split(/\n\s*\n/).filter((group) => /User-Agent:/i.test(group));
   assert.equal(groups.length, 13);
   for (const group of groups) {
@@ -443,7 +451,7 @@ test("structured data names the organisation, the datasets and their status", ()
     assert.deepEqual(types(html(language, "")).sort(), ["Organization", "WebSite"]);
     assert.ok(types(html(language, "/whitepaper")).includes("Article"));
     const org = ld(html(language, "")).find((item) => item["@type"] === "Organization");
-    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/openaiwill"]);
+    assert.deepEqual(org.sameAs, ["https://x.com/openaiwill", "https://discord.gg/ArVHw2K9X", "https://github.com/feyn-machines/surviagi"]);
   }
 });
 
@@ -468,14 +476,14 @@ test("structured data never claims a review or a rating", () => {
 
 test("llms.txt is generated from the site, names real pages, and overstates nothing", async () => {
   const text = body("llms.txt");
-  assert.match(text, /^# openaiwill\n/);
+  assert.match(text, /^# SurviAGI\n/);
   assert.doesNotMatch(text, /\bplatform\b|verified|reviewed score|replacement rate/i);
   if (HAS_SNAPSHOT) assert.match(text, /machine-proposed/i);
   else assert.match(text, /No data snapshot is published in this build\./);
   assert.match(text, /https:\/\/x\.com\/openaiwill/);
   assert.match(text, /https:\/\/discord\.gg\/ArVHw2K9X/);
-  assert.match(text, /https:\/\/github\.com\/feyn-machines\/openaiwill/);
-  for (const [, url] of text.matchAll(/\]\((https:\/\/openaiwill\.com[^)]*)\)/g)) {
+  assert.match(text, /https:\/\/github\.com\/feyn-machines\/surviagi/);
+  for (const [, url] of text.matchAll(/\]\((https:\/\/surviagi\.com[^)]*)\)/g)) {
     const path = url.slice(SITE.length).replace(/\/$/, "");
     if (/\.(txt|xml)$/.test(path)) continue;
     assert.equal((await fetch(`${site.base}${path || "/"}`)).status, 200, `${url} is not a page`);

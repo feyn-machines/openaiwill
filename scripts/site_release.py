@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build openaiwill locally and ship the code to the server over SSH (the code release line).
+"""Build the site locally and ship the code to the server over SSH (the code release line).
 
   build     build, assemble .release/<id>/ and smoke-test it locally
   release   build, upload, and start the release as the candidate on the server
@@ -37,13 +37,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SNAPSHOT = ROOT / "datasets" / "published" / "latest"
 STAGING = ROOT / ".release"
-SITE_URL = "https://openaiwill.com"
+SITE_URL = "https://surviagi.com"
 PRODUCTION = {"project": "openaiwill", "port": 8320, "env": "production"}
 CANDIDATE = {"project": "openaiwill-next", "port": 8321, "env": "preview"}
 LOCAL_PORT = 8399
 KEEP = 5
 RELEASE_ID = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{7,40}(-dirty)?")
-USER_AGENT = "openaiwill-release/1.0 (+https://openaiwill.com)"
+USER_AGENT = f"surviagi-release/1.0 (+{SITE_URL})"
 
 
 class ReleaseError(Exception):
@@ -195,7 +195,7 @@ def smoke(base: str, release: str | None, with_data: bool = True) -> list[str]:
     expect("/markets", 200, contains='lang="en"')
     expect("/zh-CN/occupations", 200, contains='lang="zh-CN"')
     expect("/robots.txt", 200, contains="Sitemap:")
-    expect("/llms.txt", 200, contains="# openaiwill")
+    expect("/llms.txt", 200, contains="# SurviAGI")
     expect("/og/en.png", 200)
     key = indexnow_key()
     if key and expect(f"/{key}.txt", 200).strip() != key:
@@ -830,7 +830,7 @@ def notify_indexnow() -> None:
         return
     _, _, sitemap = fetch(SITE_URL + "/sitemap.xml")
     urls = re.findall(r"<loc>([^<]+)</loc>", sitemap)
-    body = json.dumps({"host": "openaiwill.com", "key": key,
+    body = json.dumps({"host": SITE_URL.removeprefix("https://"), "key": key,
                        "keyLocation": f"{SITE_URL}/{key}.txt", "urlList": urls}).encode()
     request = urllib.request.Request("https://api.indexnow.org/indexnow", data=body,
                                      headers={"Content-Type": "application/json; charset=utf-8"})
