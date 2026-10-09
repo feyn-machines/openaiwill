@@ -86,7 +86,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={language} className={`${interTight.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
       <body>
         <header className="header wrap">
-          <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>survi<span className="brand-will">AGI</span></Link>
+          <Link href={href(language, "/")} className="brand" aria-label={c.brandLabel}>Survi<span className="brand-will">AGI</span></Link>
           <div className="header-end">
             <nav aria-label={nav.navLabel}>{SITE_NAV.map((item) => <Link key={item.href} href={href(language, item.href)}>{nav[item.key]}</Link>)}</nav>
             <nav className="header-social" aria-label={c.socialLinks}>
