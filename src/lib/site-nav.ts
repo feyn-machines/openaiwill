@@ -4,6 +4,7 @@ import { bilingual } from "@/lib/i18n";
 export const SITE_NAV = [
   { href: "/markets", key: "markets" },
   { href: "/occupations", key: "occupations" },
+  { href: "/topics", key: "topics" },
   { href: "/updates", key: "updates" },
   { href: "/voices", key: "voices" },
   { href: "/articles", key: "articles" },
@@ -15,6 +16,7 @@ export const siteNavCopy = bilingual({
     navLabel: "Main navigation",
     markets: "Markets",
     occupations: "Occupations",
+    topics: "Topics",
     updates: "AI Updates",
     voices: "Voices",
     articles: "Articles",
@@ -24,6 +26,7 @@ export const siteNavCopy = bilingual({
     navLabel: "主导航",
     markets: "赛道",
     occupations: "职业",
+    topics: "话题",
     updates: "AI 更新",
     voices: "声音",
     articles: "文章",

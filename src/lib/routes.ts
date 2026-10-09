@@ -18,5 +18,7 @@ export const workHref = (language: Language, activityId: string) =>
   localizedPath(language, `/work/${workSlug(activityId)}`) as Route;
 export const updateHref = (language: Language, eventId: string) =>
   localizedPath(language, `/updates/${eventId}`) as Route;
+export const topicHref = (language: Language, slug: string) =>
+  localizedPath(language, `/topics/${slug}`) as Route;
 export const marketHref = (language: Language, marketId: string) =>
   localizedPath(language, `/markets/${marketId.replace(/^oaw:market:/, "")}`) as Route;

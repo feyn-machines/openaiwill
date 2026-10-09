@@ -14,7 +14,7 @@ const STANDALONE = join(ROOT, ".next", "standalone");
 const SNAPSHOT_DIR = join(ROOT, "datasets", "published", "latest");
 const HAS_SNAPSHOT = existsSync(join(SNAPSHOT_DIR, "manifest.json"));
 const LEGAL = ["/privacy", "/terms"];
-const FIXED = ["", "/markets", "/occupations", "/updates", "/voices", "/articles", "/whitepaper", ...LEGAL];
+const FIXED = ["", "/markets", "/occupations", "/topics", "/updates", "/voices", "/articles", "/whitepaper", ...LEGAL];
 
 let site;
 const pages = new Map();

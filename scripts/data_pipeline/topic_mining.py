@@ -421,29 +421,37 @@ def reword(conn, cfg=None, reason="", progress=None):
     return counts
 
 
-def load_topics(conn):
-    """Open topics with their answers and the claims under them, in the shape the placer works on."""
+def _iso(value):
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def load_topics(conn, fetch=None):
+    """Open topics with their answers and the claims under them, in the shape the placer works on.
+
+    `fetch(sql)` returns the rows of a query; the snapshot builder passes its own.
+    """
+    fetch = fetch or (lambda sql: conn.execute(sql).fetchall())
     topics = {}
-    for row in conn.execute("""
+    for row in fetch("""
         SELECT t.*, c.label_en AS anchor_en, c.label_zh_cn AS anchor_zh
         FROM topics t
         LEFT JOIN ontology_concepts c ON c.id = t.about_concept_id
              AND c.ontology_version = (SELECT max(ontology_version) FROM ontology_concepts)
         WHERE t.state NOT IN ('merged', 'closed') ORDER BY t.topic_id
-    """).fetchall():
+    """):
         topics[row["topic_id"]] = {
             "id": row["topic_id"], "question_type": row["question_type"], "object": row["object_key"],
             "anchor": row["about_concept_id"],
             "anchor_name": row["about_concept_id"] and {"en": row["anchor_en"], "zh-CN": row["anchor_zh"]},
             "question": {"en": row["question_en"], "zh-CN": row["question_zh_cn"]},
             "state": row["state"], "origin": row["origin"], "checks": row["checks"],
-            "opened_at": row["opened_at"].isoformat(), "opened_on": row["opened_at"].date().isoformat(),
+            "opened_at": _iso(row["opened_at"]), "opened_on": _iso(row["opened_at"])[:10],
             "options": [], "claims": [], "queries": []}
-    for row in conn.execute("SELECT * FROM topic_options WHERE NOT retired ORDER BY topic_id, position").fetchall():
+    for row in fetch("SELECT * FROM topic_options WHERE NOT retired ORDER BY topic_id, position"):
         if row["topic_id"] in topics:
             topics[row["topic_id"]]["options"].append({
                 "key": "abcdefgh"[row["position"] - 1], "en": row["text_en"], "zh-CN": row["text_zh_cn"]})
-    for row in conn.execute("""
+    for row in fetch("""
         SELECT k.topic_id, k.source_id, k.says, k.quote, o.position, s.account_handle, s.canonical_url, s.published_at,
                (SELECT (c.metrics->>'views')::bigint FROM collected_captures c
                  WHERE c.source_id = k.source_id ORDER BY c.captured_at DESC LIMIT 1) AS views
@@ -451,15 +459,15 @@ def load_topics(conn):
         JOIN topic_options o ON o.option_id = k.option_id
         JOIN collected_sources s ON s.source_id = k.source_id
         ORDER BY s.published_at, k.source_id
-    """).fetchall():
+    """):
         if row["topic_id"] in topics:
             topic = topics[row["topic_id"]]
             topic["claims"].append({
                 "id": row["source_id"], "question_type": topic["question_type"], "object": topic["object"],
                 "claim": row["says"], "quote": row["quote"], "handle": row["account_handle"],
-                "url": row["canonical_url"], "published_at": row["published_at"].isoformat(),
+                "url": row["canonical_url"], "published_at": _iso(row["published_at"]),
                 "views": int(row["views"] or 0), "option": "abcdefgh"[row["position"] - 1]})
-    for row in conn.execute("SELECT topic_id, query FROM topic_queries ORDER BY topic_id, query").fetchall():
+    for row in fetch("SELECT topic_id, query FROM topic_queries ORDER BY topic_id, query"):
         if row["topic_id"] in topics:
             topics[row["topic_id"]]["queries"].append(row["query"])
     return list(topics.values())

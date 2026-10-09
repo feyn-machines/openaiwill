@@ -141,6 +141,16 @@ def squeeze(sql):
 # Checked in order; the first substring that matches names the query. Order
 # matters because several queries mention the same tables in subselects.
 ROUTES = (
+    # Topics read their own tables, and the accounts and catalog tables other
+    # queries read too; each is matched on a phrase only it contains.
+    ("topics", "FROM topics t"),
+    ("topic_options", "FROM topic_options WHERE NOT retired"),
+    ("topic_claims", "FROM topic_claims k"),
+    ("topic_queries", "FROM topic_queries"),
+    ("topic_panel", "SELECT handle, account_key FROM public.source_accounts"),
+    ("topic_kinds", "SELECT id, kind, label_en, label_zh_cn FROM public.ontology_concepts"),
+    ("topic_parents", "SELECT child_id, parent_id FROM public.ontology_relations"),
+    ("topic_evidence", "FROM public.topic_option_evidence w"),
     # The sources export reads the collection tables too, so its queries are
     # matched first, each on a phrase only it contains.
     ("source_accounts", "FROM public.source_accounts a LEFT JOIN public.people"),
@@ -853,6 +863,66 @@ class WorkProgressTests(unittest.TestCase):
         # taking the highest is what put baggage porters at 59%.
         self.assertIn("min(level)", sql)
 
+
+
+class TopicsTests(unittest.TestCase):
+    """A topic is published with who argued each answer and what weighs on it, and with no answer of its own."""
+
+    TOPIC = "topic:replacement:accountant:b5615a30"
+
+    def published(self, **more):
+        checks = {"specific": True, "closed": True, "exclusive": True, "movable": True}
+        data = dataset(
+            topics=[{"topic_id": self.TOPIC, "question_type": "replacement", "object_key": "accountant",
+                     "about_concept_id": "oaw:occupation:13-2011.00", "anchor_en": "Accountants and Auditors",
+                     "anchor_zh": "会计师与审计师", "question_en": "Will AI replace most accountants?",
+                     "question_zh_cn": "AI 会取代大多数会计吗？", "state": "proposed", "origin": "mined",
+                     "checks": more.get("checks", checks), "opened_at": "2026-10-01T19:26:48+00:00"}],
+            topic_options=[{"topic_id": self.TOPIC, "position": 1, "text_en": "Far fewer accountants are needed", "text_zh_cn": "会计需求大幅减少"},
+                           {"topic_id": self.TOPIC, "position": 2, "text_en": "AI cannot do accounting work reliably", "text_zh_cn": "AI 做不了会计工作"}],
+            topic_claims=[{"topic_id": self.TOPIC, "source_id": "1", "says": "says so", "quote": "The billable hour is in trouble.",
+                           "position": 1, "account_handle": "Stranger", "canonical_url": "https://x.com/s/1",
+                           "published_at": "2026-10-02T00:00:00+00:00", "views": 9},
+                          {"topic_id": self.TOPIC, "source_id": "2", "says": "says so too", "quote": None,
+                           "position": 1, "account_handle": "emollick", "canonical_url": "https://x.com/e/2",
+                           "published_at": "2026-10-03T00:00:00+00:00", "views": None}],
+            topic_panel=[{"handle": "emollick", "account_key": "x:emollick"}],
+            topic_kinds=[{"id": "oaw:occupation:13-2011.00", "kind": "occupation", "label_en": "Accountants and Auditors", "label_zh_cn": "会计师与审计师"},
+                         {"id": "oaw:occupation-group:13", "kind": "occupation_group", "label_en": "Business and Financial Operations", "label_zh_cn": None}],
+            topic_parents=[{"child_id": "oaw:occupation:13-2011.00", "parent_id": "oaw:occupation-group:13"}],
+            topic_evidence=[{"topic_id": self.TOPIC, "position": 2, "sign": "contradicts", "confidence": 0.91,
+                             "event_id": "e9", "title": "Models beat 12 licensed accountants", "kind": "benchmark_result",
+                             "occurred_at": "2026-10-01T19:26:48+00:00", "by_name": "mercor", "source_url": "https://x.com/m/9"}],
+        )
+        return publish.build(FakeConn(data), "1.0.0")["topics"]
+
+    def test_each_answer_says_who_argued_it_and_what_weighs_on_it(self):
+        (topic,) = self.published()
+        self.assertEqual(topic["slug"], "replacement-accountant-b5615a30")
+        self.assertEqual(topic["about"], {"id": "oaw:occupation:13-2011.00", "kind": "occupation",
+                                          "en": "Accountants and Auditors", "zh-CN": "会计师与审计师"})
+        first, second = topic["options"]
+        self.assertEqual((first["accounts"], first["panel_accounts"], first["supports"], first["contradicts"]), (2, 1, 0, 0))
+        self.assertEqual((second["accounts"], second["supports"], second["contradicts"]), (0, 0, 1))
+        self.assertEqual(topic["group"], {"id": "oaw:occupation-group:13", "en": "Business and Financial Operations",
+                                          "zh-CN": "Business and Financial Operations"})
+        self.assertEqual(topic["sides"], "one_sided")
+        self.assertEqual(topic["by_quarter"], {"2026-Q4": {"a": 2}})
+
+    def test_an_account_the_panel_has_not_confirmed_is_marked_by_having_no_key(self):
+        claims = {c["handle"]: c for c in self.published()[0]["claims"]}
+        self.assertIsNone(claims["Stranger"]["account_key"])
+        self.assertEqual(claims["emollick"]["account_key"], "x:emollick")
+
+    def test_no_field_names_a_right_answer(self):
+        (topic,) = self.published()
+        for field in ("answer", "resolution", "outcome", "winner", "probability"):
+            self.assertNotIn(field, topic)
+            for option in topic["options"]:
+                self.assertNotIn(field, option)
+
+    def test_a_topic_that_failed_its_standard_is_not_published(self):
+        self.assertEqual(self.published(checks={"specific": False, "closed": True, "exclusive": True, "movable": True}), [])
 
 
 class SourcesTests(unittest.TestCase):

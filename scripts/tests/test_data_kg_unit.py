@@ -29,6 +29,7 @@ def small_payload():
         "events": [{"event_id": "e1", "title": "T"}],
         "models": [{"model_id": "x"}],
         "sources": [{"account_key": "k", "note": None}],
+        "topics": [{"topic_id": "topic:replacement:accountant:00000000"}],
         "coverage": {"events_routed": 3},
         "progress": {"assessed": 0, "groups": []},
     }

@@ -44,6 +44,7 @@ def payload(extra_event=None, drop_event=None, tweak_model=False):
         "events": [dict(e, summary="s") for e in events],
         "models": models,
         "sources": [{"account_key": "k", "followers": 0}],
+        "topics": [{"topic_id": "topic:replacement:accountant:00000000", "accounts": 2}],
         "coverage": {"events_routed": 3},
         "progress": {"assessed": 0, "global": {"level": 1.5}},
     }

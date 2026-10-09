@@ -7,7 +7,7 @@ import type { Manifest, Payload } from "./snapshot";
 export type Loaded = { payload: Payload; releaseId: string };
 
 /** The collections of a release and how each is shaped; mirrors `COLLECTIONS` in scripts/data_pipeline/kg.py. */
-const LISTS = ["markets", "tasks", "events", "models", "sources"] as const;
+const LISTS = ["markets", "tasks", "events", "models", "sources", "topics"] as const;
 const CHAIN_LISTS = ["activities", "gates", "events", "evidence", "gate_edges"] as const;
 const SINGLES = ["coverage", "progress"] as const;
 
@@ -84,6 +84,7 @@ export async function loadFromDatabase(url: string): Promise<Loaded | null> {
     coverage: single("coverage"),
     progress: single("progress"),
     sources: list("sources"),
+    topics: list("topics"),
   } as unknown as Payload;
   return { payload, releaseId: release.release_id };
 }
@@ -111,6 +112,8 @@ export function loadFromFiles(dir: string): Loaded | null {
     coverage: read("coverage"),
     progress: read("progress"),
     sources: read("sources"),
+    // A snapshot written before topics were published has no such file.
+    topics: existsSync(path("topics")) ? read("topics") : [],
   } as Payload;
   return { payload, releaseId: releaseIdOf(manifest) };
 }

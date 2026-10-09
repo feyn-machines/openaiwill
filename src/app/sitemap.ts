@@ -39,6 +39,7 @@ function entries(built: string | undefined): MetadataRoute.Sitemap {
     ...detailPages.occupationGroups().map((id) => ({ path: `/occupations/g/${id}`, lastModified: built })),
     ...detailPages.reachedOccupations().map((code) => ({ path: `/occupations/${code}`, lastModified: built })),
     ...detailPages.work().map((id) => ({ path: `/work/${id}`, lastModified: built })),
+    ...detailPages.topics().map(({ slug, latest }) => ({ path: `/topics/${slug}`, lastModified: latest ?? built })),
     ...detailPages.updates().map(({ id, occurredAt }) => ({ path: `/updates/${id}`, lastModified: occurredAt ?? built, languages: UPDATE_LANGUAGES })),
     // The article pages are built ahead from documents the server does not carry,
     // so the list comes from the index written beside the build.

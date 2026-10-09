@@ -156,6 +156,100 @@ def sources(conn) -> list[dict]:
     return accounts
 
 
+def topics(conn) -> list[dict]:
+    """The open questions, each with its answers, who argued them and what weighs on them.
+
+    A topic carries no answer (rule:topic-carries-no-answer): what is published
+    is who argued each answer in the posts collected, and which updates a judge
+    found to weigh for or against it. The counts say nothing about how many
+    people think so. A topic that failed the standard it was written to, or
+    was merged or closed, is not published.
+
+    An account the panel has not confirmed is published with its claim and
+    marked as such: we know only that this account said so.
+    """
+    from . import topic_mining
+
+    found = [topic_mining.describe(t) for t in topic_mining.load_topics(conn, lambda sql: _rows(conn, sql))]
+    found = [t for t in found if t["status"] != "fails"]
+    in_panel = {r["handle"].lower(): r["account_key"] for r in _rows(conn, """
+        SELECT handle, account_key FROM public.source_accounts
+         WHERE panel_state = 'enabled' AND NOT excluded""")}
+    entries = {r["id"]: r for r in _rows(conn, """
+        SELECT id, kind, label_en, label_zh_cn FROM public.ontology_concepts
+         WHERE ontology_version = (SELECT max(ontology_version) FROM public.ontology_concepts)
+           AND kind IN ('occupation', 'occupation_group', 'market', 'market_group')""")}
+    kinds = {key: row["kind"] for key, row in entries.items()}
+    # The group an occupation or a market sits in: what a reader browses topics by.
+    parents = {r["child_id"]: r["parent_id"] for r in _rows(conn, """
+        SELECT child_id, parent_id FROM public.ontology_relations
+         WHERE kind IN ('has_occupation', 'has_market')
+           AND ontology_version = (SELECT max(ontology_version) FROM public.ontology_relations)""")}
+
+    def group_of(anchor):
+        found = anchor if kinds.get(anchor) in ("occupation_group", "market_group") else parents.get(anchor)
+        row = entries.get(found)
+        return row and {"id": found, "en": row["label_en"], "zh-CN": row["label_zh_cn"] or row["label_en"]}
+    weighing: dict[str, list] = {}
+    for r in _clean(_rows(conn, """
+            SELECT w.topic_id, o.position, w.sign, w.confidence, e.event_id, e.title, e.kind,
+                   COALESCE(e.occurred_at, e.announced_at) AS occurred_at,
+                   COALESCE(org.canonical_name_en, a.handle) AS by_name,
+                   (SELECT min(cs.canonical_url) FROM public.extracted_event_sources es
+                      JOIN public.collected_sources cs ON cs.source_id = es.source_id
+                     WHERE es.event_id = e.event_id AND cs.canonical_url IS NOT NULL) AS source_url
+              FROM public.topic_option_evidence w
+              JOIN public.topic_options o ON o.option_id = w.option_id
+              JOIN public.extracted_events e ON e.event_id = w.event_id
+              LEFT JOIN public.org_registry org ON org.org_id = e.primary_org_id
+              LEFT JOIN public.source_accounts a ON a.account_key = e.actor_account_key
+             WHERE w.status <> 'rejected' AND NOT o.retired
+             ORDER BY w.topic_id, o.position, w.confidence DESC, e.event_id""")):
+        weighing.setdefault(r.pop("topic_id"), []).append(
+            {"event_id": r["event_id"], "option": "abcdefgh"[r["position"] - 1], "sign": r["sign"],
+             "confidence": r["confidence"], "title": r["title"], "kind": r["kind"],
+             "occurred_at": r["occurred_at"], "by": r["by_name"], "source_url": r["source_url"]})
+    out = []
+    for topic in found:
+        evidence = weighing.get(topic["id"], [])
+        claims = [{"source_id": c["id"], "option": c["option"], "handle": c["handle"],
+                   "account_key": in_panel.get(str(c["handle"]).lower()),
+                   "url": c["url"], "published_at": c["published_at"], "says": c["claim"],
+                   "quote": c["quote"], "views": c["views"] or None}
+                  for c in sorted(topic["claims"], key=lambda c: (c["published_at"], c["id"]))]
+        options = []
+        for position, option in enumerate(topic["options"], 1):
+            mine = [c for c in claims if c["option"] == option["key"]]
+            options.append({
+                "option_id": topic_mining.option_id(topic["id"], option["key"]), "key": option["key"],
+                "position": position, "text": {"en": option["en"], "zh-CN": option["zh-CN"]},
+                "accounts": len({c["handle"] for c in mine}),
+                "panel_accounts": len({c["handle"] for c in mine if c["account_key"]}),
+                "supports": sum(1 for e in evidence if e["option"] == option["key"] and e["sign"] == "supports"),
+                "contradicts": sum(1 for e in evidence if e["option"] == option["key"] and e["sign"] == "contradicts"),
+            })
+        anchor = topic["anchor"]
+        out.append({
+            "topic_id": topic["id"],
+            # The id without its prefix, for an address: topic:replacement:accountant:0f5f53ad.
+            "slug": topic["id"].split(":", 1)[1].replace(":", "-"),
+            "question_type": topic["question_type"], "object": topic["object"],
+            "question": topic["question"], "state": topic["state"], "origin": topic["origin"],
+            # Two or more answers each have someone arguing them, or only one does.
+            "sides": "open" if topic["status"] == "open" else "one_sided",
+            "about": anchor and {"id": anchor, "kind": kinds.get(anchor), **topic["anchor_name"]},
+            # Null when the catalog has no entry for what the topic is about.
+            "group": group_of(anchor) if anchor else None,
+            "opened_at": topic["opened_at"],
+            "latest_claim_at": max((c["published_at"] for c in claims), default=None),
+            "accounts": topic["accounts"], "posts": topic["posts"],
+            "options": options, "claims": claims, "evidence": evidence,
+            "by_quarter": topic["by_quarter"],
+        })
+    out.sort(key=lambda t: t["topic_id"])
+    return out
+
+
 def build(conn, ontology_version: str | None = None) -> dict:
     if ontology_version is None:
         found = _rows(conn, "SELECT version FROM public.ontology_releases ORDER BY version DESC LIMIT 1")
@@ -759,6 +853,7 @@ def build(conn, ontology_version: str | None = None) -> dict:
     payload = {
         "chain": chain, "markets": markets, "tasks": tasks,
         "events": events, "models": models, "sources": sources(conn),
+        "topics": topics(conn),
         "coverage": coverage, "progress": progress,
     }
     manifest = {

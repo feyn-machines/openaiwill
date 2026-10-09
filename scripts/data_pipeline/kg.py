@@ -1,6 +1,6 @@
 """Published data as versioned, immutable releases in the `kg` schema.
 
-The published snapshot (eight JSON files) is stored row by row. A row's body is
+The published snapshot (nine JSON files) is stored row by row. A row's body is
 content-addressed in kg.docs, so a release that changes 30 of 20,000 rows writes
 30 documents; kg.release_rows says which documents make up which release.
 Importing never touches anything outside `kg`, so later user data in the same
@@ -26,7 +26,7 @@ from .pipeline import ROOT, canonical, digest
 
 SCHEMA_FILE = ROOT / "db/published/001_kg.sql"
 SNAPSHOT_DIR = ROOT / "datasets/published/latest"
-SNAPSHOT_FILES = ("chain", "markets", "tasks", "events", "models", "sources", "coverage", "progress")
+SNAPSHOT_FILES = ("chain", "markets", "tasks", "events", "models", "sources", "topics", "coverage", "progress")
 
 # Collection -> the document field that is its entity id (None: no natural id).
 # A field is listed only if it is present and unique in the published data, and
@@ -44,6 +44,7 @@ COLLECTIONS: dict[str, str | None] = {
     "events": "event_id",
     "models": "model_id",
     "sources": "account_key",
+    "topics": "topic_id",
     "coverage": None,
     "progress": None,
 }

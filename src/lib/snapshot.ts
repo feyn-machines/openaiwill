@@ -346,6 +346,70 @@ export type GateEdge = {
   status: string;
 };
 
+/** One answer a reader can pick for a topic, with who argued it and what a judge found to weigh on it. */
+export type TopicOption = {
+  option_id: string;
+  key: string;
+  position: number;
+  text: Bilingual;
+  /** Accounts that argued this answer in the posts collected; not a count of who thinks so. */
+  accounts: number;
+  panel_accounts: number;
+  supports: number;
+  contradicts: number;
+};
+
+/** A post whose author asserts one answer. `account_key` is set only for an account the panel has confirmed. */
+export type TopicClaim = {
+  source_id: string;
+  option: string;
+  handle: string;
+  account_key: string | null;
+  url: string | null;
+  published_at: string;
+  says: string;
+  /** The post's own words, in its own language. */
+  quote: string | null;
+  views: number | null;
+};
+
+/** An update a judge found to weigh for or against one answer. No answer is declared right. */
+export type TopicEvidence = {
+  event_id: string;
+  option: string;
+  sign: "supports" | "contradicts";
+  confidence: number;
+  title: string;
+  kind: string | null;
+  occurred_at: string | null;
+  by: string | null;
+  source_url: string | null;
+};
+
+/** A closed question about one job or one kind of business. It carries no answer of its own. */
+export type Topic = {
+  topic_id: string;
+  slug: string;
+  question_type: "replacement" | "viability";
+  object: string;
+  question: Bilingual;
+  state: string;
+  origin: string;
+  sides: "open" | "one_sided";
+  about: ({ id: string; kind: string | null } & Bilingual) | null;
+  /** The occupation group or market group it is browsed under; null when the catalog has no entry for it. */
+  group?: ({ id: string } & Bilingual) | null;
+  opened_at: string;
+  latest_claim_at: string | null;
+  accounts: number;
+  posts: number;
+  options: TopicOption[];
+  claims: TopicClaim[];
+  evidence: TopicEvidence[];
+  /** Accounts arguing each answer, by calendar quarter (UTC). */
+  by_quarter: Record<string, Record<string, number>>;
+};
+
 /** What one data release holds, shaped as the snapshot files and the release database both deliver it. */
 export type Payload = {
   chain: Chain;
@@ -356,6 +420,8 @@ export type Payload = {
   coverage: Coverage;
   progress: Progress;
   sources: Source[];
+  /** Absent from a release made before topics were published. */
+  topics?: Topic[];
 };
 
 export type DataRelease = {
@@ -437,6 +503,8 @@ export const events = (): EventRow[] => current().data?.events ?? [];
 export const coverage = (): Coverage | null => current().data?.coverage ?? null;
 export const progress = (): Progress | null => current().progress;
 export const sources = (): Source[] => current().data?.sources ?? [];
+export const topics = (): Topic[] => current().data?.topics ?? [];
+export const topicBySlug = (slug: string): Topic | undefined => topics().find((t) => t.slug === slug);
 
 /**
  * Where the middle occupation sits, so one occupation's share can be judged.
