@@ -4,6 +4,7 @@
     setup-local                 create role oaw_app and schema app in the local database
     pull [--target ...]         write the approved, not yet imported submissions to data/submissions/ (default local)
     admins [--target ...]       make the administrator list equal to ADMIN_EMAILS in the local .env (default server)
+    votes [--target ...]        write readers' votes on topics, as counts, to data/votes/ (default local)
 """
 import argparse
 import subprocess
@@ -21,6 +22,8 @@ def main(argv=None) -> int:
     commands.add_parser("setup-local", help="create role oaw_app and schema app in the local database")
     pull = commands.add_parser("pull", help="write the approved submissions to data/submissions/ and mark them imported")
     pull.add_argument("--target", choices=("server", "local"), default="local")
+    votes = commands.add_parser("votes", help="write readers' votes on topics, as counts, to data/votes/")
+    votes.add_argument("--target", choices=("server", "local"), default="local")
     admins = commands.add_parser("admins", help="make app.admins equal to ADMIN_EMAILS in the local .env")
     admins.add_argument("--target", choices=("server", "local"), default="server")
     args = parser.parse_args(argv)
@@ -29,6 +32,8 @@ def main(argv=None) -> int:
             app_db.setup_local()
         elif args.command == "pull":
             app_db.pull(args.target)
+        elif args.command == "votes":
+            app_db.pull_votes(args.target)
         elif args.command == "admins":
             app_db.sync_admins_to(args.target)
     except (app_db.AppError, RuntimeError, OSError) as error:

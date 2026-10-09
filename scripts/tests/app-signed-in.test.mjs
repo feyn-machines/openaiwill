@@ -313,6 +313,36 @@ t("after rows exist, the admin page still gives a reader or nobody nothing, in t
   assert.deepEqual((await pool.query("SELECT id, status FROM app.submissions ORDER BY id")).rows, before, "nothing changed");
 });
 
+t("a reader votes on a topic of the loaded data, changes the vote and withdraws it", { skip: SKIP || !HAS_SNAPSHOT || !existsSync(`${SNAPSHOT_DIR}/topics.json`) }, async () => {
+  const topic = JSON.parse(readFileSync(`${SNAPSHOT_DIR}/topics.json`, "utf8"))[0];
+  const [first, second] = topic.options.map((option) => option.option_id);
+  const path = `/api/topics/votes?topic=${encodeURIComponent(topic.topic_id)}`;
+  const put = (option, extra) => call("/api/topics/votes", { who: "b", method: "PUT", body: { topic: topic.topic_id, option }, ...extra });
+
+  // Counts are public; casting a vote needs a signed-in reader from this site.
+  const before = await (await call(path)).json();
+  assert.match(before.quarter, /^\d{4}-Q[1-4]$/);
+  assert.equal(before.mine, null);
+  assert.equal((await call("/api/topics/votes", { method: "PUT", body: { topic: topic.topic_id, option: first } })).status, 401);
+  assert.equal((await put(first, { origin: false })).status, 403);
+
+  const cast = await (await put(first)).json();
+  assert.equal(cast.mine, first);
+  assert.equal(cast.counts[cast.quarter][first], 1);
+  const changed = await (await put(second)).json();
+  assert.deepEqual(changed.counts[changed.quarter], { [second]: 1 });
+  assert.equal((await (await call(path, { who: "b" })).json()).mine, second);
+  assert.equal((await (await call(path)).json()).mine, null);
+
+  // Only a topic and an answer of the loaded release can be voted on.
+  assert.equal((await put(`${topic.topic_id}#h`)).status, 400);
+  assert.equal((await call("/api/topics/votes", { who: "b", method: "PUT", body: { topic: "topic:replacement:nothing:00000000", option: null } })).status, 404);
+
+  const withdrawn = await (await put(null)).json();
+  assert.equal(withdrawn.mine, null);
+  assert.deepEqual(withdrawn.counts, {});
+});
+
 t("subscriptions as a reader", async () => {
   const put = (fields, extra) => call("/api/subscriptions", { who: "b", method: "PUT", body: fields, ...extra });
   assert.equal((await put({ updates: true, weekly: true, language: "en" }, { origin: false })).status, 403);

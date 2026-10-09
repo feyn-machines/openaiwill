@@ -509,20 +509,36 @@ def store(conn, run_id, run, topics):
                                   claim["claim"], claim.get("quote"), run_id))
 
 
-def search_plan(conn, limit=20, per_topic=2):
-    """The phrases to search next: for the topics most in need of another voice.
+def votes_by_topic(votes_doc):
+    """Readers' votes per topic in the running quarter, from a pulled votes file; empty without one."""
+    if not votes_doc:
+        return {}
+    running, found = votes_doc.get("running_quarter"), {}
+    for row in votes_doc.get("votes") or []:
+        if row.get("quarter") == running:
+            found[row["topic_id"]] = found.get(row["topic_id"], 0) + int(row["votes"])
+    return found
 
-    One-sided topics come first - the side nobody argued is what a search is
-    for - then by how long ago a topic was last searched, then by how much
-    notice its claims drew. Each topic gives its first `per_topic` phrases.
+
+def search_plan(conn, limit=20, per_topic=2, votes=None):
+    """The phrases to search next: for the topics readers asked about and those most in need of another voice.
+
+    Topics readers voted on this quarter come first, most votes first: a vote
+    is a reader saying this question matters to them. Then one-sided topics -
+    the side nobody argued is what a search is for - then by how long ago a
+    topic was last searched, then by how much notice its claims drew. Each
+    topic gives its first `per_topic` phrases. Votes choose what is researched;
+    they never touch what is found.
     """
+    asked = votes_by_topic(votes)
     searched = {row["topic_id"]: row["at"] for row in conn.execute(
         "SELECT topic_id, max(searched_at) AS at FROM topic_searches GROUP BY topic_id").fetchall()}
     topics = [describe(t) for t in load_topics(conn)]
     topics = [t for t in topics if t["status"] != "fails" and t["queries"]]
-    topics.sort(key=lambda t: (t["status"] != "one_sided", t["id"] in searched,
+    topics.sort(key=lambda t: (-asked.get(t["id"], 0), t["status"] != "one_sided", t["id"] in searched,
                                str(searched.get(t["id"]) or ""), -t["views"]))
-    return [{"topic": t["id"], "question": t["question"]["en"], "status": t["status"], "query": query}
+    return [{"topic": t["id"], "question": t["question"]["en"], "status": t["status"],
+             "votes": asked.get(t["id"], 0), "query": query}
             for t in topics[:limit] for query in t["queries"][:per_topic]]
 
 

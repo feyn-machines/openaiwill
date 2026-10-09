@@ -77,6 +77,20 @@ class Rewording(unittest.TestCase):
         self.assertIn(topic_mining.OPTION_STYLE, topic_mining.REWORD_PROMPT)
 
 
+class ReadersVotes(unittest.TestCase):
+    DOC = {"running_quarter": "2026-Q4", "votes": [
+        {"topic_id": "t1", "quarter": "2026-Q4", "option_id": "t1#a", "votes": 3},
+        {"topic_id": "t1", "quarter": "2026-Q4", "option_id": "t1#b", "votes": 2},
+        {"topic_id": "t2", "quarter": "2026-Q3", "option_id": "t2#a", "votes": 40},
+    ]}
+
+    def test_only_the_running_quarter_says_what_readers_ask_about_now(self):
+        self.assertEqual(topic_mining.votes_by_topic(self.DOC), {"t1": 5})
+
+    def test_no_file_means_no_votes(self):
+        self.assertEqual(topic_mining.votes_by_topic(None), {})
+
+
 class Shortlist(unittest.TestCase):
     def test_nearest_ranks_by_likeness_and_respects_the_floor(self):
         vectors = {"same": [1.0, 0.0], "near": [0.8, 0.6], "far": [0.0, 1.0]}

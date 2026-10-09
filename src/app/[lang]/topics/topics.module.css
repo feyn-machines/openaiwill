@@ -86,3 +86,24 @@ a.question:hover{color:var(--ah-color-signal)}
   .cards{grid-template-columns:1fr}
   .topicRow{grid-template-columns:1fr}
 }
+
+/* Readers' votes: a block of its own, apart from the evidence. */
+.vote{margin:0 0 56px;padding:22px 24px 14px;border:1px solid var(--ah-color-control)}
+.voteHead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px;margin-bottom:14px}
+.voteTitle{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.voteQuarter{font-family:var(--ah-font-mono);font-size:12px;color:var(--ah-color-subtle)}
+.voteList{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.voteRow{display:grid;grid-template-columns:76px minmax(0,1fr) 44px;gap:5px 14px;align-items:center}
+.voteButton{font:inherit;font-family:var(--ah-font-mono);font-size:12px;padding:7px 0;border:1px solid var(--ah-color-line);background:transparent;color:var(--ah-color-text);cursor:pointer}
+.voteButton:hover{border-color:var(--ah-color-signal);color:var(--ah-color-signal)}
+.voteButton:disabled{opacity:.5;cursor:default}
+.voteButton:focus-visible,.voteWithdraw:focus-visible{outline:3px solid var(--ah-color-focus);outline-offset:3px}
+.mine .voteButton{background:var(--ah-color-signal);border-color:var(--ah-color-signal);color:var(--ah-color-ink)}
+.voteText{font-size:16px;line-height:1.4}
+.voteCount{font-family:var(--ah-font-mono);font-size:16px;text-align:right}
+.voteTrack{grid-column:2 / span 2;height:3px;background:var(--ah-color-line)}
+.voteFill{display:block;height:3px;background:var(--ah-color-muted)}
+.mine .voteFill{background:var(--ah-color-signal)}
+.voteNote{margin:10px 0 0;min-height:1.2em;font-size:13px;color:var(--ah-color-subtle)}
+.voteWithdraw{font:inherit;font-family:var(--ah-font-mono);font-size:12px;padding:0;border:0;background:none;color:var(--ah-color-subtle);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.voteWithdraw:hover{color:var(--ah-color-text)}

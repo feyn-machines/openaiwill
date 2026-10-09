@@ -22,6 +22,7 @@ PASSWORD_FILE = ROOT / "data/postgres/app-password"
 ENV_FILES = (ROOT / ".env", ROOT / ".env.local")
 LOCAL_DATABASE = "openaiwill_local"
 SUBMISSIONS_DIR = ROOT / "data/submissions"
+VOTES_DIR = ROOT / "data/votes"
 
 
 class AppError(Exception):
@@ -277,6 +278,44 @@ def pull_from(conn, out_dir: Path | None = None, now: datetime | None = None) ->
     print(f"wrote {shown}: {len(accounts)} account(s) from {len(rows)} approved request(s)")
     print("add name and role for each person, then import with pnpm data:panel:import")
     return path
+
+
+def vote_rows(rows) -> list[dict]:
+    """Counts as they are written to the file: one row per topic, quarter and answer, no reader in it."""
+    return [{"topic_id": row["topic_id"], "quarter": row["quarter"], "option_id": row["option_id"],
+             "votes": int(row["votes"])} for row in rows]
+
+
+def pull_votes_from(conn, out_dir: Path | None = None, now: datetime | None = None) -> Path:
+    """Write readers' votes, counted by topic, quarter and answer, to out_dir/votes-<UTC stamp>.json.
+
+    Only counts leave the database: no reader, no address, no time of a single vote. Nothing is changed
+    there, so pulling again later simply writes the counts as they then stand."""
+    out_dir = VOTES_DIR if out_dir is None else Path(out_dir)
+    rows = conn.execute(
+        "SELECT topic_id, quarter, option_id, count(*) AS votes FROM app.topic_votes "
+        "GROUP BY topic_id, quarter, option_id ORDER BY topic_id, quarter, option_id").fetchall()
+    running = conn.execute("SELECT app.quarter_of(now()) AS quarter").fetchone()["quarter"]
+    now = datetime.now(timezone.utc) if now is None else now
+    out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    counts = vote_rows(rows)
+    path = _write_exclusive(
+        out_dir, f"votes-{now.strftime('%Y%m%dT%H%M%SZ')}",
+        json.dumps({"pulled_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "running_quarter": running, "votes": counts},
+                   ensure_ascii=False, indent=2) + "\n")
+    try:
+        shown = path.relative_to(ROOT)
+    except ValueError:
+        shown = path
+    print(f"wrote {shown}: {sum(row['votes'] for row in counts)} vote(s) on "
+          f"{len({row['topic_id'] for row in counts})} topic(s); running quarter {running}")
+    return path
+
+
+def pull_votes(target: str) -> None:
+    """Pull the vote counts of the server (or the local database) into data/votes/."""
+    with _connection_for(target) as conn:
+        pull_votes_from(conn)
 
 
 def _connection_for(target: str):

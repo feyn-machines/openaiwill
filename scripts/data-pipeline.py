@@ -138,6 +138,8 @@ def main():
     plan.add_argument('--output', required=True, type=Path, help='One phrase per line, for `pnpm crawl search --queries-file`')
     plan.add_argument('--limit', type=int, default=20, help='Topics to search for')
     plan.add_argument('--per-topic', type=int, default=2)
+    plan.add_argument('--votes', type=Path,
+                      help='A file written by `pnpm votes:pull`; default is the newest one under data/votes/')
     searched = sub.add_parser('topic-searched', help='Record which topics a search run was made for')
     searched.add_argument('run', type=Path)
     reword = sub.add_parser('topic-reword', help='Rewrite stored answers that are longer than the standard allows; ids stay')
@@ -339,11 +341,15 @@ def main():
         elif args.command == 'topic-queries':
             from data_pipeline import topic_mining
             migrate(conn)
-            rows = topic_mining.search_plan(conn, limit=args.limit, per_topic=args.per_topic)
+            pulled = args.votes or max((ROOT / 'data' / 'votes').glob('votes-*.json'), default=None)
+            votes = json.loads(pulled.read_text()) if pulled else None
+            rows = topic_mining.search_plan(conn, limit=args.limit, per_topic=args.per_topic, votes=votes)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(''.join(query + '\n' for query in dict.fromkeys(row['query'] for row in rows)))
             print(json.dumps({'topics': len({row['topic'] for row in rows}),
-                              'queries': len({row['query'] for row in rows}), 'output': str(args.output)}))
+                              'queries': len({row['query'] for row in rows}),
+                              'topics_readers_voted_on': len({row['topic'] for row in rows if row['votes']}),
+                              'votes_file': pulled.name if pulled else None, 'output': str(args.output)}))
         elif args.command == 'topic-searched':
             from data_pipeline import topic_mining
             migrate(conn)

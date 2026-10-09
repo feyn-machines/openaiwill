@@ -113,3 +113,38 @@ CREATE TABLE IF NOT EXISTS app.subscriptions (
     unsubscribed_at timestamptz,
     PRIMARY KEY (user_id, topic)
 );
+
+-- A reader's answer to a topic's question, one per reader, topic and calendar quarter (UTC). A vote
+-- may be changed or withdrawn while its quarter runs; when the quarter ends it stays as it was, and the
+-- reader votes again in the next. Votes are readers' views, counted apart from the evidence; they
+-- decide nothing (rule:topic-carries-no-answer). The topic and its answer are ids of the published
+-- data release, which lives in schema kg and is replaced whole, so they are checked by the site when a
+-- vote is cast and by shape here.
+CREATE TABLE IF NOT EXISTS app.topic_votes (
+    user_id    text        NOT NULL REFERENCES app."user"(id) ON DELETE CASCADE,
+    topic_id   text        NOT NULL CHECK (topic_id ~ '^topic:[a-z_]+:[a-z0-9-]*:[0-9a-f]{8}$'),
+    quarter    text        NOT NULL CHECK (quarter ~ '^[0-9]{4}-Q[1-4]$'),
+    option_id  text        NOT NULL,
+    voted_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, topic_id, quarter),
+    CONSTRAINT topic_votes_option_of_topic CHECK (option_id ~ '^topic:.*#[a-h]$' AND left(option_id, length(option_id) - 2) = topic_id)
+);
+CREATE INDEX IF NOT EXISTS topic_votes_by_topic ON app.topic_votes (topic_id, quarter, option_id);
+
+-- The quarter a moment falls in, as the pipeline writes it: 2026-Q4.
+CREATE OR REPLACE FUNCTION app.quarter_of(moment timestamptz) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+    SELECT to_char(moment AT TIME ZONE 'UTC', 'YYYY') || '-Q' || to_char(moment AT TIME ZONE 'UTC', 'Q')
+$$;
+
+-- A vote is cast or changed only in the quarter that is running; an ended quarter is closed.
+-- Deleting stays allowed for any quarter: removing a reader removes their votes.
+CREATE OR REPLACE FUNCTION app.topic_votes_in_running_quarter() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.quarter IS DISTINCT FROM app.quarter_of(now()) THEN
+        RAISE EXCEPTION 'a vote is cast in the running quarter only';
+    END IF;
+    NEW.voted_at := now();
+    RETURN NEW;
+END $$;
+CREATE OR REPLACE TRIGGER topic_votes_in_running_quarter BEFORE INSERT OR UPDATE ON app.topic_votes
+    FOR EACH ROW EXECUTE FUNCTION app.topic_votes_in_running_quarter();

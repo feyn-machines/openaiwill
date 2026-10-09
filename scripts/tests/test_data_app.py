@@ -1,6 +1,7 @@
 """Real PostgreSQL tests for schema app, in a scratch database with a throwaway role.
 
 The owner's working database and the real oaw_app role are never touched."""
+import json
 import secrets
 import sys
 import unittest
@@ -68,7 +69,7 @@ class Schema(AppBase):
         before = self.tables()
         app_db.apply_schema(self.conn)
         self.assertEqual(self.tables(), before)
-        self.assertEqual(before, ["account", "admins", "session", "submissions", "subscriptions", "user", "verification"])
+        self.assertEqual(before, ["account", "admins", "session", "submissions", "subscriptions", "topic_votes", "user", "verification"])
 
     def test_tables_are_owned_by_the_app_role(self):
         owners = {r["tableowner"] for r in self.conn.execute("SELECT tableowner FROM pg_tables WHERE schemaname = 'app'")}
@@ -378,6 +379,56 @@ class Pull(AppBase):
         self.assertEqual(self.files(), [])
         self.assertEqual(self.conn.execute("SELECT count(*) AS n FROM app.submissions WHERE imported_at IS NOT NULL").fetchone()["n"], 0)
 
+
+
+class Votes(AppBase):
+    TOPIC = "topic:replacement:accountant:b5615a30"
+
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self.dir = Path(tempfile.mkdtemp()) / "votes"
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.dir.parent, ignore_errors=True))
+        self.quarter = self.conn.execute("SELECT app.quarter_of(now()) AS q").fetchone()["q"]
+
+    def vote(self, user, key, topic=None):
+        topic = topic or self.TOPIC
+        self.conn.execute("INSERT INTO app.topic_votes (user_id, topic_id, quarter, option_id) VALUES (%s, %s, %s, %s)",
+                          (user, topic, self.quarter, f"{topic}#{key}"))
+
+    def test_the_file_holds_counts_only_and_is_private(self):
+        import stat
+        for name, key in (("reader-one", "a"), ("reader-two", "a"), ("reader-three", "b")):
+            self.vote(self.user(name), key)
+        path = app_db.pull_votes_from(self.conn, self.dir)
+        text = path.read_text()
+        doc = json.loads(text)
+        self.assertEqual(doc["running_quarter"], self.quarter)
+        self.assertEqual(doc["votes"], [
+            {"topic_id": self.TOPIC, "quarter": self.quarter, "option_id": f"{self.TOPIC}#a", "votes": 2},
+            {"topic_id": self.TOPIC, "quarter": self.quarter, "option_id": f"{self.TOPIC}#b", "votes": 1}])
+        for private in ("reader-", "user_id", "@", "voted_at"):
+            self.assertNotIn(private, text)
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertRegex(path.name, r"^votes-\d{8}T\d{6}Z\.json$")
+
+    def test_pulling_changes_nothing_and_no_votes_is_an_empty_list(self):
+        self.assertEqual(json.loads(app_db.pull_votes_from(self.conn, self.dir).read_text())["votes"], [])
+        self.vote(self.user("reader-one"), "a")
+        app_db.pull_votes_from(self.conn, self.dir)
+        self.assertEqual(self.conn.execute("SELECT count(*) AS n FROM app.topic_votes").fetchone()["n"], 1)
+
+    def test_one_vote_per_reader_topic_and_quarter_in_the_running_quarter_only(self):
+        from psycopg import errors
+        reader = self.user("reader-one")
+        self.vote(reader, "a")
+        with self.assertRaises(errors.UniqueViolation), self.conn.transaction():
+            self.vote(reader, "b")
+        with self.assertRaises(errors.RaiseException), self.conn.transaction():
+            self.conn.execute("INSERT INTO app.topic_votes (user_id, topic_id, quarter, option_id) VALUES (%s, %s, '2020-Q1', %s)",
+                              (reader, "topic:replacement:lawyer:00000000", "topic:replacement:lawyer:00000000#a"))
+        with self.assertRaises(errors.CheckViolation), self.conn.transaction():
+            self.vote(self.user("reader-two"), "a", topic="not-a-topic")
 
 if __name__ == "__main__":
     unittest.main()

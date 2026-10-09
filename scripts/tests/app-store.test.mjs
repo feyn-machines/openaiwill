@@ -374,3 +374,59 @@ test("deleting a user by e-mail (the privacy page's promise) removes everything 
     assert.equal((await pool.query(`SELECT 1 FROM app.${table} WHERE ${column} = $1`, [reader])).rows.length, 0, table);
   }
 });
+
+// ---------------------------------------------------------------- topic votes ----
+
+const TOPIC = "topic:replacement:accountant:b5615a30";
+const option = (key) => `${TOPIC}#${key}`;
+
+test("a quarter is a calendar quarter in UTC, and the database agrees", { skip: SKIP }, async () => {
+  assert.equal(store.quarterOf(new Date("2026-09-30T23:59:59Z")), "2026-Q3");
+  assert.equal(store.quarterOf(new Date("2026-10-01T00:00:00Z")), "2026-Q4");
+  assert.equal(store.quarterOf(new Date("2027-01-01T00:00:00Z")), "2027-Q1");
+  const { rows } = await pool.query("SELECT app.quarter_of(now()) AS q");
+  assert.equal(rows[0].q, store.quarterOf(new Date()));
+});
+
+test("a reader has one vote per topic and quarter; voting again changes it", { skip: SKIP }, async () => {
+  const [ann, bob] = [await user(), await user()];
+  const quarter = store.quarterOf(new Date());
+  assert.equal(await store.castVote(pool, { userId: ann, topicId: TOPIC, optionId: option("a"), quarter }), true);
+  assert.equal(await store.castVote(pool, { userId: bob, topicId: TOPIC, optionId: option("a"), quarter }), true);
+  assert.deepEqual(await store.voteCounts(pool, TOPIC), { [quarter]: { [option("a")]: 2 } });
+  await store.castVote(pool, { userId: ann, topicId: TOPIC, optionId: option("b"), quarter });
+  assert.deepEqual(await store.voteCounts(pool, TOPIC), { [quarter]: { [option("a")]: 1, [option("b")]: 1 } });
+  assert.equal(await store.myVote(pool, ann, TOPIC, quarter), option("b"));
+});
+
+test("a vote can be withdrawn, and a reader who is gone casts none", { skip: SKIP }, async () => {
+  const ann = await user();
+  const quarter = store.quarterOf(new Date());
+  const topic = "topic:viability:software-business:0a1b2c3d";
+  await store.castVote(pool, { userId: ann, topicId: topic, optionId: `${topic}#a`, quarter });
+  await store.castVote(pool, { userId: ann, topicId: topic, optionId: null, quarter });
+  assert.equal(await store.myVote(pool, ann, topic, quarter), null);
+  assert.deepEqual(await store.voteCounts(pool, topic), {});
+  assert.equal(await store.castVote(pool, { userId: "nobody", topicId: topic, optionId: `${topic}#a`, quarter }), false);
+});
+
+test("an ended quarter is closed, and an answer of another topic is refused", { skip: SKIP }, async () => {
+  const ann = await user();
+  await assert.rejects(
+    store.castVote(pool, { userId: ann, topicId: TOPIC, optionId: option("a"), quarter: "2020-Q1" }),
+    /running quarter/,
+  );
+  await assert.rejects(
+    store.castVote(pool, { userId: ann, topicId: TOPIC, optionId: "topic:replacement:lawyer:00000000#a", quarter: store.quarterOf(new Date()) }),
+    /topic_votes_option_of_topic/,
+  );
+});
+
+test("removing a reader removes their votes", { skip: SKIP }, async () => {
+  const ann = await user();
+  const quarter = store.quarterOf(new Date());
+  const topic = "topic:replacement:truck-driver:11111111";
+  await store.castVote(pool, { userId: ann, topicId: topic, optionId: `${topic}#a`, quarter });
+  await pool.query('DELETE FROM app."user" WHERE id = $1', [ann]);
+  assert.deepEqual(await store.voteCounts(pool, topic), {});
+});

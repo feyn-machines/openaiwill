@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/json-ld";
 import d from "@/components/detail.module.css";
+import { appEnabled } from "@/lib/app-config";
 import { bilingual } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import { href, marketHref, updateHref } from "@/lib/routes";
@@ -12,6 +13,7 @@ import { chainEvents, markets, occupationSlug, occupations, topicBySlug, type To
 import { localizedPath } from "@/lib/i18n";
 import type { Route } from "next";
 import s from "../topics.module.css";
+import { TopicVote } from "./vote";
 
 /** Rendered per request from the loaded data release, never at build time. */
 export const dynamic = "force-dynamic";
@@ -128,6 +130,9 @@ export default async function TopicPage({ params }: Props) {
         <div className={d.fact}><dt>{c.posts}</dt><dd>{topic.posts}</dd></div>
         <div className={d.fact}><dt>{c.evidence}</dt><dd className={topic.evidence.length ? d.sig : ""}>{topic.evidence.length}</dd></div>
       </dl>
+
+      <TopicVote language={language} enabled={appEnabled()} topicId={topic.topic_id}
+        options={topic.options.map((option) => ({ option_id: option.option_id, text: option.text[language] }))} />
 
       {topic.options.map((option) => {
         const claims = topic.claims.filter((claim) => claim.option === option.key);

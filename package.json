@@ -87,7 +87,8 @@
     "app:setup": "data/runtime/venv/bin/python scripts/app-db.py setup-local",
     "db:setup": "data/runtime/venv/bin/python scripts/data-release.py setup-db --target server",
     "admins:sync": "data/runtime/venv/bin/python scripts/app-db.py admins --target server",
-    "submissions:pull": "data/runtime/venv/bin/python scripts/app-db.py pull --target server"
+    "submissions:pull": "data/runtime/venv/bin/python scripts/app-db.py pull --target server",
+    "votes:pull": "data/runtime/venv/bin/python scripts/app-db.py votes --target server"
   },
   "dependencies": {
     "better-auth": "1.7.7",

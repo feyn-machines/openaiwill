@@ -286,3 +286,53 @@ export async function subscriberRows(
   );
   return rows.map((row) => ({ email: row.email, name: row.name, language: row.language, topics: row.topics, subscribedAt: row.subscribed_at.toISOString() }));
 }
+
+/** The calendar quarter (UTC) a moment falls in, written as the pipeline writes it: `2026-Q4`. */
+export function quarterOf(moment: Date): string {
+  return `${moment.getUTCFullYear()}-Q${Math.floor(moment.getUTCMonth() / 3) + 1}`;
+}
+
+/** Votes on one topic: `{ "2026-Q4": { "<option id>": 3 } }`. A quarter nobody voted in is absent. */
+export type VoteCounts = Record<string, Record<string, number>>;
+
+export async function voteCounts(db: Pool, topicId: string): Promise<VoteCounts> {
+  const { rows } = await db.query<{ quarter: string; option_id: string; n: number }>(
+    "SELECT quarter, option_id, count(*)::int AS n FROM app.topic_votes WHERE topic_id = $1 GROUP BY quarter, option_id",
+    [topicId],
+  );
+  const counts: VoteCounts = {};
+  for (const row of rows) (counts[row.quarter] ??= {})[row.option_id] = row.n;
+  return counts;
+}
+
+/** The answer this reader chose for the topic in that quarter, or null. */
+export async function myVote(db: Pool, userId: string, topicId: string, quarter: string): Promise<string | null> {
+  const { rows } = await db.query<{ option_id: string }>(
+    "SELECT option_id FROM app.topic_votes WHERE user_id = $1 AND topic_id = $2 AND quarter = $3",
+    [userId, topicId, quarter],
+  );
+  return rows[0]?.option_id ?? null;
+}
+
+/**
+ * Sets, changes or (with `optionId` null) withdraws the reader's vote in the running quarter. The caller
+ * has checked that the topic and the answer are in the loaded data release. False when the user is gone.
+ */
+export async function castVote(
+  db: Pool,
+  input: { userId: string; topicId: string; optionId: string | null; quarter: string },
+): Promise<boolean> {
+  if (input.optionId === null) {
+    await db.query("DELETE FROM app.topic_votes WHERE user_id = $1 AND topic_id = $2 AND quarter = $3", [
+      input.userId, input.topicId, input.quarter,
+    ]);
+    return true;
+  }
+  const made = await db.query(
+    `INSERT INTO app.topic_votes (user_id, topic_id, quarter, option_id)
+     SELECT id, $2, $3, $4 FROM app."user" WHERE id = $1
+     ON CONFLICT (user_id, topic_id, quarter) DO UPDATE SET option_id = EXCLUDED.option_id`,
+    [input.userId, input.topicId, input.quarter, input.optionId],
+  );
+  return (made.rowCount ?? 0) > 0;
+}
