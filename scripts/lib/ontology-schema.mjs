@@ -103,6 +103,9 @@ export const governedColumns = {
   "topics.about_status": "relation_status",
   "event_measures.method": "relation_method",
   "event_measures.status": "relation_status",
+  "topic_option_evidence.method": "relation_method",
+  "topic_option_evidence.status": "relation_status",
+  "topic_option_evidence.sign": "answer_evidence_sign",
 };
 
 const SQL_IDENT = /^[a-z][a-z0-9_]*$/;

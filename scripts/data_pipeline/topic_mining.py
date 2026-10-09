@@ -41,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 from . import deepseek, embedding, ontology_schema
 from .event_extraction import quoted_in
 
-VERSION = "topic-mining-6"
+VERSION = "topic-mining-7"
 QUESTION_TYPES = tuple(ontology_schema.term_ids("topic_question_type"))
 OBJECT_KINDS = {"replacement": "occupation", "viability": "market"}
 _STANDARD = ontology_schema.rule("rule:topic-is-a-closed-question")["expression"]
@@ -63,6 +63,20 @@ A post counts only when its author asserts an answer about a SPECIFIC object. Le
 
 Return JSON: {"claims": [{"id": the post id, "question_type": "replacement" or "viability", "object": the job or kind of business in a few plain English words (singular, lower case, no adjectives of opinion), "claim": one sentence in English stating what the author asserts about that object, without naming the author, "quote": the words of the post, copied exactly and in its own language, that carry the assertion (one sentence or less)}]}. A post gives at most one claim. Return {"claims": []} when none qualifies."""
 
+# How an answer is written (rule:topic-is-a-closed-question). An answer worded as
+# "AI handles the routine work, but most people move to harder work and keep
+# their jobs" concedes one thing and concludes another: a reader cannot see the
+# position at a glance, and no measured result is evidence for the whole of it.
+OPTION_MAX_WORDS = _STANDARD["option_max_words_en"]
+OPTION_STYLE = (
+    f"Write each option as ONE short plain statement of how things stand, at most {OPTION_MAX_WORDS} "
+    "English words: something a measured result, a real deployment or a failure could show to be so or "
+    "not so. No \"but\", \"so\", \"because\" or \"while\"; no reasons; no stock phrase that would fit any job. "
+    "For example, for \"Will AI replace most accountants?\": \"AI does most accounting work; far fewer "
+    "accountants are needed\" is too long - write \"Far fewer accountants are needed\", \"Accountants "
+    "stay, doing different work\", \"AI cannot do accounting work reliably\"."
+)
+
 PLACE_PROMPT = """You keep a list of topics. A topic is a closed question about ONE job or ONE kind of business, with 2 to 4 answers that exclude each other. You are given one new claim an account made, the open topics most like it, and catalog entries it might belong to. Decide what to do with the claim.
 
 "attach" - the claim answers the question of one of the open topics. Prefer this whenever it honestly fits: the same question must not be opened twice. The object must be the same thing at the level the question is asked: "junior accountant" answers a question about accountants, and "SaaS apps" or "professional software" answer a question about whether selling software is still a business; "prompt engineer" does not answer a question about software developers, it is a different job. Say which answer the claim takes. If it takes a position none of the answers covers and the topic has fewer than 4 answers, write that answer as "new_option"; otherwise pick the nearest answer.
@@ -70,7 +84,8 @@ PLACE_PROMPT = """You keep a list of topics. A topic is a closed question about 
 "new" - no open topic asks what this claim answers. Write the topic:
 - It names the specific object.
 - One short question of at most 15 words that a reader answers by picking an option, in the plain form people ask it: "Will AI replace most accountants?", "Does the job of prompt engineer still exist?", "Is selling software still a viable business?". Never "what happens to X when ...", "what does X mean for Y", "how will X change", "which X first", and no conditions or lists inside the question.
-- 2 to 4 options that exclude each other, worded neutrally. One is the position the claim takes; write the opposing position as well even though nobody has argued it yet. Word each option for this particular job or business - what would actually be true of it - not a stock phrase that would fit any job.
+- 2 to 4 options that exclude each other, worded neutrally. One is the position the claim takes; write the opposing position as well even though nobody has argued it yet.
+- """ + OPTION_STYLE + """
 - Later evidence (a measured result, a real deployment, a failure) could favour one option.
 - 2 or 3 short search phrases in the words people actually use on X that would find posts arguing this question, at least one aimed at the side the claim does NOT take.
 - "catalog_id": the ONE catalog entry that is this thing or clearly contains it - an occupation for a job, a market for a business - or null when none is. A wrong match is worse than none.
@@ -351,6 +366,59 @@ class Placer:
         topics = [describe(t) for t in self.topics.values()]
         topics.sort(key=lambda t: (order[t["status"]], -t["accounts"], -t["views"]))
         return topics
+
+
+REWORD_PROMPT = """You are given a topic - a closed question about one job or one kind of business - and its answers, each with the claims accounts made that were placed under it. Rewrite the answers; do not change what each one means.
+
+""" + OPTION_STYLE + """
+
+Keep the same keys and the same number of answers. Every claim listed under an answer must still be a claim for that answer after you rewrite it. The answers must still exclude each other. If an answer only repeats another one, or is about something other than the question, still return it, rewritten as closely as its meaning allows.
+
+Return JSON: {"options": [{"key": the same key, "en": ..., "zh-CN": ...}]}. Write the Chinese as natural Simplified Chinese of about 6 to 14 characters, not a word-for-word translation."""
+
+
+def reworded(topic, result):
+    """The new wording for each answer, or None unless every answer came back short and in both languages."""
+    found = {}
+    for option in (result or {}).get("options") or []:
+        pair = _pair(option) if isinstance(option, dict) else None
+        if pair and len(pair["en"].split()) <= OPTION_MAX_WORDS + 2:
+            found[str(option.get("key"))] = pair
+    keys = [o["key"] for o in topic["options"]]
+    return found if set(found) == set(keys) and len(found) == len(keys) else None
+
+
+def reword(conn, cfg=None, reason="", progress=None):
+    """Rewrite the stored answers that are longer than the standard allows; ids and places stay."""
+    cfg = cfg or deepseek.config_from_env()
+    counts = {"topics": 0, "topics_reworded": 0, "options_reworded": 0, "refused": 0}
+    topics = [t for t in load_topics(conn)
+              if any(len(o["en"].split()) > OPTION_MAX_WORDS for o in t["options"])]
+    counts["topics"] = len(topics)
+    for number, topic in enumerate(topics, 1):
+        user = json.dumps({"question": topic["question"]["en"], "answers": [
+            {"key": o["key"], "en": o["en"],
+             "claims": [c["claim"] for c in topic["claims"] if c["option"] == o["key"]][:6]}
+            for o in topic["options"]]}, ensure_ascii=False)
+        new = reworded(topic, _ask(REWORD_PROMPT, user, cfg))
+        if progress:
+            progress(number, len(topics), "topic")
+        if not new:
+            counts["refused"] += 1
+            continue
+        with conn.transaction():
+            for option in topic["options"]:
+                pair = new[option["key"]]
+                if (pair["en"], pair["zh-CN"]) == (option["en"], option["zh-CN"]):
+                    continue
+                oid = option_id(topic["id"], option["key"])
+                conn.execute("INSERT INTO topic_option_revisions (option_id, text_en, text_zh_cn, reason) "
+                             "VALUES (%s, %s, %s, %s)", (oid, option["en"], option["zh-CN"], reason))
+                conn.execute("UPDATE topic_options SET text_en = %s, text_zh_cn = %s WHERE option_id = %s",
+                             (pair["en"], pair["zh-CN"], oid))
+                counts["options_reworded"] += 1
+        counts["topics_reworded"] += 1
+    return counts
 
 
 def load_topics(conn):

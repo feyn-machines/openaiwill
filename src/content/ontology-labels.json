@@ -1,6 +1,6 @@
 {
   "generated_from": "datasets/ontology/schema/schema.json",
-  "schema_version": "2.3.0",
+  "schema_version": "2.4.0",
   "classes": {
     "Concept": {
       "en": "Concept",
@@ -191,6 +191,10 @@
     "measures": {
       "en": "measures",
       "zh-CN": "测量"
+    },
+    "weighs_on": {
+      "en": "weighs on",
+      "zh-CN": "关系到"
     }
   },
   "vocabularies": {
@@ -862,6 +866,14 @@
           "zh-CN": "更新提到的模型",
           "definition": {
             "en": "Which AI models does this update name, and in what role?"
+          }
+        },
+        "answer_evidence": {
+          "en": "Update weighs on an answer",
+          "zh-CN": "更新关系到某个答案",
+          "definition": {
+            "en": "Is this update evidence for, or against, this answer to the topic's question?",
+            "zh-CN": "这条更新是不是话题问题的这个答案的正面或反面证据？"
           }
         }
       }
@@ -2061,6 +2073,30 @@
           "definition": {
             "en": "Written by the project itself.",
             "zh-CN": "由项目自己写下。"
+          }
+        }
+      }
+    },
+    "answer_evidence_sign": {
+      "label": {
+        "en": "Which way an update weighs on an answer",
+        "zh-CN": "更新偏向答案的哪一边"
+      },
+      "terms": {
+        "supports": {
+          "en": "Supports",
+          "zh-CN": "支持",
+          "definition": {
+            "en": "Makes the answer more likely to be true.",
+            "zh-CN": "使这个答案更可能成立。"
+          }
+        },
+        "contradicts": {
+          "en": "Contradicts",
+          "zh-CN": "反驳",
+          "definition": {
+            "en": "Makes the answer less likely to be true.",
+            "zh-CN": "使这个答案更不可能成立。"
           }
         }
       }

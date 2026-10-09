@@ -140,6 +140,12 @@ def main():
     plan.add_argument('--per-topic', type=int, default=2)
     searched = sub.add_parser('topic-searched', help='Record which topics a search run was made for')
     searched.add_argument('run', type=Path)
+    reword = sub.add_parser('topic-reword', help='Rewrite stored answers that are longer than the standard allows; ids stay')
+    reword.add_argument('--reason', required=True, help='Why the answers are being reworded; kept with the old wording')
+    evidence = sub.add_parser('topic-evidence', help='Ask the judge which answers of which topics each update is evidence for or against')
+    evidence.add_argument('--since', help='Only updates that happened on or after this time')
+    evidence.add_argument('--limit', type=int)
+    evidence.add_argument('--note', default='')
     sub.add_parser('measure-markets', help='Say which market or occupation each market measurement is about')
     index = sub.add_parser('search-index', help='Fill the search indexes from the database and the topics document')
     index.add_argument('--only', action='append', choices=['topics', 'updates', 'catalog'])
@@ -344,6 +350,18 @@ def main():
             run_doc = json.loads(args.run.read_text())
             print(json.dumps({'run_id': args.run.stem,
                               'searches_recorded': topic_mining.record_searches(conn, run_doc, args.run.stem)}))
+        elif args.command == 'topic-reword':
+            from data_pipeline import deepseek, topic_mining
+            deepseek.load_env(ROOT)
+            migrate(conn)
+            print(json.dumps(topic_mining.reword(conn, reason=args.reason,
+                                                 progress=lambda done, total, what: print(f'  {what} {done}/{total}', flush=True))))
+        elif args.command == 'topic-evidence':
+            from data_pipeline import deepseek, topic_evidence
+            deepseek.load_env(ROOT)
+            migrate(conn)
+            print(json.dumps(topic_evidence.run(conn, since=args.since, limit=args.limit, note=args.note,
+                                                progress=lambda line: print(line, flush=True)), ensure_ascii=False))
         elif args.command == 'measure-markets':
             from data_pipeline import deepseek, market_measures
             deepseek.load_env(ROOT)

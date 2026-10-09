@@ -59,6 +59,24 @@ class TopicStanding(unittest.TestCase):
         self.assertEqual(set(topic_mining.QUESTION_TYPES), {"replacement", "viability"})
 
 
+class Rewording(unittest.TestCase):
+    def test_a_rewording_is_taken_only_when_every_answer_came_back_short(self):
+        found = topic(claims=[])
+        good = {"options": [{"key": "a", "en": "Far fewer accountants are needed", "zh-CN": "会计需求大幅减少"},
+                            {"key": "b", "en": "Accountants stay, doing different work", "zh-CN": "会计还在，工作变了"}]}
+        self.assertEqual(set(topic_mining.reworded(found, good)), {"a", "b"})
+        missing = {"options": good["options"][:1]}
+        long = {"options": [good["options"][0], {"key": "b", "zh-CN": "太长", "en": " ".join(["word"] * 20)}]}
+        one_language = {"options": [good["options"][0], {"key": "b", "en": "Accountants stay"}]}
+        for bad in (missing, long, one_language, None):
+            self.assertIsNone(topic_mining.reworded(found, bad))
+
+    def test_the_writing_rule_names_the_limit_from_the_schema(self):
+        self.assertIn(f"at most {topic_mining.OPTION_MAX_WORDS} English words", topic_mining.OPTION_STYLE)
+        self.assertIn(topic_mining.OPTION_STYLE, topic_mining.PLACE_PROMPT)
+        self.assertIn(topic_mining.OPTION_STYLE, topic_mining.REWORD_PROMPT)
+
+
 class Shortlist(unittest.TestCase):
     def test_nearest_ranks_by_likeness_and_respects_the_floor(self):
         vectors = {"same": [1.0, 0.0], "near": [0.8, 0.6], "far": [0.0, 1.0]}
