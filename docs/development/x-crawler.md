@@ -146,6 +146,7 @@ pnpm crawl search --query "Qwen3.8-Flash-Next" --query "Strata Qwen3.8-Flash-Nex
 - `--product Top`（默认）取 X 排序后的结果，`Latest` 取最新的。`--max-pages` 默认 3，搜索到这里就结束，运行文件里记为 `search_ended / page_budget`。
 - 运行文件和时间线的格式相同，照常入库；`coverage_status=provider_search`。**搜索给的是样本，不是全量**，不能据此说“共有多少人在说”。
 - 一部分采集账号搜索时会收到 404，其余账号正常（2026-10-07 实测约一半）。对搜索来说这不是接口变化：该账号休息 120 秒，任务换号继续，不整批停止。
+- **搜索额度是瓶颈（2026-10-09 实测，用户决定：先记录，用时间慢慢跑）**：为 30 个话题搜 60 个查询、每个一页，跑完 29 个后 14 个采集账号全部被搜索限流（`exhausted_accounts:rate_limited`），其余 31 个没有搜成。按现在的账号池，一轮大约能搜 30 个查询。没搜成的不算搜过，下一轮 `pnpm data:topics:queries` 仍会把它们排在前面；做法是分多轮、隔开时间跑，不降低 `--pace`，也不为此扩充账号。
 - 搜到的作者不在名单里。它的帖子在提取时产生了更新，才登记为候选账号（`rule:search-finds-candidates`）：归属未知、角色未分类、身份依据为“搜索发现”。候选账号不按时间线采集、不会被启用、不进入路由和公开的声音名单。
 - 提取搜索到的帖子：`pnpm data:extract:events --targets search --window-start … --window-end … --output data/extraction/<run>.json`。
 

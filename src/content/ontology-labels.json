@@ -1,6 +1,6 @@
 {
   "generated_from": "datasets/ontology/schema/schema.json",
-  "schema_version": "2.2.0",
+  "schema_version": "2.3.0",
   "classes": {
     "Concept": {
       "en": "Concept",
@@ -61,6 +61,14 @@
     "EventFact": {
       "en": "Event fact",
       "zh-CN": "事件事实"
+    },
+    "Topic": {
+      "en": "Topic",
+      "zh-CN": "话题"
+    },
+    "TopicOption": {
+      "en": "Topic answer",
+      "zh-CN": "话题选项"
     }
   },
   "relations": {
@@ -163,6 +171,26 @@
     "attached_to": {
       "en": "attached to",
       "zh-CN": "挂靠于"
+    },
+    "about": {
+      "en": "is about",
+      "zh-CN": "关于"
+    },
+    "has_option": {
+      "en": "has answer",
+      "zh-CN": "有选项"
+    },
+    "argues": {
+      "en": "argues",
+      "zh-CN": "主张"
+    },
+    "merged_into": {
+      "en": "merged into",
+      "zh-CN": "并入"
+    },
+    "measures": {
+      "en": "measures",
+      "zh-CN": "测量"
     }
   },
   "vocabularies": {
@@ -333,6 +361,15 @@
             "zh-CN": "有人报告 AI 产品在一件具体的事上失败或做不到。"
           },
           "can_demonstrate_capability": true
+        },
+        "market_measurement": {
+          "en": "Market measurement",
+          "zh-CN": "市场测量",
+          "definition": {
+            "en": "A third party publishes its own measurement of how AI is taken up or what it does to work: how many people or companies use or pay for AI, what they spend on it, how AI products rank by use, or what happened to employment or hiring in a named occupation or industry as AI spread.",
+            "zh-CN": "第三方发布自己对 AI 被采用的程度或它对工作的影响的测量：多少人或公司在使用 AI、为它付费，在它上面花了多少，AI 产品按使用量的排名，或在 AI 扩散的过程中某个具名职业或行业的就业、招聘发生了什么。"
+          },
+          "can_demonstrate_capability": false
         }
       }
     },
@@ -905,6 +942,14 @@
           "definition": {
             "zh-CN": "机构自己运营的公司、产品、平台或研究部门账号；谈本机构属于厂商自证。",
             "en": "An account an organisation runs for itself, a product, platform or research unit; about that organisation this is a vendor claim."
+          }
+        },
+        "market_researcher": {
+          "en": "Market and labour researcher",
+          "zh-CN": "市场与行业研究",
+          "definition": {
+            "en": "A third-party institution or its staff - an investor, a consultancy, a data firm, a public body or a think tank - publishing its own measurements of markets, adoption or work. About a company it has put money into, it is not independent.",
+            "zh-CN": "第三方机构或其成员：投资机构、咨询公司、数据公司、公共机构或智库，发布自己对市场、采用情况或工作的测量。对它投资的公司，它不算独立。"
           }
         },
         "unclassified": {
@@ -1912,6 +1957,110 @@
           "definition": {
             "en": "The post does not say how it came out.",
             "zh-CN": "帖子没有说明结果。"
+          }
+        }
+      }
+    },
+    "topic_question_type": {
+      "label": {
+        "en": "Kind of question",
+        "zh-CN": "问题类型"
+      },
+      "terms": {
+        "replacement": {
+          "en": "Replacement",
+          "zh-CN": "替代",
+          "definition": {
+            "en": "Whether AI does, or will do, the work of a specific job, so that the job shrinks, changes into something else or disappears.",
+            "zh-CN": "AI 是否在做、或将会做某个具体职业的工作，使这个职业收缩、变成别的或消失。"
+          }
+        },
+        "viability": {
+          "en": "Viability",
+          "zh-CN": "赛道",
+          "definition": {
+            "en": "Whether a specific kind of product or business is still worth building or paying for now that AI can do it.",
+            "zh-CN": "在 AI 能做这件事之后，某一类产品或生意是否还值得做、值得付费。"
+          }
+        }
+      }
+    },
+    "topic_state": {
+      "label": {
+        "en": "Topic state",
+        "zh-CN": "话题状态"
+      },
+      "terms": {
+        "proposed": {
+          "en": "Proposed",
+          "zh-CN": "提议中",
+          "definition": {
+            "en": "Open and visible; not yet chosen for research.",
+            "zh-CN": "已提出并公开；尚未被选中研究。"
+          }
+        },
+        "researching": {
+          "en": "Researching",
+          "zh-CN": "研究中",
+          "definition": {
+            "en": "Chosen for research: searched for regularly.",
+            "zh-CN": "已被选中研究：定期为它搜索。"
+          }
+        },
+        "dormant": {
+          "en": "Dormant",
+          "zh-CN": "休眠",
+          "definition": {
+            "en": "Nothing new has arrived for a while; searched for rarely, and revived when something does.",
+            "zh-CN": "一段时间没有新材料；很少为它搜索，有新材料时恢复。"
+          }
+        },
+        "merged": {
+          "en": "Merged",
+          "zh-CN": "已并入",
+          "definition": {
+            "en": "Stands under another topic that asks the same question.",
+            "zh-CN": "归于另一个问同一问题的话题之下。"
+          }
+        },
+        "closed": {
+          "en": "Closed",
+          "zh-CN": "关闭",
+          "definition": {
+            "en": "Withdrawn: it turned out not to be a question of this kind.",
+            "zh-CN": "撤回：它被认定不是这一类问题。"
+          }
+        }
+      }
+    },
+    "topic_origin": {
+      "label": {
+        "en": "How a topic was proposed",
+        "zh-CN": "话题来源"
+      },
+      "terms": {
+        "mined": {
+          "en": "Mined from posts",
+          "zh-CN": "从帖子挖出",
+          "definition": {
+            "en": "A collected post asserted an answer that no open topic asked about.",
+            "zh-CN": "采集到的一条帖子主张了一个答案，而没有已开的话题问到它。"
+          }
+        },
+        "reader": {
+          "en": "Proposed by a reader",
+          "zh-CN": "读者提出",
+          "definition": {
+            "en": "A reader submitted it and an administrator accepted it.",
+            "zh-CN": "读者提交并经管理员接受。"
+          }
+        },
+        "editor": {
+          "en": "Set by the editor",
+          "zh-CN": "编辑指定",
+          "definition": {
+            "en": "Written by the project itself.",
+            "zh-CN": "由项目自己写下。"
           }
         }
       }

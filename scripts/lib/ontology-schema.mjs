@@ -96,6 +96,13 @@ export const governedColumns = {
   "extracted_events.result": "event_result",
   "extracted_event_sources.source_role": "source_role",
   "activity_evidence.evidence_sign": "evidence_sign",
+  "topics.question_type": "topic_question_type",
+  "topics.state": "topic_state",
+  "topics.origin": "topic_origin",
+  "topics.about_method": "relation_method",
+  "topics.about_status": "relation_status",
+  "event_measures.method": "relation_method",
+  "event_measures.status": "relation_status",
 };
 
 const SQL_IDENT = /^[a-z][a-z0-9_]*$/;

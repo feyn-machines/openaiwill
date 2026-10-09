@@ -28,7 +28,8 @@ DEFAULT_BASE_URL = "https://api.deepseek.com"
 
 # -3: the model is given the whole post instead of the 280-character excerpt.
 # -4: three outcomes per post, the basis, facts and attachments (schema 2.2.0).
-EXTRACTION_VERSION_TAG = "deepseek-events-4"
+# -5: a third party's measurement of a market is an update (event_kind 2.2.0).
+EXTRACTION_VERSION_TAG = "deepseek-events-5"
 
 
 def system_prompt(official=False):
@@ -82,6 +83,15 @@ def system_prompt(official=False):
             "to that update; otherwise drop it with a reason starting with \"relay:\".",
             "The actor of an event is always the account that posted it, and is filled in by the program "
             "- do not try to name one.",
+            "A third party's own measurement of how AI is taken up or what it does to work - how many "
+            "people or companies use or pay for AI, what they spend on it, how AI products rank by use, "
+            "what happened to hiring or employment in a named occupation or industry as AI spread - is a "
+            "market_measurement when the post gives at least one number and says what it counts. A "
+            "statistic that has nothing to do with AI (total payrolls, share prices, religion, an "
+            "election) is dropped. It is not opinion, and it is not dropped for naming no "
+            "product: its subject is the report, survey or dataset the number comes from, and its "
+            "subject_key is that source plus what is measured. A link to a report with no number in "
+            "the post is dropped.",
             "NEVER merge posts by different authors into one event. Two people who each tested the same "
             "model have made two events, one each, with their own numbers. Merge only several posts by "
             "the SAME author about the same thing.",

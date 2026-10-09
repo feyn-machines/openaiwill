@@ -124,6 +124,30 @@ def main():
                          help='Whose posts to read: official company accounts, the panel, authors found by search, or all')
     extract.add_argument('--workers', type=int, default=4, help='Batches sent at once')
     extract.add_argument('--plan-only', action='store_true')
+    topics = sub.add_parser('mine-topics', help='Read a window of posts for claims and place them under topics')
+    topics.add_argument('--output', required=True, type=Path,
+                        help='The record of this run; its file name is the run id')
+    topics.add_argument('--window-start', required=True)
+    topics.add_argument('--window-end', required=True)
+    topics.add_argument('--claims-from', type=Path, help='Place the claims of an earlier run instead of reading posts again')
+    topics.add_argument('--no-store', action='store_true', help='Write the record only; leave the database as it is')
+    topics.add_argument('--collection-run', action='append', help='Read only the posts of this collection run')
+    topics.add_argument('--limit', type=int)
+    topics.add_argument('--workers', type=int, default=4, help='Batches sent at once')
+    plan = sub.add_parser('topic-queries', help='Write the phrases to search next for the topics that most need another voice')
+    plan.add_argument('--output', required=True, type=Path, help='One phrase per line, for `pnpm crawl search --queries-file`')
+    plan.add_argument('--limit', type=int, default=20, help='Topics to search for')
+    plan.add_argument('--per-topic', type=int, default=2)
+    searched = sub.add_parser('topic-searched', help='Record which topics a search run was made for')
+    searched.add_argument('run', type=Path)
+    sub.add_parser('measure-markets', help='Say which market or occupation each market measurement is about')
+    index = sub.add_parser('search-index', help='Fill the search indexes from the database and the topics document')
+    index.add_argument('--only', action='append', choices=['topics', 'updates', 'catalog'])
+    find = sub.add_parser('search', help='Search one index by words and meaning together')
+    find.add_argument('query')
+    find.add_argument('--index', choices=['topics', 'updates', 'catalog'], default='topics')
+    find.add_argument('--limit', type=int, default=8)
+    find.add_argument('--semantic', type=float, default=0.5, help='0 words only, 1 meaning only')
     ingest_events = sub.add_parser('ingest-events')
     ingest_events.add_argument('archive', type=Path)
     seed = sub.add_parser('seed-ontology-data')
@@ -290,6 +314,52 @@ def main():
             print(json.dumps(result, ensure_ascii=False, indent=2, default=json_default))
         elif args.command == 'extract-events':
             run_event_extraction(conn, args)
+        elif args.command == 'mine-topics':
+            from data_pipeline import deepseek, topic_mining
+            deepseek.load_env(ROOT)
+            if args.output.exists():
+                raise ValueError(f'Output already exists (mining runs are immutable): {args.output}')
+            migrate(conn)
+            claims = json.loads(args.claims_from.read_text())['claims'] if args.claims_from else None
+            run, topics = topic_mining.mine(
+                conn, {'start': args.window_start, 'end': args.window_end}, args.output.stem, claims=claims,
+                workers=args.workers, limit=args.limit, keep=not args.no_store,
+                collection_runs=args.collection_run,
+                progress=lambda done, total, what='batch': print(f'  {what} {done}/{total}', flush=True))
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            save(args.output, {**run, 'run_id': args.output.stem, 'stored': not args.no_store, 'topics': topics})
+            print(json.dumps({**run['counts'], 'stored': not args.no_store, 'output': str(args.output)},
+                             ensure_ascii=False, indent=2))
+        elif args.command == 'topic-queries':
+            from data_pipeline import topic_mining
+            migrate(conn)
+            rows = topic_mining.search_plan(conn, limit=args.limit, per_topic=args.per_topic)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(''.join(query + '\n' for query in dict.fromkeys(row['query'] for row in rows)))
+            print(json.dumps({'topics': len({row['topic'] for row in rows}),
+                              'queries': len({row['query'] for row in rows}), 'output': str(args.output)}))
+        elif args.command == 'topic-searched':
+            from data_pipeline import topic_mining
+            migrate(conn)
+            run_doc = json.loads(args.run.read_text())
+            print(json.dumps({'run_id': args.run.stem,
+                              'searches_recorded': topic_mining.record_searches(conn, run_doc, args.run.stem)}))
+        elif args.command == 'measure-markets':
+            from data_pipeline import deepseek, market_measures
+            deepseek.load_env(ROOT)
+            migrate(conn)
+            print(json.dumps(market_measures.link(
+                conn, progress=lambda done, total: print(f'  measurement {done}/{total}', flush=True)), ensure_ascii=False))
+        elif args.command == 'search-index':
+            from data_pipeline import search_index
+            from data_pipeline import topic_mining
+            topics = [topic_mining.describe(topic) for topic in topic_mining.load_topics(conn)]
+            print(json.dumps(search_index.fill_all(conn, [t for t in topics if t['status'] != 'fails'], only=args.only),
+                             ensure_ascii=False))
+        elif args.command == 'search':
+            from data_pipeline import search_index
+            for hit in search_index.search(args.index, args.query, limit=args.limit, semantic=args.semantic):
+                print(f"{hit['_rankingScore']:.3f}  {hit['title']}  |  {hit.get('title_zh') or hit.get('day') or ''}  [{hit['key']}]")
         elif args.command == 'ingest-events':
             from data_pipeline.event_extraction import ingest_extraction
             migrate(conn)

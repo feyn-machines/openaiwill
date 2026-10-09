@@ -28,7 +28,7 @@ class LoaderTests(unittest.TestCase):
     def test_model_path_and_version(self):
         self.assertTrue(ontology_schema.SCHEMA_PATH.exists())
         self.assertEqual(ontology_schema.SCHEMA_PATH.name, "schema.json")
-        self.assertEqual(ontology_schema.SCHEMA_VERSION, "2.2.0")
+        self.assertEqual(ontology_schema.SCHEMA_VERSION, "2.3.0")
         self.assertEqual(ontology_schema.load_schema()["version"], ontology_schema.SCHEMA_VERSION)
 
     def test_load_schema_is_cached(self):
@@ -36,7 +36,7 @@ class LoaderTests(unittest.TestCase):
 
     def test_term_ids_are_in_declaration_order(self):
         ids = ontology_schema.term_ids("event_kind")
-        self.assertEqual(len(ids), 18)
+        self.assertEqual(len(ids), 19)
         self.assertEqual(ids[0], "product_launch")
         self.assertEqual(ids, list(ontology_schema.load_schema()["vocabularies"]["event_kind"]["terms"]))
 
@@ -89,7 +89,7 @@ class VocabularyMarkerTests(unittest.TestCase):
     def test_a_reader_accepts_every_version_of_the_lineage(self):
         # Rows written under 2.0.0 keep that marker; reading by the current
         # marker alone would drop them all from links, routing and the snapshot.
-        self.assertEqual(ontology_schema.EVENT_KIND_VOCABULARIES, ["event_kind-2.0.0", "event_kind-2.1.0"])
+        self.assertEqual(ontology_schema.EVENT_KIND_VOCABULARIES, ["event_kind-2.0.0", "event_kind-2.1.0", "event_kind-2.2.0"])
         self.assertEqual(ontology_schema.EVENT_KIND_VOCABULARIES[-1], ontology_schema.EVENT_KIND_VOCABULARY)
         self.assertEqual(ontology_schema.event_kind_markers(), ontology_schema.EVENT_KIND_VOCABULARIES)
         self.assertEqual(ontology_schema.event_kind_markers("event_kind-2.0.0"), ["event_kind-2.0.0"])
@@ -100,7 +100,7 @@ class RubricRenderingTests(unittest.TestCase):
     def test_every_term_is_rendered_with_its_discriminator(self):
         rubric = ontology_schema.event_kind_rubric()
         ids = ontology_schema.current_term_ids("event_kind")
-        self.assertEqual(len(ids), 17)
+        self.assertEqual(len(ids), 18)
         for term_id in ids:
             with self.subTest(term=term_id):
                 body = ontology_schema.term("event_kind", term_id)
@@ -139,9 +139,9 @@ class RubricRenderingTests(unittest.TestCase):
         # clean marker for whether the rendered rubric came from the edited copy.
         model = altered(lambda m: m["vocabularies"]["event_kind"]["terms"].pop("personnel"))
         self.assertNotIn("personnel  (", ontology_schema.event_kind_rubric(model))
-        self.assertIn("16 terms", ontology_schema.event_kind_rubric(model))
+        self.assertIn("17 terms", ontology_schema.event_kind_rubric(model))
         self.assertIn("personnel  (", ontology_schema.event_kind_rubric())
-        self.assertEqual(len(ontology_schema.term_ids("event_kind")), 18)
+        self.assertEqual(len(ontology_schema.term_ids("event_kind")), 19)
 
 
 class RubricHashTests(unittest.TestCase):
